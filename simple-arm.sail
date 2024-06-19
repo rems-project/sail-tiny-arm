@@ -6,7 +6,7 @@ union ast =  {
   CompareAndBranch : (reg_index, bits(64)),
 }
 
-val execute : ast -> unit effect {rreg,wreg,rmem,eamem,wmv,barr}
+val execute : ast -> unit
 scattered function execute
 
 /* LDR Xt, [Xn, Xm] */
@@ -54,7 +54,7 @@ function clause execute ( ExclusiveOr((d, n, m)) ) = {
   operand1 : bits(64) = rX(n);
   /* Ask for the value of register Xm and record it in the local
    * variable operand2 */
-  operand1 : bits(64) = rX(m);
+  operand2 : bits(64) = rX(m);
   /* Compute the bitwise exclusive OR */
   result : bits(64) = (operand1 ^ operand2);
   /* Ask for the value of result to be written to register Xd */

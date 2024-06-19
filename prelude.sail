@@ -3,6 +3,18 @@ default Order dec
 let b1 = bitone
 let b0 = bitzero
 
+$include <prelude.sail>
+
+/* See simple-arm for descriptions, interface for definitions */
+val rMem : bits(64) -> bits(64)
+val wMem_Addr : bits(64) -> unit
+val wMem : (bits(64), bits(64)) -> unit
+val dataMemoryBarrier : unit -> unit
+
+overload operator ^ = {xor_vec}
+
+/* rest of original file follows...
+
 val "reg_deref" : forall ('a : Type). register('a) -> 'a effect {rreg}
 /* sneaky deref with no effect necessary for bitfield writes */
 val _reg_deref = "reg_deref" : forall ('a : Type). register('a) -> 'a
@@ -155,3 +167,4 @@ type min ('M : Int, 'N : Int) = {'O, ('O == 'M | 'O == 'N) & 'O <= 'M & 'O <= 'N
 
 
 val appendL = {ocaml: "append", interpreter: "append_list", lem: "append_list"} : forall ('a:Type). (list('a),list('a)) -> list('a)
+*/

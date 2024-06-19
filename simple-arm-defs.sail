@@ -77,16 +77,19 @@ let _R : vector(31,dec,register(bits(64))) =
 /*  val UInt_reg : reg_size -> reg_index  */
 /*  function UInt_reg x = unsigned(x)  */
 
-val wX : (reg_index, bits(64)) -> unit effect {wreg}
+val wX : (reg_index, bits(64)) -> unit
 function wX(n, value) = {
   if n != 31 then
     (* _R[n]) = value;
 }
 
-val rX : reg_index -> bits(64) effect {rreg}
+val rX : reg_index -> bits(64)
 function rX(n) = {
   if n != 31 then
-    reg_deref(_R[n])
+    __deref(_R[n])
   else
     0x0000000000000000;
 }
+
+function rPC() -> bits(64) = _PC
+function wPC(pc : bits(64)) -> unit = _PC = pc
