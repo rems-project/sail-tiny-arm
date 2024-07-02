@@ -1,8 +1,8 @@
 type boolean = bit
 type integer = int
 type uinteger = nat
-/* type reg_size = bits(5) */
-type reg_index = range(0,31)
+
+type reg_index = range(0, 31)
 
 register _PC : bits(64)
 
@@ -40,56 +40,59 @@ register R2 : bits(64)
 register R1 : bits(64)
 register R0 : bits(64)
 
-let _R : vector(31,dec,register(bits(64))) =
-  [ref R30
-  ,ref R29
-  ,ref R28
-  ,ref R27
-  ,ref R26
-  ,ref R25
-  ,ref R24
-  ,ref R23
-  ,ref R22
-  ,ref R21
-  ,ref R20
-  ,ref R19
-  ,ref R18
-  ,ref R17
-  ,ref R16
-  ,ref R15
-  ,ref R14
-  ,ref R13
-  ,ref R12
-  ,ref R11
-  ,ref R10
-  ,ref R9
-  ,ref R8
-  ,ref R7
-  ,ref R6
-  ,ref R5
-  ,ref R4
-  ,ref R3
-  ,ref R2
-  ,ref R1
-  ,ref R0
-  ]
-
-/*  val UInt_reg : reg_size -> reg_index  */
-/*  function UInt_reg x = unsigned(x)  */
+let GPRs : vector(31, register(bits(64))) = [
+  ref R30,
+  ref R29,
+  ref R28,
+  ref R27,
+  ref R26,
+  ref R25,
+  ref R24,
+  ref R23,
+  ref R22,
+  ref R21,
+  ref R20,
+  ref R19,
+  ref R18,
+  ref R17,
+  ref R16,
+  ref R15,
+  ref R14,
+  ref R13,
+  ref R12,
+  ref R11,
+  ref R10,
+  ref R9,
+  ref R8,
+  ref R7,
+  ref R6,
+  ref R5,
+  ref R4,
+  ref R3,
+  ref R2,
+  ref R1,
+  ref R0,
+]
 
 val wX : (reg_index, bits(64)) -> unit
+
 function wX(n, value) = {
   if n != 31 then
-    (* _R[n]) = value;
+    *GPRs[n] = value;
 }
 
 val rX : reg_index -> bits(64)
+
 function rX(n) = {
   if n != 31 then
-    __deref(_R[n])
+    *GPRs[n]
   else
     0x0000000000000000;
 }
 
+overload X = {rX, wX}
+
 function rPC() -> bits(64) = _PC
 function wPC(pc : bits(64)) -> unit = _PC = pc
+
+overload PC = {rPC, wPC}
