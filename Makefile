@@ -1,5 +1,5 @@
 MODEL=prelude.sail simple-arm-defs.sail simple-arm.sail interface.sail
-OUT_NAME=simpl
+OUT_NAME=simple
 SAIL_OPTS=--strict-var
 
 default: coq
