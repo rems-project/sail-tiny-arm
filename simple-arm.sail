@@ -11,7 +11,7 @@ function decodeLoadStoreRegister (0b11@0b111@0b0@0b00@(opc:bits(2))@0b1@(Rm:bits
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
-  if option_v[1] == bitone then None ()
+  if option_v[1] == bitzero | S == bitone then None ()
   else if opc == 0b00
   then Some(LoadRegister((t,n,m)))
   else if opc == 0b01
@@ -139,12 +139,10 @@ function decode (machineCode) = {
 val fetch_and_execute : unit -> unit
 
 function fetch_and_execute () = {
-  while true do {
-    let machineCode@(_ : bits(32)) = rMem(_PC);
-    let instr = decode(machineCode);
-    match instr {
-      Some (instr) => execute(instr),
-      None () => assert (false, "Undefined Encoding")
-    }
+  let machineCode = iFetch(_PC);
+  let instr = decode(machineCode);
+  match instr {
+    Some (instr) => execute(instr),
+    None () => assert (false, "Unsupported Encoding")
   }
 }
