@@ -31,6 +31,21 @@ function rMem(addr) = {
   }
 }
 
+function iFetch(addr) = {
+  let req : Mem_read_request(4, 64, bits(64), unit, unit) = struct {
+    access_kind = AK_ifetch(),
+    va = Some(addr),
+    pa = addr,
+    translation = (),
+    size = 4,
+    tag = false
+  };
+  match sail_mem_read(req) {
+    Ok((value, _)) => value,
+    Err(_) => exit(),
+  }
+}
+
 function wMem_Addr(addr) = sail_address_announce(64, addr)
 
 function wMem(addr, value) = {
