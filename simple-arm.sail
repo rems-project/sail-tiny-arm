@@ -6,11 +6,27 @@ union ast =  {
   CompareAndBranch : (reg_index, bits(64)),
 }
 
-val decodeLoadStoreRegister : bits(32) -> option(ast)
-function decodeLoadStoreRegister (0b11@0b111@0b0@0b00@(opc:bits(2))@0b1@(Rm:bits(5))@(option_v:bits(3))@[S]@0b10@(Rn:bits(5))@(Rt:bits(5))) = {
+val decode : bits(32) -> option(ast)
+
+scattered function decode
+
+val execute : ast -> unit
+
+scattered function execute
+
+
+
+/* LoadStoreRegister: LDR and STR */
+val decodeLoadStoreRegister : (bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
+
+function clause decode (0b11@0b111@0b0@0b00@(opc:bits(2))@0b1@(Rm:bits(5))@(option_v:bits(3))@[S]@0b10@(Rn:bits(5))@(Rt:bits(5))) = {
+  decodeLoadStoreRegister(opc, Rm, option_v, S, Rn, Rt)
+}
+function decodeLoadStoreRegister (opc, Rm, option_v, S, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
+  /* option_v == 0b011 and S == 1 means that the offset in Rm is used as is and not shifted or extended */
   if option_v != 0b011 | S == bitone then None ()
   else if opc == 0b00
   then Some(LoadRegister((t,n,m)))
@@ -18,10 +34,6 @@ function decodeLoadStoreRegister (0b11@0b111@0b0@0b00@(opc:bits(2))@0b1@(Rm:bits
   then Some(StoreRegister((t,n,m)))
   else None ();
 }
-
-val execute : ast -> unit
-
-scattered function execute
 
 /* LDR Xt, [Xn, Xm] */
 function clause execute LoadRegister(t, n, m) = {
@@ -63,8 +75,15 @@ function clause execute StoreRegister(t, n, m) = {
   wMem(addr, data);
 }
 
-val decodeExclusiveOr : bits(32) -> option(ast)
-function decodeExclusiveOr ([sf]@0b10@0b01010@(shift:bits(2))@[N]@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+
+
+/* Exclusive OR: EOR */
+val decodeExclusiveOr : (bit, bits(2), bit, bits(5), bits(6), bits(5), bits(5)) -> option(ast)
+
+function clause decode ([sf]@0b10@0b01010@(shift:bits(2))@[N]@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeExclusiveOr(sf, shift, N, Rm, imm6, Rn, Rd)
+}
+function decodeExclusiveOr (sf, shift, N, Rm, imm6, Rn, Rd) = {
   let d : reg_index = unsigned(Rd);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
@@ -87,19 +106,33 @@ function clause execute ExclusiveOr(d, n, m) = {
   X(d) = operand1 ^ operand2;
 }
 
-val decodeDataMemoryBarrier : bits(32) -> option(ast)
-function decodeDataMemoryBarrier (0b1101010100@0b0@0b00@0b011@0b0011@(CRm : bits(4))@0b1@0b01@0b11111) = {
+
+
+
+/* DMB */
+val decodeDataMemoryBarrier : bits(4) -> option(ast)
+
+function clause decode (0b1101010100@0b0@0b00@0b011@0b0011@(CRm : bits(4))@0b1@0b01@0b11111) = {
+  decodeDataMemoryBarrier(CRm)
+}
+
+function decodeDataMemoryBarrier(CRm) = {
   if CRm != 0b1111 then None ()
   else Some(DataMemoryBarrier());
 }
 
-/* DMB */
 function clause execute DataMemoryBarrier() = {
   dataMemoryBarrier();
 }
 
-val decodeCompareAndBranch : bits(32) -> option(ast)
-function decodeCompareAndBranch (0b1@0b011010@0b0@(imm19:bits(19))@(Rt:bits(5))) = {
+/* CompareAndBranch: CBZ */
+val decodeCompareAndBranch : (bits(19), bits(5)) -> option(ast)
+
+function clause decode (0b1@0b011010@0b0@(imm19:bits(19))@(Rt:bits(5))) = {
+  decodeCompareAndBranch(imm19, Rt)
+}
+
+function decodeCompareAndBranch(imm19, Rt) = {
   let t : reg_index = unsigned(Rt);
   let offset : bits(64) = sail_sign_extend(imm19@0b00,64);
 
@@ -125,16 +158,8 @@ function clause execute CompareAndBranch(t, offset) = {
   else _PC = _PC + 4;
 }
 
-val decode : bits(32) -> option(ast)
-function decode (machineCode) = {
-  match machineCode {
-    (0b11@0b111@0b0@0b00@(_:bits(2))@0b1@(_:bits(9))@0b10@(_:bits(10))) => decodeLoadStoreRegister(machineCode),
-    ([_]@0b10@0b01010@(_:bits(24)))                                     => decodeExclusiveOr(machineCode),
-    (0b1101010100@0b0@0b00@0b011@0b0011@(_ : bits(4))@0b1@0b01@0b11111) => decodeDataMemoryBarrier(machineCode),
-    (0b1@0b011010@0b0@(_:bits(24)))                                     => decodeCompareAndBranch(machineCode),
-    _                                                                   => None()
-  }
-}
+// This needs to be the last clause
+function clause decode(_) = { None() }
 
 // Simple top level fetch and execute loop.
 val fetch_and_execute : unit -> unit
