@@ -11,7 +11,7 @@ function decodeLoadStoreRegister (0b11@0b111@0b0@0b00@(opc:bits(2))@0b1@(Rm:bits
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
-  if option_v[1] == bitzero | S == bitone then None ()
+  if option_v != 0b011 | S == bitone then None ()
   else if opc == 0b00
   then Some(LoadRegister((t,n,m)))
   else if opc == 0b01
@@ -88,8 +88,9 @@ function clause execute ExclusiveOr(d, n, m) = {
 }
 
 val decodeDataMemoryBarrier : bits(32) -> option(ast)
-function clause decodeDataMemoryBarrier (0b1101010100@0b0@0b00@0b011@0b0011@(CRm : bits(4))@0b1@0b01@0b11111) = {
-  Some(DataMemoryBarrier());
+function decodeDataMemoryBarrier (0b1101010100@0b0@0b00@0b011@0b0011@(CRm : bits(4))@0b1@0b01@0b11111) = {
+  if CRm != 0b1111 then None ()
+  else Some(DataMemoryBarrier());
 }
 
 /* DMB */
@@ -98,7 +99,7 @@ function clause execute DataMemoryBarrier() = {
 }
 
 val decodeCompareAndBranch : bits(32) -> option(ast)
-function clause decodeCompareAndBranch (0b1@0b011010@0b0@(imm19:bits(19))@(Rt:bits(5))) = {
+function decodeCompareAndBranch (0b1@0b011010@0b0@(imm19:bits(19))@(Rt:bits(5))) = {
   let t : reg_index = unsigned(Rt);
   let offset : bits(64) = sail_sign_extend(imm19@0b00,64);
 
