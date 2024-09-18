@@ -1,4 +1,4 @@
-MODEL=prelude.sail simple-arm-defs.sail simple-arm.sail interface.sail
+MODEL=prelude.sail simple-arm-defs.sail simple-arm.sail interface_types.sail interface.sail
 OUT_NAME=simple
 SAIL=sail
 SAIL_OPTS=--strict-var
