@@ -8,12 +8,12 @@ authors: [
   "Nils Lauermann"
 ]
 license: "BSD-3-Clause"
-homepage: "https://github.com/rems-project/sail-arm"
-bug-reports: "https://github.com/rems-project/sail-arm/issues"
-dev-repo: "git+https://github.com/rems-project/sail-arm.git"
+homepage: "https://github.com/rems-project/sail-tiny-arm"
+bug-reports: "https://github.com/rems-project/sail-tiny-arm/issues"
+dev-repo: "git+https://github.com/rems-project/sail-tiny-arm.git"
 
 # Arm architecture version followed by a dash and a single incrementing number
-version: "9.4-1"
+version: "9.4-2"
 
 synopsis: "A very simplified and cut down version of the Arm ISA sail specification, handwritten"
 

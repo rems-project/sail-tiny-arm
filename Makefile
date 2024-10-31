@@ -1,5 +1,5 @@
-MODEL=prelude.sail simple-arm-defs.sail simple-arm.sail interface_types.sail interface.sail
-OUT_NAME=SailSimpleArmModel
+MODEL=prelude.sail tiny-arm-defs.sail tiny-arm.sail interface_types.sail interface.sail
+OUT_NAME=SailTinyArm
 SAIL=sail
 SAIL_OPTS=--strict-var
 SAIL_COQ_OPTS=--coq-record-update
@@ -10,7 +10,7 @@ $(OUT_NAME)_types.v $(OUT_NAME).v: $(MODEL)
 	$(SAIL) $(SAIL_OPTS) --coq $(SAIL_COQ_OPTS) -o $(OUT_NAME) $(MODEL)
 
 %.vo: %.v
-	coqc -R . SailSimpleArmModel $<
+	coqc -R . SailTinyArm $<
 
 $(OUT_NAME).vo: $(OUT_NAME)_types.vo
 

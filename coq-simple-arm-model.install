@@ -1,6 +1,0 @@
-lib_root: [ "SailSimpleArmModel.v" {"coq/user-contrib/SailSimpleArmModel/SailSimpleArmModel.v"}
-            "SailSimpleArmModel.vo" {"coq/user-contrib/SailSimpleArmModel/SailSimpleArmModel.vo"}
-            "SailSimpleArmModel.glob" {"coq/user-contrib/SailSimpleArmModel/SailSimpleArmModel.glob"}
-            "SailSimpleArmModel_types.v" {"coq/user-contrib/SailSimpleArmModel/SailSimpleArmModel_types.v"}
-            "SailSimpleArmModel_types.vo" {"coq/user-contrib/SailSimpleArmModel/SailSimpleArmModel_types.vo"}
-            "SailSimpleArmModel_types.glob" {"coq/user-contrib/SailSimpleArmModel/SailSimpleArmModel_types.glob"}]
