@@ -15,6 +15,8 @@ $(OUT_NAME)_types.v $(OUT_NAME).v: $(MODEL)
 $(OUT_NAME).vo: $(OUT_NAME)_types.vo
 
 coq: $(OUT_NAME).vo
+lean:
+	$(SAIL) $(SAIL_OPTS) --lean -o $(OUT_NAME) $(MODEL)
 
 check:
 	$(SAIL) $(SAIL_OPTS) --just-check $(MODEL)
