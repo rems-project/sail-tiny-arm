@@ -37,7 +37,6 @@ function decodeLoadStoreRegister (opc, Rm, option_v, S, Rn, Rt) = {
 
 /* LDR Xt, [Xn, Xm] */
 function clause execute LoadRegister(t, n, m) = {
-  _PC = _PC + 4;
   /* Ask for the value of register Xn and record it in the local
    * variable base_addr */
   let base_addr = X(n);
@@ -46,6 +45,8 @@ function clause execute LoadRegister(t, n, m) = {
   let offset = X(m);
   /* Compute the address */
   let addr = base_addr + offset;
+  /* The instruction can't fault now (in a real model), so update the PC */
+  _PC = _PC + 4;
   /* Ask for the eight-byte value in memory starting from location
   addr and record it in the local variable data */
   let data = rMem(addr);
@@ -55,7 +56,6 @@ function clause execute LoadRegister(t, n, m) = {
 
 /* STR Xt, [Xn, Xm] */
 function clause execute StoreRegister(t, n, m) = {
-  _PC = _PC + 4;
   /* Ask for the value of register Xn and record it in the local
    * variable base_addr */
   let base_addr = X(n);
@@ -67,12 +67,16 @@ function clause execute StoreRegister(t, n, m) = {
   /* Announce that a store into the eight bytes of memory starting
    * from location addr will be performed later */
   wMem_Addr(addr);
+  /* The instruction can't fault now (in a real model), so update the PC */
+  _PC = _PC + 4;
   /* Ask for the value of register Xt and record it in the local
    * variable data */
   let data = X(t);
   /* Ask for the value of data to be stored into the eight bytes of
    * memory starting from location addr */
   wMem(addr, data);
+  /* Increment the program counter */
+  _PC = _PC + 4;
 }
 
 
@@ -95,6 +99,8 @@ function decodeExclusiveOr (sf, shift, N, Rm, imm6, Rn, Rd) = {
 
 /* EOR Xd, Xn, Xm */
 function clause execute ExclusiveOr(d, n, m) = {
+  /* Increment the program counter, at the start, since no branching out possible */
+  _PC = _PC + 4;
   /* Ask for the value of register Xn and record it in the local
    * variable operand1 */
   let operand1 = X(n);
