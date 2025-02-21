@@ -75,8 +75,6 @@ function clause execute StoreRegister(t, n, m) = {
   /* Ask for the value of data to be stored into the eight bytes of
    * memory starting from location addr */
   wMem(addr, data);
-  /* Increment the program counter */
-  _PC = _PC + 4;
 }
 
 
