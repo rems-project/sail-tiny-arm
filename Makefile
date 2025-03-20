@@ -1,33 +1,26 @@
-MODEL=prelude.sail tiny-arm-defs.sail tiny-arm.sail interface_types.sail interface.sail
-OUT_NAME=SailTinyArm
-SAIL=sail
-SAIL_OPTS=--strict-var
-SAIL_COQ_OPTS=--coq-record-update
+MODEL=$(shell cat sail_files)
+# Those 2 are picked up by dune, hence the export
+export SAIL_OPTS=--strict-var
+export SAIL_COQ_OPTS=--coq-record-update
 
 default: coq
 
-$(OUT_NAME)_types.v $(OUT_NAME).v: $(MODEL)
-	$(SAIL) $(SAIL_OPTS) --coq $(SAIL_COQ_OPTS) -o $(OUT_NAME) $(MODEL)
+coq:
+	dune build
 
-%.vo: %.v
-	coqc -R . SailTinyArm $<
-
-$(OUT_NAME).vo: $(OUT_NAME)_types.vo
-
-coq: $(OUT_NAME).vo
+coq-snapshot:
+	@# First build the file and then check that they match
+	-dune build @snapshot --auto-promote
+	@dune build @snapshot
 
 check:
-	$(SAIL) $(SAIL_OPTS) --just-check $(MODEL)
+	sail $(SAIL_OPTS) --just-check $(MODEL)
 
 interactive:
-	$(SAIL) $(SAIL_OPTS) -i $(MODEL)
+	sail $(SAIL_OPTS) -i $(MODEL)
 
 clean:
-	rm -f $(OUT_NAME)_types.v $(OUT_NAME).v
-	rm -f $(OUT_NAME)_types.vo $(OUT_NAME).vo
-	rm -f $(OUT_NAME)_types.vok $(OUT_NAME).vok
-	rm -f $(OUT_NAME)_types.vos $(OUT_NAME).vos
-	rm -f $(OUT_NAME)_types.glob $(OUT_NAME).glob
-	rm -f .$(OUT_NAME)_types.aux .$(OUT_NAME).aux
+	dune clean
 
-.PHONY: clean coq check default interactive
+
+.PHONY: clean coq coq-snapshot check default interactive

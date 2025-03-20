@@ -1,6 +1,0 @@
-lib_root: [ "SailTinyArm.v" {"coq/user-contrib/SailTinyArm/SailTinyArm.v"}
-            "SailTinyArm.vo" {"coq/user-contrib/SailTinyArm/SailTinyArm.vo"}
-            "SailTinyArm.glob" {"coq/user-contrib/SailTinyArm/SailTinyArm.glob"}
-            "SailTinyArm_types.v" {"coq/user-contrib/SailTinyArm/SailTinyArm_types.v"}
-            "SailTinyArm_types.vo" {"coq/user-contrib/SailTinyArm/SailTinyArm_types.vo"}
-            "SailTinyArm_types.glob" {"coq/user-contrib/SailTinyArm/SailTinyArm_types.glob"}]

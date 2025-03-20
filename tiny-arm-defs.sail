@@ -1,7 +1,3 @@
-type boolean = bit
-type integer = int
-type uinteger = nat
-
 type reg_index = range(0, 31)
 
 register _PC : bits(64)
@@ -96,3 +92,42 @@ function rPC() -> bits(64) = _PC
 function wPC(pc : bits(64)) -> unit = _PC = pc
 
 overload PC = {rPC, wPC}
+
+$ifdef SYSTEM_TINY_ARM
+
+// We fix the size to 64 and happyly ignore 128 bits register extension for VMSA128
+
+register SP_EL0 : bits(64)
+register SP_EL1 : bits(64)
+register SP_EL2 : bits(64)
+register SP_EL3 : bits(64)
+
+register ELR_EL1 : bits(64)
+register ELR_EL2 : bits(64)
+register ELR_EL3 : bits(64)
+
+// TODO: Split into dependency carring components
+register PSTATE : bits(64)
+
+register ESR_EL1 : bits(64)
+register ESR_EL2 : bits(64)
+register ESR_EL3 : bits(64)
+
+register FAR_EL1 : bits(64)
+register FAR_EL2 : bits(64)
+register FAR_EL3 : bits(64)
+
+register PAR_EL1 : bits(64)
+
+register TTBR0_EL1 : bits(64)
+register TTBR1_EL1 : bits(64)
+register TTBR0_EL2 : bits(64)
+register TTBR1_EL2 : bits(64)
+register TTBR0_EL3 : bits(64)
+register VTTBR_EL2 : bits(64)
+
+register VBAR_EL1 : bits(64)
+register VBAR_EL2 : bits(64)
+register VBAR_EL3 : bits(64)
+
+$endif

@@ -3,31 +3,50 @@ $include <concurrency_interface/tlbi.sail>
 $include <concurrency_interface/exception.sail>
 $include <concurrency_interface/cache_op.sail>
 
+$ifdef SYSTEM_TINY_ARM
+type addrsize : Int = 56
+$else
+type addrsize : Int = 64
+$endif
 
-val pa_bits : bits(56) -> bits(64)
+$ifdef SYSTEM_TINY_ARM
+type trans_info = option (TranslationInfo)
+let trans_info_default : trans_info = None()
+$else
+type trans_info = unit
+let trans_info_default : trans_info = ()
+$endif
+
+$ifdef SYSTEM_TINY_ARM
+type abort = Fault
+$else
+type abort = unit
+$endif
+
+val pa_bits : bits(addrsize) -> bits(64)
 
 function pa_bits(bv) = sail_zero_extend(bv, 64)
 
 instantiation sail_mem_read with
-  'pa = bits(56),
-  'translation_summary = option(TranslationInfo),
+  'pa = bits(addrsize),
+  'translation_summary = trans_info,
   'arch_ak = arm_acc_type,
-  'abort = Fault,
+  'abort = abort,
   pa_bits = pa_bits
 
 instantiation sail_mem_write with
-  'pa = bits(56),
-  'translation_summary = option(TranslationInfo),
+  'pa = bits(addrsize),
+  'translation_summary = trans_info,
   'arch_ak = arm_acc_type,
-  'abort = Fault,
+  'abort = abort,
   pa_bits = pa_bits
 
 function rMem(addr) = {
-  let req : Mem_read_request(8, 64, bits(56), option(TranslationInfo), arm_acc_type) = struct {
+  let req : Mem_read_request(8, 64, bits(addrsize), trans_info, arm_acc_type) = struct {
     access_kind = AK_explicit(struct { variety = AV_plain, strength = AS_normal }),
     va = Some(addr),
-    pa = truncate(addr, 56),
-    translation = None(),
+    pa = truncate(addr, sizeof(addrsize)),
+    translation = trans_info_default,
     size = 8,
     tag = false
   };
@@ -38,11 +57,11 @@ function rMem(addr) = {
 }
 
 function iFetch(addr) = {
-  let req : Mem_read_request(4, 64, bits(56), option(TranslationInfo), arm_acc_type) = struct {
+  let req : Mem_read_request(4, 64, bits(addrsize), trans_info, arm_acc_type) = struct {
     access_kind = AK_ifetch(),
     va = Some(addr),
-    pa = truncate(addr, 56),
-    translation = None(),
+    pa = truncate(addr, sizeof(addrsize)),
+    translation = trans_info_default,
     size = 4,
     tag = false
   };
@@ -55,11 +74,11 @@ function iFetch(addr) = {
 function wMem_Addr(addr) = sail_address_announce(64, addr)
 
 function wMem(addr, value) = {
-  let req : Mem_write_request(8, 64, bits(56), option(TranslationInfo), arm_acc_type) = struct {
+  let req : Mem_write_request(8, 64, bits(addrsize), trans_info, arm_acc_type) = struct {
     access_kind = AK_explicit(struct { variety = AV_plain, strength = AS_normal }),
     va = Some(addr),
-    pa = truncate(addr, 56),
-    translation = None(),
+    pa = truncate(addr, sizeof(addrsize)),
+    translation = trans_info_default,
     size = 8,
     value = Some(value),
     tag = None()
@@ -79,6 +98,7 @@ function dataMemoryBarrier() = sail_barrier(
     types = MBReqTypes_All,
     nXS = false}))
 
+$ifdef SYSTEM_TINY_ARM
 instantiation sail_cache_op with
   'cache_op = CacheRecord
 
@@ -89,3 +109,4 @@ instantiation sail_return_exception
 
 instantiation sail_take_exception with
   'fault = option(FaultRecord)
+$endif
