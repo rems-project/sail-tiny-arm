@@ -21,6 +21,7 @@
  (depends
   (coq (>= 8.15))
   (sail (>= 0.18))
+  sail_coq_backend
   (coq-stdpp (>= 1.10.0))
   (coq-stdpp-bitvector (>= 1.10.0))
   (coq-sail-stdpp (>= 0.18))
