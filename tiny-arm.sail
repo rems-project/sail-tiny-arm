@@ -28,9 +28,9 @@ function decodeLoadStoreRegister (opc, Rm, option_v, S, Rn, Rt) = {
   let m : reg_index = unsigned(Rm);
   /* option_v == 0b011 and S == 1 means that the offset in Rm is used as is and not shifted or extended */
   if option_v != 0b011 | S == bitone then None ()
-  else if opc == 0b00
-  then Some(LoadRegister((t,n,m)))
   else if opc == 0b01
+  then Some(LoadRegister((t,n,m)))
+  else if opc == 0b00
   then Some(StoreRegister((t,n,m)))
   else None ();
 }
