@@ -39,7 +39,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // Generated from the official sail-arm repo:
 // - version 9.4
-// - commit 182b43912e7d4abc413f4e14d9f16ce6a8956e4b
+// - commit 278a3f084414f9ef10a41fdd06521223c6d08f70
 // - command (in armv9.4 folder): make interface_types.sail
 
 
@@ -424,6 +424,35 @@ struct S2TTWParams = {
   vm : bits(1)
 }
 
+struct TLBContext = {
+  ss : SecurityState,
+  regime : Regime,
+  vmid : bits(16),
+  asid : bits(16),
+  nG : bits(1),
+  ipaspace : PASpace,
+  includes_s1_name : bool,
+  includes_s2_name : bool,
+  includes_gpt_name : bool,
+  ia : bits(64),
+  tg : TGx,
+  cnp : bits(1),
+  level : int,
+  isd128 : bool,
+  xs : bits(1)
+}
+
+struct AddressDescriptor = {
+  fault : FaultRecord,
+  memattrs : MemoryAttributes,
+  paddress : FullAddress,
+  tlbcontext : TLBContext,
+  s1assured : bool,
+  s2fs1mro : bool,
+  mecid : bits(16),
+  vaddress : bits(64)
+}
+
 struct TranslationInfo = {
   regime : Regime,
   vmid : option(bits(16)),
@@ -434,6 +463,17 @@ struct TranslationInfo = {
   s1params : option(S1TTWParams),
   s2params : option(S2TTWParams),
   memattrs : MemoryAttributes
+}
+
+struct TranslationStartInfo = {
+  ss : SecurityState,
+  regime : Regime,
+  vmid : bits(16),
+  asid : bits(16),
+  va : bits(64),
+  cnp : bits(1),
+  accdesc : AccessDescriptor,
+  size : int
 }
 
 enum TLBILevel = {TLBILevel_Any, TLBILevel_Last}

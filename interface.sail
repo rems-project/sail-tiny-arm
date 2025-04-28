@@ -109,4 +109,10 @@ instantiation sail_return_exception
 
 instantiation sail_take_exception with
   'fault = option(FaultRecord)
+
+instantiation sail_translation_start with
+  'trans_start = TranslationStartInfo
+
+instantiation sail_translation_end with
+  'trans_end = AddressDescriptor
 $endif
