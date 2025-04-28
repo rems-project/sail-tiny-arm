@@ -27,33 +27,36 @@ Inductive ast :=
 | DataMemoryBarrier : unit -> ast
 | CompareAndBranch : (reg_index * bits 64) -> ast.
 Arguments ast : clear implicits.
-#[export]
-Instance Decidable_eq_ast : EqDecision ast.
-unfold EqDecision, Decision.
-decide equality; refine (generic_dec _ _).
-Defined.
-#[export]
-Instance Countable_ast : Countable ast.
-refine {|
-  encode x := match x with
+
+Definition sail_ast_encode (x : ast) := match x with
   | LoadRegister x' => encode (0, encode x')
   | StoreRegister x' => encode (1, encode x')
   | ExclusiveOr x' => encode (2, encode x')
   | DataMemoryBarrier x' => encode (3, encode x')
-  | CompareAndBranch x' => encode (4, encode x')
-  end;
-  decode x := match decode x with
+  | CompareAndBranch x' => encode (4, encode x') end.
+Definition sail_ast_decode x : option ast := match decode x with
   | Some (0, x') => LoadRegister <$> decode x'
   | Some (1, x') => StoreRegister <$> decode x'
   | Some (2, x') => ExclusiveOr <$> decode x'
   | Some (3, x') => DataMemoryBarrier <$> decode x'
   | Some (4, x') => CompareAndBranch <$> decode x'
-  | _ => None
-  end
-|}.
-abstract (intros [x|x|x|x|x]; rewrite !decode_encode; reflexivity).
-Defined.
+  | _ => None end.
+Lemma sail_ast_decode_encode : forall (x : ast), sail_ast_decode (sail_ast_encode x)  = Some x.
+Proof.
+  unfold sail_ast_decode, sail_ast_encode;
+  intros [x|x|x|x|x]; rewrite !decode_encode; reflexivity.
+Qed.
 
+#[export]
+Instance Decidable_eq_ast : EqDecision ast := decode_encode_eq_dec sail_ast_encode sail_ast_decode
+  sail_ast_decode_encode .
+
+#[export]
+Instance Countable_ast : Countable ast := {|
+  encode := sail_ast_encode;
+  decode := sail_ast_decode;
+  decode_encode := sail_ast_decode_encode
+|}.
 #[export]
 Instance dummy_ast : Inhabited (ast) := { inhabitant := LoadRegister inhabitant }.
 
@@ -70,15 +73,8 @@ Inductive arm_acc_type :=
 | SAcc_GCS : unit -> arm_acc_type
 | SAcc_GPTW : unit -> arm_acc_type.
 Arguments arm_acc_type : clear implicits.
-#[export]
-Instance Decidable_eq_arm_acc_type : EqDecision arm_acc_type.
-unfold EqDecision, Decision.
-decide equality; refine (generic_dec _ _).
-Defined.
-#[export]
-Instance Countable_arm_acc_type : Countable arm_acc_type.
-refine {|
-  encode x := match x with
+
+Definition sail_arm_acc_type_encode (x : arm_acc_type) := match x with
   | SAcc_ASIMD x' => encode (0, encode x')
   | SAcc_SVE x' => encode (1, encode x')
   | SAcc_SME x' => encode (2, encode x')
@@ -89,9 +85,8 @@ refine {|
   | SAcc_NV2 x' => encode (7, encode x')
   | SAcc_SPE x' => encode (8, encode x')
   | SAcc_GCS x' => encode (9, encode x')
-  | SAcc_GPTW x' => encode (10, encode x')
-  end;
-  decode x := match decode x with
+  | SAcc_GPTW x' => encode (10, encode x') end.
+Definition sail_arm_acc_type_decode x : option arm_acc_type := match decode x with
   | Some (0, x') => SAcc_ASIMD <$> decode x'
   | Some (1, x') => SAcc_SVE <$> decode x'
   | Some (2, x') => SAcc_SME <$> decode x'
@@ -103,12 +98,24 @@ refine {|
   | Some (8, x') => SAcc_SPE <$> decode x'
   | Some (9, x') => SAcc_GCS <$> decode x'
   | Some (10, x') => SAcc_GPTW <$> decode x'
-  | _ => None
-  end
-|}.
-abstract (intros [x|x|x|x|x|x|x|x|x|x|x]; rewrite !decode_encode; reflexivity).
-Defined.
+  | _ => None end.
+Lemma sail_arm_acc_type_decode_encode : forall (x : arm_acc_type), sail_arm_acc_type_decode
+  (sail_arm_acc_type_encode x)  = Some x.
+Proof.
+  unfold sail_arm_acc_type_decode, sail_arm_acc_type_encode;
+  intros [x|x|x|x|x|x|x|x|x|x|x]; rewrite !decode_encode; reflexivity.
+Qed.
 
+#[export]
+Instance Decidable_eq_arm_acc_type : EqDecision arm_acc_type := decode_encode_eq_dec
+  sail_arm_acc_type_encode sail_arm_acc_type_decode sail_arm_acc_type_decode_encode .
+
+#[export]
+Instance Countable_arm_acc_type : Countable arm_acc_type := {|
+  encode := sail_arm_acc_type_encode;
+  decode := sail_arm_acc_type_decode;
+  decode_encode := sail_arm_acc_type_decode_encode
+|}.
 #[export]
 Instance dummy_arm_acc_type : Inhabited (arm_acc_type) := { inhabitant := SAcc_ASIMD inhabitant }.
 
@@ -278,35 +285,39 @@ Inductive Barrier :=
 | Barrier_PSSBB : unit -> Barrier
 | Barrier_SB : unit -> Barrier.
 Arguments Barrier : clear implicits.
-#[export]
-Instance Decidable_eq_Barrier : EqDecision Barrier.
-unfold EqDecision, Decision.
-decide equality; refine (generic_dec _ _).
-Defined.
-#[export]
-Instance Countable_Barrier : Countable Barrier.
-refine {|
-  encode x := match x with
+
+Definition sail_Barrier_encode (x : Barrier) := match x with
   | Barrier_DSB x' => encode (0, encode x')
   | Barrier_DMB x' => encode (1, encode x')
   | Barrier_ISB x' => encode (2, encode x')
   | Barrier_SSBB x' => encode (3, encode x')
   | Barrier_PSSBB x' => encode (4, encode x')
-  | Barrier_SB x' => encode (5, encode x')
-  end;
-  decode x := match decode x with
+  | Barrier_SB x' => encode (5, encode x') end.
+Definition sail_Barrier_decode x : option Barrier := match decode x with
   | Some (0, x') => Barrier_DSB <$> decode x'
   | Some (1, x') => Barrier_DMB <$> decode x'
   | Some (2, x') => Barrier_ISB <$> decode x'
   | Some (3, x') => Barrier_SSBB <$> decode x'
   | Some (4, x') => Barrier_PSSBB <$> decode x'
   | Some (5, x') => Barrier_SB <$> decode x'
-  | _ => None
-  end
-|}.
-abstract (intros [x|x|x|x|x|x]; rewrite !decode_encode; reflexivity).
-Defined.
+  | _ => None end.
+Lemma sail_Barrier_decode_encode : forall (x : Barrier), sail_Barrier_decode (sail_Barrier_encode x)
+   = Some x.
+Proof.
+  unfold sail_Barrier_decode, sail_Barrier_encode;
+  intros [x|x|x|x|x|x]; rewrite !decode_encode; reflexivity.
+Qed.
 
+#[export]
+Instance Decidable_eq_Barrier : EqDecision Barrier := decode_encode_eq_dec sail_Barrier_encode
+  sail_Barrier_decode sail_Barrier_decode_encode .
+
+#[export]
+Instance Countable_Barrier : Countable Barrier := {|
+  encode := sail_Barrier_encode;
+  decode := sail_Barrier_decode;
+  decode_encode := sail_Barrier_decode_encode
+|}.
 #[export]
 Instance dummy_Barrier : Inhabited (Barrier) := { inhabitant := Barrier_DSB inhabitant }.
 
@@ -2354,6 +2365,133 @@ Instance dummy_S2TTWParams : Inhabited (S2TTWParams) := {
 |} }.
 
 
+Record TLBContext := {
+  TLBContext_ss : SecurityState;
+  TLBContext_regime : Regime;
+  TLBContext_vmid : bits 16;
+  TLBContext_asid : bits 16;
+  TLBContext_nG : bits 1;
+  TLBContext_ipaspace : PASpace;
+  TLBContext_includes_s1_name : bool;
+  TLBContext_includes_s2_name : bool;
+  TLBContext_includes_gpt_name : bool;
+  TLBContext_ia : bits 64;
+  TLBContext_tg : TGx;
+  TLBContext_cnp : bits 1;
+  TLBContext_level : Z;
+  TLBContext_isd128 : bool;
+  TLBContext_xs : bits 1;
+}.
+Arguments TLBContext : clear implicits.
+#[export]
+Instance Decidable_eq_TLBContext : EqDecision TLBContext.
+   intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14].
+   intros [y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14].
+  cmp_record_field x0 y0.
+  cmp_record_field x1 y1.
+  cmp_record_field x2 y2.
+  cmp_record_field x3 y3.
+  cmp_record_field x4 y4.
+  cmp_record_field x5 y5.
+  cmp_record_field x6 y6.
+  cmp_record_field x7 y7.
+  cmp_record_field x8 y8.
+  cmp_record_field x9 y9.
+  cmp_record_field x10 y10.
+  cmp_record_field x11 y11.
+  cmp_record_field x12 y12.
+  cmp_record_field x13 y13.
+  cmp_record_field x14 y14.
+left; subst; reflexivity.
+Defined.
+#[export]
+Instance Countable_TLBContext : Countable TLBContext.
+refine {|
+  encode x := encode (TLBContext_ss x, TLBContext_regime x, TLBContext_vmid x, TLBContext_asid x, TLBContext_nG x, TLBContext_ipaspace x, TLBContext_includes_s1_name x, TLBContext_includes_s2_name x, TLBContext_includes_gpt_name x, TLBContext_ia x, TLBContext_tg x, TLBContext_cnp x, TLBContext_level x, TLBContext_isd128 x, TLBContext_xs x);
+  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14) ← decode x;
+              mret (Build_TLBContext x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14)
+|}.
+abstract (
+  intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14];
+  rewrite decode_encode;
+  reflexivity).
+Defined.
+
+#[export] Instance eta_TLBContext : Settable _ := settable! Build_TLBContext <TLBContext_ss; TLBContext_regime; TLBContext_vmid; TLBContext_asid; TLBContext_nG; TLBContext_ipaspace; TLBContext_includes_s1_name; TLBContext_includes_s2_name; TLBContext_includes_gpt_name; TLBContext_ia; TLBContext_tg; TLBContext_cnp; TLBContext_level; TLBContext_isd128; TLBContext_xs>.
+#[export]
+Instance dummy_TLBContext : Inhabited (TLBContext) := {
+  inhabitant := {|
+    TLBContext_ss := inhabitant;
+    TLBContext_regime := inhabitant;
+    TLBContext_vmid := inhabitant;
+    TLBContext_asid := inhabitant;
+    TLBContext_nG := inhabitant;
+    TLBContext_ipaspace := inhabitant;
+    TLBContext_includes_s1_name := inhabitant;
+    TLBContext_includes_s2_name := inhabitant;
+    TLBContext_includes_gpt_name := inhabitant;
+    TLBContext_ia := inhabitant;
+    TLBContext_tg := inhabitant;
+    TLBContext_cnp := inhabitant;
+    TLBContext_level := inhabitant;
+    TLBContext_isd128 := inhabitant;
+    TLBContext_xs := inhabitant
+|} }.
+
+
+Record AddressDescriptor := {
+  AddressDescriptor_fault : FaultRecord;
+  AddressDescriptor_memattrs : MemoryAttributes;
+  AddressDescriptor_paddress : FullAddress;
+  AddressDescriptor_tlbcontext : TLBContext;
+  AddressDescriptor_s1assured : bool;
+  AddressDescriptor_s2fs1mro : bool;
+  AddressDescriptor_mecid : bits 16;
+  AddressDescriptor_vaddress : bits 64;
+}.
+Arguments AddressDescriptor : clear implicits.
+#[export]
+Instance Decidable_eq_AddressDescriptor : EqDecision AddressDescriptor.
+   intros [x0 x1 x2 x3 x4 x5 x6 x7].
+   intros [y0 y1 y2 y3 y4 y5 y6 y7].
+  cmp_record_field x0 y0.
+  cmp_record_field x1 y1.
+  cmp_record_field x2 y2.
+  cmp_record_field x3 y3.
+  cmp_record_field x4 y4.
+  cmp_record_field x5 y5.
+  cmp_record_field x6 y6.
+  cmp_record_field x7 y7.
+left; subst; reflexivity.
+Defined.
+#[export]
+Instance Countable_AddressDescriptor : Countable AddressDescriptor.
+refine {|
+  encode x := encode (AddressDescriptor_fault x, AddressDescriptor_memattrs x, AddressDescriptor_paddress x, AddressDescriptor_tlbcontext x, AddressDescriptor_s1assured x, AddressDescriptor_s2fs1mro x, AddressDescriptor_mecid x, AddressDescriptor_vaddress x);
+  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7) ← decode x;
+              mret (Build_AddressDescriptor x0 x1 x2 x3 x4 x5 x6 x7)
+|}.
+abstract (
+  intros [x0 x1 x2 x3 x4 x5 x6 x7];
+  rewrite decode_encode;
+  reflexivity).
+Defined.
+
+#[export] Instance eta_AddressDescriptor : Settable _ := settable! Build_AddressDescriptor <AddressDescriptor_fault; AddressDescriptor_memattrs; AddressDescriptor_paddress; AddressDescriptor_tlbcontext; AddressDescriptor_s1assured; AddressDescriptor_s2fs1mro; AddressDescriptor_mecid; AddressDescriptor_vaddress>.
+#[export]
+Instance dummy_AddressDescriptor : Inhabited (AddressDescriptor) := {
+  inhabitant := {|
+    AddressDescriptor_fault := inhabitant;
+    AddressDescriptor_memattrs := inhabitant;
+    AddressDescriptor_paddress := inhabitant;
+    AddressDescriptor_tlbcontext := inhabitant;
+    AddressDescriptor_s1assured := inhabitant;
+    AddressDescriptor_s2fs1mro := inhabitant;
+    AddressDescriptor_mecid := inhabitant;
+    AddressDescriptor_vaddress := inhabitant
+|} }.
+
+
 Record TranslationInfo := {
   TranslationInfo_regime : Regime;
   TranslationInfo_vmid : option (bits 16);
@@ -2407,6 +2545,59 @@ Instance dummy_TranslationInfo : Inhabited (TranslationInfo) := {
     TranslationInfo_s1params := inhabitant;
     TranslationInfo_s2params := inhabitant;
     TranslationInfo_memattrs := inhabitant
+|} }.
+
+
+Record TranslationStartInfo := {
+  TranslationStartInfo_ss : SecurityState;
+  TranslationStartInfo_regime : Regime;
+  TranslationStartInfo_vmid : bits 16;
+  TranslationStartInfo_asid : bits 16;
+  TranslationStartInfo_va : bits 64;
+  TranslationStartInfo_cnp : bits 1;
+  TranslationStartInfo_accdesc : AccessDescriptor;
+  TranslationStartInfo_size : Z;
+}.
+Arguments TranslationStartInfo : clear implicits.
+#[export]
+Instance Decidable_eq_TranslationStartInfo : EqDecision TranslationStartInfo.
+   intros [x0 x1 x2 x3 x4 x5 x6 x7].
+   intros [y0 y1 y2 y3 y4 y5 y6 y7].
+  cmp_record_field x0 y0.
+  cmp_record_field x1 y1.
+  cmp_record_field x2 y2.
+  cmp_record_field x3 y3.
+  cmp_record_field x4 y4.
+  cmp_record_field x5 y5.
+  cmp_record_field x6 y6.
+  cmp_record_field x7 y7.
+left; subst; reflexivity.
+Defined.
+#[export]
+Instance Countable_TranslationStartInfo : Countable TranslationStartInfo.
+refine {|
+  encode x := encode (TranslationStartInfo_ss x, TranslationStartInfo_regime x, TranslationStartInfo_vmid x, TranslationStartInfo_asid x, TranslationStartInfo_va x, TranslationStartInfo_cnp x, TranslationStartInfo_accdesc x, TranslationStartInfo_size x);
+  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7) ← decode x;
+              mret (Build_TranslationStartInfo x0 x1 x2 x3 x4 x5 x6 x7)
+|}.
+abstract (
+  intros [x0 x1 x2 x3 x4 x5 x6 x7];
+  rewrite decode_encode;
+  reflexivity).
+Defined.
+
+#[export] Instance eta_TranslationStartInfo : Settable _ := settable! Build_TranslationStartInfo <TranslationStartInfo_ss; TranslationStartInfo_regime; TranslationStartInfo_vmid; TranslationStartInfo_asid; TranslationStartInfo_va; TranslationStartInfo_cnp; TranslationStartInfo_accdesc; TranslationStartInfo_size>.
+#[export]
+Instance dummy_TranslationStartInfo : Inhabited (TranslationStartInfo) := {
+  inhabitant := {|
+    TranslationStartInfo_ss := inhabitant;
+    TranslationStartInfo_regime := inhabitant;
+    TranslationStartInfo_vmid := inhabitant;
+    TranslationStartInfo_asid := inhabitant;
+    TranslationStartInfo_va := inhabitant;
+    TranslationStartInfo_cnp := inhabitant;
+    TranslationStartInfo_accdesc := inhabitant;
+    TranslationStartInfo_size := inhabitant
 |} }.
 
 
@@ -3079,15 +3270,15 @@ destruct (Bool.reflect_dec _ _ (String.eqb_spec (string_of_register r) (string_o
   destruct r,r'; simpl in H; try discriminate; autorewrite with register_beq_iffs in H; subst; reflexivity.
 Qed.
 #[export] Hint Extern 1 (register _) => assumption : typeclass_instances.
-#[export] Instance Decidable_eq_register_values {T : Type} `(r : register T) : EqDecision T :=
+#[export] Instance Decidable_eq_register_values {T : Type} `(r : register T) : EqDecision T | 100 :=
 match r with
   | R_bitvector_64 _ => _
 end.
-#[export] Instance Inhabited_register_values {T : Type} `(r : register T) : Inhabited T :=
+#[export] Instance Inhabited_register_values {T : Type} `(r : register T) : Inhabited T | 100 :=
   match r with
   | R_bitvector_64 _ => _
 end.
-#[export] Instance Countable_register_values {T : Type} `(r : register T) : Countable T.
+#[export] Instance Countable_register_values {T : Type} `(r : register T) : Countable T | 100.
 refine {|
   encode := match r in register T return T -> _ with
   | R_bitvector_64 _ => encode
@@ -3227,7 +3418,9 @@ Module Arch <: Arch.
   Definition translation : Type := unit.
   Definition translation_eq : EqDecision translation := _.
   Definition trans_start := unit.
+  Definition trans_start_eq : EqDecision trans_start := _.
   Definition trans_end := unit.
+  Definition trans_end_eq : EqDecision trans_end := _.
   Definition abort : Type := unit.
   Definition abort_eq : EqDecision abort := _.
   Definition barrier : Type := Barrier.

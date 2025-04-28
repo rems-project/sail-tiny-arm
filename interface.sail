@@ -2,6 +2,7 @@ $include <concurrency_interface.sail>
 $include <concurrency_interface/tlbi.sail>
 $include <concurrency_interface/exception.sail>
 $include <concurrency_interface/cache_op.sail>
+$include <concurrency_interface/translation.sail>
 
 $ifdef SYSTEM_TINY_ARM
 type addrsize : Int = 56
@@ -109,4 +110,10 @@ instantiation sail_return_exception
 
 instantiation sail_take_exception with
   'fault = option(FaultRecord)
+
+instantiation sail_translation_start with
+  'trans_start = TranslationStartInfo
+
+instantiation sail_translation_end with
+  'trans_end = AddressDescriptor
 $endif

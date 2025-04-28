@@ -85,8 +85,8 @@ Definition decodeLoadStoreRegister
    let n : reg_index := uint Rn in
    let m : reg_index := uint Rm in
    if orb (neq_vec option_v (('b"011")  : mword 3)) (eq_bit S' B1) then None
-   else if eq_vec opc (('b"00")  : mword 2) then Some (LoadRegister (t, n, m))
-   else if eq_vec opc (('b"01")  : mword 2) then Some (StoreRegister (t, n, m))
+   else if eq_vec opc (('b"01")  : mword 2) then Some (LoadRegister (t, n, m))
+   else if eq_vec opc (('b"00")  : mword 2) then Some (StoreRegister (t, n, m))
    else None.
 
 Definition decodeExclusiveOr
@@ -1106,6 +1106,74 @@ Definition undefined_S2TTWParams '(tt : unit) : M (S2TTWParams) :=
                S2TTWParams_ptw := w__29;
                S2TTWParams_vm := w__30 |}).
 
+Definition undefined_TLBContext '(tt : unit) : M (TLBContext) :=
+   (undefined_SecurityState tt) >>= fun (w__0 : SecurityState) =>
+   (undefined_Regime tt) >>= fun (w__1 : Regime) =>
+   (undefined_bitvector 16) >>= fun (w__2 : mword 16) =>
+   (undefined_bitvector 16) >>= fun (w__3 : mword 16) =>
+   (undefined_bitvector 1) >>= fun (w__4 : mword 1) =>
+   (undefined_PASpace tt) >>= fun (w__5 : PASpace) =>
+   (undefined_bool tt) >>= fun (w__6 : bool) =>
+   (undefined_bool tt) >>= fun (w__7 : bool) =>
+   (undefined_bool tt) >>= fun (w__8 : bool) =>
+   (undefined_bitvector 64) >>= fun (w__9 : mword 64) =>
+   (undefined_TGx tt) >>= fun (w__10 : TGx) =>
+   (undefined_bitvector 1) >>= fun (w__11 : mword 1) =>
+   (undefined_int tt) >>= fun (w__12 : Z) =>
+   (undefined_bool tt) >>= fun (w__13 : bool) =>
+   (undefined_bitvector 1) >>= fun (w__14 : mword 1) =>
+   returnM ({| TLBContext_ss := w__0;
+               TLBContext_regime := w__1;
+               TLBContext_vmid := w__2;
+               TLBContext_asid := w__3;
+               TLBContext_nG := w__4;
+               TLBContext_ipaspace := w__5;
+               TLBContext_includes_s1_name := w__6;
+               TLBContext_includes_s2_name := w__7;
+               TLBContext_includes_gpt_name := w__8;
+               TLBContext_ia := w__9;
+               TLBContext_tg := w__10;
+               TLBContext_cnp := w__11;
+               TLBContext_level := w__12;
+               TLBContext_isd128 := w__13;
+               TLBContext_xs := w__14 |}).
+
+Definition undefined_AddressDescriptor '(tt : unit) : M (AddressDescriptor) :=
+   (undefined_FaultRecord tt) >>= fun (w__0 : FaultRecord) =>
+   (undefined_MemoryAttributes tt) >>= fun (w__1 : MemoryAttributes) =>
+   (undefined_FullAddress tt) >>= fun (w__2 : FullAddress) =>
+   (undefined_TLBContext tt) >>= fun (w__3 : TLBContext) =>
+   (undefined_bool tt) >>= fun (w__4 : bool) =>
+   (undefined_bool tt) >>= fun (w__5 : bool) =>
+   (undefined_bitvector 16) >>= fun (w__6 : mword 16) =>
+   (undefined_bitvector 64) >>= fun (w__7 : mword 64) =>
+   returnM ({| AddressDescriptor_fault := w__0;
+               AddressDescriptor_memattrs := w__1;
+               AddressDescriptor_paddress := w__2;
+               AddressDescriptor_tlbcontext := w__3;
+               AddressDescriptor_s1assured := w__4;
+               AddressDescriptor_s2fs1mro := w__5;
+               AddressDescriptor_mecid := w__6;
+               AddressDescriptor_vaddress := w__7 |}).
+
+Definition undefined_TranslationStartInfo '(tt : unit) : M (TranslationStartInfo) :=
+   (undefined_SecurityState tt) >>= fun (w__0 : SecurityState) =>
+   (undefined_Regime tt) >>= fun (w__1 : Regime) =>
+   (undefined_bitvector 16) >>= fun (w__2 : mword 16) =>
+   (undefined_bitvector 16) >>= fun (w__3 : mword 16) =>
+   (undefined_bitvector 64) >>= fun (w__4 : mword 64) =>
+   (undefined_bitvector 1) >>= fun (w__5 : mword 1) =>
+   (undefined_AccessDescriptor tt) >>= fun (w__6 : AccessDescriptor) =>
+   (undefined_int tt) >>= fun (w__7 : Z) =>
+   returnM ({| TranslationStartInfo_ss := w__0;
+               TranslationStartInfo_regime := w__1;
+               TranslationStartInfo_vmid := w__2;
+               TranslationStartInfo_asid := w__3;
+               TranslationStartInfo_va := w__4;
+               TranslationStartInfo_cnp := w__5;
+               TranslationStartInfo_accdesc := w__6;
+               TranslationStartInfo_size := w__7 |}).
+
 Definition undefined_TLBILevel '(tt : unit) : M (TLBILevel) :=
    (internal_pick [TLBILevel_Any; TLBILevel_Last])  : M (TLBILevel).
 
@@ -1331,6 +1399,8 @@ Definition initialize_registers '(tt : unit) : M (unit) :=
    (undefined_bitvector 64) >>= fun (w__30 : mword 64) =>
    write_reg R1 w__30 >>
    (undefined_bitvector 64) >>= fun (w__31 : mword 64) => write_reg R0 w__31  : M (unit).
+
+Definition sail_model_init (_ : unit) : M (unit) := (initialize_registers tt)  : M (unit).
 
 
 
