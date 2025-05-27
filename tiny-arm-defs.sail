@@ -132,5 +132,6 @@ register VBAR_EL3 : bits(64)
 
 register SPSR_EL1 : bits(64)
 register SPSR_EL2 : bits(64)
+register SPSR_EL3 : bits(64)
 
 $endif
