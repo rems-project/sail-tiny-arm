@@ -20,7 +20,7 @@
  (synopsis " A very simplified and cut down version of the Arm ISA sail specification, handwritten")
  (depends
   (coq (>= 8.15))
-  (sail (>= 0.18))
+  (sail (>= 0.19.1))
   sail_coq_backend
   sail_lem_backend
   sail_c_backend
