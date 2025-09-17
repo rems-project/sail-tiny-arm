@@ -134,4 +134,9 @@ register SPSR_EL1 : bits(64)
 register SPSR_EL2 : bits(64)
 register SPSR_EL3 : bits(64)
 
+register MMFR0_EL1 : bits(64)
+register MMFR1_EL1 : bits(64)
+register MMFR2_EL1 : bits(64)
+register MMFR3_EL1 : bits(64)
+
 $endif
