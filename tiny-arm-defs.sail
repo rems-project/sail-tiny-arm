@@ -139,4 +139,9 @@ register MMFR1_EL1 : bits(64)
 register MMFR2_EL1 : bits(64)
 register MMFR3_EL1 : bits(64)
 
+register TCR_EL1 : bits(64)
+register TCR_EL2 : bits(64)
+register TCR_EL3 : bits(64)
+register VTCR_EL2 : bits(64)
+
 $endif
