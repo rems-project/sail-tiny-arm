@@ -7,7 +7,7 @@
    System
    System_types
  )
- (theories stdpp stdpp.bitvector SailStdpp RecordUpdate)
+ (theories stdpp stdpp.bitvector SailStdpp RecordUpdate Ltac2)
 )
 
 (rule
