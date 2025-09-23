@@ -2,7 +2,7 @@ union ast =  {
   LoadRegister : (reg_index, reg_index, reg_index),
   StoreRegister : (reg_index, reg_index, reg_index),
   ExclusiveOr : (reg_index, reg_index, reg_index),
-  DataMemoryBarrier : unit,
+  DataMemoryBarrier : MBReqTypes,
   CompareAndBranch : (reg_index, bits(64)),
 }
 
@@ -120,13 +120,22 @@ function clause decode (0b1101010100@0b0@0b00@0b011@0b0011@(CRm : bits(4))@0b1@0
   decodeDataMemoryBarrier(CRm)
 }
 
-function decodeDataMemoryBarrier(CRm) = {
-  if CRm != 0b1111 then None ()
-  else Some(DataMemoryBarrier());
-}
+function clause decodeDataMemoryBarrier(0b1111) =
+  Some(DataMemoryBarrier(MBReqTypes_All))
 
-function clause execute DataMemoryBarrier() = {
-  dataMemoryBarrier();
+function clause decodeDataMemoryBarrier(0b1110) =
+  Some(DataMemoryBarrier(MBReqTypes_Writes))
+
+function clause decodeDataMemoryBarrier(0b1101) =
+  Some(DataMemoryBarrier(MBReqTypes_Reads))
+
+function clause decodeDataMemoryBarrier(_) = None()
+
+function clause execute DataMemoryBarrier(types) = {
+  // Update the PC
+  _PC = _PC + 4;
+  // Then perform the barrier
+  dataMemoryBarrier(types);
 }
 
 /* CompareAndBranch: CBZ */

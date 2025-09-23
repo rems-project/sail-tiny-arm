@@ -5,9 +5,9 @@ From stdpp Require Import base countable.
 Require Eqdep.
 Require Import SailStdpp.Base.
 Require Import SailStdpp.Real.
-Require Import SailStdpp.ConcurrencyInterfaceTypes.
-Require Import SailStdpp.ConcurrencyInterface.
-Require Import SailStdpp.ConcurrencyInterfaceBuiltins.
+Require Import SailStdpp.ConcurrencyInterfaceTypesV2.
+Require Import SailStdpp.ConcurrencyInterfaceV2.
+Require Import SailStdpp.ConcurrencyInterfaceBuiltinsV2.
 From RecordUpdate Require Import RecordSet.
 Import RecordSetNotations.
 
@@ -18,324 +18,15 @@ Open Scope Z.
 
 Definition bits (n : Z) : Type := mword n.
 
-Definition reg_index : Type := Z.
-
-Inductive ast :=
-| LoadRegister : (reg_index * reg_index * reg_index) -> ast
-| StoreRegister : (reg_index * reg_index * reg_index) -> ast
-| ExclusiveOr : (reg_index * reg_index * reg_index) -> ast
-| DataMemoryBarrier : unit -> ast
-| CompareAndBranch : (reg_index * bits 64) -> ast.
-Arguments ast : clear implicits.
-
-Definition sail_ast_encode (x : ast) := match x with
-  | LoadRegister x' => encode (0, encode x')
-  | StoreRegister x' => encode (1, encode x')
-  | ExclusiveOr x' => encode (2, encode x')
-  | DataMemoryBarrier x' => encode (3, encode x')
-  | CompareAndBranch x' => encode (4, encode x') end.
-Definition sail_ast_decode x : option ast := match decode x with
-  | Some (0, x') => LoadRegister <$> decode x'
-  | Some (1, x') => StoreRegister <$> decode x'
-  | Some (2, x') => ExclusiveOr <$> decode x'
-  | Some (3, x') => DataMemoryBarrier <$> decode x'
-  | Some (4, x') => CompareAndBranch <$> decode x'
-  | _ => None end.
-Lemma sail_ast_decode_encode : forall (x : ast), sail_ast_decode (sail_ast_encode x)  = Some x.
-Proof.
-  unfold sail_ast_decode, sail_ast_encode;
-  intros [x|x|x|x|x]; rewrite !decode_encode; reflexivity.
-Qed.
-
-#[export]
-Instance Decidable_eq_ast : EqDecision ast := decode_encode_eq_dec sail_ast_encode sail_ast_decode
-  sail_ast_decode_encode .
-
-#[export]
-Instance Countable_ast : Countable ast := {|
-  encode := sail_ast_encode;
-  decode := sail_ast_decode;
-  decode_encode := sail_ast_decode_encode
-|}.
-#[export]
-Instance dummy_ast : Inhabited (ast) := { inhabitant := LoadRegister inhabitant }.
-
-Inductive arm_acc_type :=
-| SAcc_ASIMD : bool -> arm_acc_type
-| SAcc_SVE : bool -> arm_acc_type
-| SAcc_SME : bool -> arm_acc_type
-| SAcc_IC : unit -> arm_acc_type
-| SAcc_DC : unit -> arm_acc_type
-| SAcc_DCZero : unit -> arm_acc_type
-| SAcc_AT : unit -> arm_acc_type
-| SAcc_NV2 : unit -> arm_acc_type
-| SAcc_SPE : unit -> arm_acc_type
-| SAcc_GCS : unit -> arm_acc_type
-| SAcc_GPTW : unit -> arm_acc_type.
-Arguments arm_acc_type : clear implicits.
-
-Definition sail_arm_acc_type_encode (x : arm_acc_type) := match x with
-  | SAcc_ASIMD x' => encode (0, encode x')
-  | SAcc_SVE x' => encode (1, encode x')
-  | SAcc_SME x' => encode (2, encode x')
-  | SAcc_IC x' => encode (3, encode x')
-  | SAcc_DC x' => encode (4, encode x')
-  | SAcc_DCZero x' => encode (5, encode x')
-  | SAcc_AT x' => encode (6, encode x')
-  | SAcc_NV2 x' => encode (7, encode x')
-  | SAcc_SPE x' => encode (8, encode x')
-  | SAcc_GCS x' => encode (9, encode x')
-  | SAcc_GPTW x' => encode (10, encode x') end.
-Definition sail_arm_acc_type_decode x : option arm_acc_type := match decode x with
-  | Some (0, x') => SAcc_ASIMD <$> decode x'
-  | Some (1, x') => SAcc_SVE <$> decode x'
-  | Some (2, x') => SAcc_SME <$> decode x'
-  | Some (3, x') => SAcc_IC <$> decode x'
-  | Some (4, x') => SAcc_DC <$> decode x'
-  | Some (5, x') => SAcc_DCZero <$> decode x'
-  | Some (6, x') => SAcc_AT <$> decode x'
-  | Some (7, x') => SAcc_NV2 <$> decode x'
-  | Some (8, x') => SAcc_SPE <$> decode x'
-  | Some (9, x') => SAcc_GCS <$> decode x'
-  | Some (10, x') => SAcc_GPTW <$> decode x'
-  | _ => None end.
-Lemma sail_arm_acc_type_decode_encode : forall (x : arm_acc_type), sail_arm_acc_type_decode
-  (sail_arm_acc_type_encode x)  = Some x.
-Proof.
-  unfold sail_arm_acc_type_decode, sail_arm_acc_type_encode;
-  intros [x|x|x|x|x|x|x|x|x|x|x]; rewrite !decode_encode; reflexivity.
-Qed.
-
-#[export]
-Instance Decidable_eq_arm_acc_type : EqDecision arm_acc_type := decode_encode_eq_dec
-  sail_arm_acc_type_encode sail_arm_acc_type_decode sail_arm_acc_type_decode_encode .
-
-#[export]
-Instance Countable_arm_acc_type : Countable arm_acc_type := {|
-  encode := sail_arm_acc_type_encode;
-  decode := sail_arm_acc_type_decode;
-  decode_encode := sail_arm_acc_type_decode_encode
-|}.
-#[export]
-Instance dummy_arm_acc_type : Inhabited (arm_acc_type) := { inhabitant := SAcc_ASIMD inhabitant }.
-
-Definition trans_info : Type := unit.
-
-Definition addrsize : Z := 64.
-#[export] Hint Unfold addrsize : sail.
-
-Inductive MBReqDomain :=
-  | MBReqDomain_Nonshareable
-  | MBReqDomain_InnerShareable
-  | MBReqDomain_OuterShareable
-  | MBReqDomain_FullSystem.
-Definition num_of_MBReqDomain (arg_ : MBReqDomain) : Z :=
-   match arg_ with
-   | MBReqDomain_Nonshareable => 0
-   | MBReqDomain_InnerShareable => 1
-   | MBReqDomain_OuterShareable => 2
-   | MBReqDomain_FullSystem => 3
-   end.
-
-Definition MBReqDomain_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : MBReqDomain :=
-   let l__37 := arg_ in
-   if Z.eqb l__37 0 then MBReqDomain_Nonshareable
-   else if Z.eqb l__37 1 then MBReqDomain_InnerShareable
-   else if Z.eqb l__37 2 then MBReqDomain_OuterShareable
-   else MBReqDomain_FullSystem.
-
-Lemma MBReqDomain_num_of_roundtrip (x : MBReqDomain) : MBReqDomain_of_num (num_of_MBReqDomain x) = x.
-  destruct x; reflexivity.
-Qed.
-Lemma num_of_MBReqDomain_injective (x y : MBReqDomain) : num_of_MBReqDomain x = num_of_MBReqDomain y -> x = y.
-  intro.
-  rewrite <- (MBReqDomain_num_of_roundtrip x).
-  rewrite <- (MBReqDomain_num_of_roundtrip y).
-  congruence.
-Qed.
-Definition MBReqDomain_eq_dec (x y : MBReqDomain) : {x = y} + {x <> y}.
-  refine (match Z.eq_dec (num_of_MBReqDomain x) (num_of_MBReqDomain y) with
-  | left e => left (num_of_MBReqDomain_injective x y e)
-  | right ne => right _
-  end).
-  congruence.
-Defined.
-Definition MBReqDomain_beq (x y : MBReqDomain) : bool :=
-  Z.eqb (num_of_MBReqDomain x) (num_of_MBReqDomain y).
-Lemma MBReqDomain_beq_iff x y : MBReqDomain_beq x y = true <-> x = y.
-  unfold MBReqDomain_beq.
-  rewrite Z.eqb_eq.
-  split; [apply num_of_MBReqDomain_injective | congruence].
-Qed.
-Lemma MBReqDomain_beq_refl x : MBReqDomain_beq x x = true.
-apply MBReqDomain_beq_iff; reflexivity.
-Qed.
-#[export]
-Instance Decidable_eq_MBReqDomain : EqDecision MBReqDomain := MBReqDomain_eq_dec.
-#[export]
-Instance Countable_MBReqDomain : Countable MBReqDomain.
-refine {|
-  encode x := encode (num_of_MBReqDomain x);
-  decode x := z ← decode x; mret (MBReqDomain_of_num z);
-|}.
-abstract (
-  intro s; rewrite decode_encode;
-  simpl;
-  rewrite MBReqDomain_num_of_roundtrip;
-  reflexivity).
-Defined.
-#[export]
-Instance dummy_MBReqDomain : Inhabited MBReqDomain := { inhabitant := MBReqDomain_Nonshareable }.
-
-
-Inductive MBReqTypes := MBReqTypes_Reads | MBReqTypes_Writes | MBReqTypes_All.
-Definition num_of_MBReqTypes (arg_ : MBReqTypes) : Z :=
-   match arg_ with | MBReqTypes_Reads => 0 | MBReqTypes_Writes => 1 | MBReqTypes_All => 2 end.
-
-Definition MBReqTypes_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : MBReqTypes :=
-   let l__35 := arg_ in
-   if Z.eqb l__35 0 then MBReqTypes_Reads
-   else if Z.eqb l__35 1 then MBReqTypes_Writes
-   else MBReqTypes_All.
-
-Lemma MBReqTypes_num_of_roundtrip (x : MBReqTypes) : MBReqTypes_of_num (num_of_MBReqTypes x) = x.
-  destruct x; reflexivity.
-Qed.
-Lemma num_of_MBReqTypes_injective (x y : MBReqTypes) : num_of_MBReqTypes x = num_of_MBReqTypes y -> x = y.
-  intro.
-  rewrite <- (MBReqTypes_num_of_roundtrip x).
-  rewrite <- (MBReqTypes_num_of_roundtrip y).
-  congruence.
-Qed.
-Definition MBReqTypes_eq_dec (x y : MBReqTypes) : {x = y} + {x <> y}.
-  refine (match Z.eq_dec (num_of_MBReqTypes x) (num_of_MBReqTypes y) with
-  | left e => left (num_of_MBReqTypes_injective x y e)
-  | right ne => right _
-  end).
-  congruence.
-Defined.
-Definition MBReqTypes_beq (x y : MBReqTypes) : bool :=
-  Z.eqb (num_of_MBReqTypes x) (num_of_MBReqTypes y).
-Lemma MBReqTypes_beq_iff x y : MBReqTypes_beq x y = true <-> x = y.
-  unfold MBReqTypes_beq.
-  rewrite Z.eqb_eq.
-  split; [apply num_of_MBReqTypes_injective | congruence].
-Qed.
-Lemma MBReqTypes_beq_refl x : MBReqTypes_beq x x = true.
-apply MBReqTypes_beq_iff; reflexivity.
-Qed.
-#[export]
-Instance Decidable_eq_MBReqTypes : EqDecision MBReqTypes := MBReqTypes_eq_dec.
-#[export]
-Instance Countable_MBReqTypes : Countable MBReqTypes.
-refine {|
-  encode x := encode (num_of_MBReqTypes x);
-  decode x := z ← decode x; mret (MBReqTypes_of_num z);
-|}.
-abstract (
-  intro s; rewrite decode_encode;
-  simpl;
-  rewrite MBReqTypes_num_of_roundtrip;
-  reflexivity).
-Defined.
-#[export]
-Instance dummy_MBReqTypes : Inhabited MBReqTypes := { inhabitant := MBReqTypes_Reads }.
-
-
-Record DxB := {
-  DxB_domain : MBReqDomain;
-  DxB_types : MBReqTypes;
-  DxB_nXS : bool;
-}.
-Arguments DxB : clear implicits.
-#[export]
-Instance Decidable_eq_DxB : EqDecision DxB.
-   intros [x0 x1 x2].
-   intros [y0 y1 y2].
-  cmp_record_field x0 y0.
-  cmp_record_field x1 y1.
-  cmp_record_field x2 y2.
-left; subst; reflexivity.
-Defined.
-#[export]
-Instance Countable_DxB : Countable DxB.
-refine {|
-  encode x := encode (DxB_domain x, DxB_types x, DxB_nXS x);
-  decode x := '(x0, x1, x2) ← decode x;
-              mret (Build_DxB x0 x1 x2)
-|}.
-abstract (
-  intros [x0 x1 x2];
-  rewrite decode_encode;
-  reflexivity).
-Defined.
-
-#[export] Instance eta_DxB : Settable _ := settable! Build_DxB <DxB_domain; DxB_types; DxB_nXS>.
-#[export]
-Instance dummy_DxB : Inhabited (DxB) := {
-  inhabitant := {| DxB_domain := inhabitant; DxB_types := inhabitant; DxB_nXS := inhabitant
-|} }.
-
-
-Inductive Barrier :=
-| Barrier_DSB : DxB -> Barrier
-| Barrier_DMB : DxB -> Barrier
-| Barrier_ISB : unit -> Barrier
-| Barrier_SSBB : unit -> Barrier
-| Barrier_PSSBB : unit -> Barrier
-| Barrier_SB : unit -> Barrier.
-Arguments Barrier : clear implicits.
-
-Definition sail_Barrier_encode (x : Barrier) := match x with
-  | Barrier_DSB x' => encode (0, encode x')
-  | Barrier_DMB x' => encode (1, encode x')
-  | Barrier_ISB x' => encode (2, encode x')
-  | Barrier_SSBB x' => encode (3, encode x')
-  | Barrier_PSSBB x' => encode (4, encode x')
-  | Barrier_SB x' => encode (5, encode x') end.
-Definition sail_Barrier_decode x : option Barrier := match decode x with
-  | Some (0, x') => Barrier_DSB <$> decode x'
-  | Some (1, x') => Barrier_DMB <$> decode x'
-  | Some (2, x') => Barrier_ISB <$> decode x'
-  | Some (3, x') => Barrier_SSBB <$> decode x'
-  | Some (4, x') => Barrier_PSSBB <$> decode x'
-  | Some (5, x') => Barrier_SB <$> decode x'
-  | _ => None end.
-Lemma sail_Barrier_decode_encode : forall (x : Barrier), sail_Barrier_decode (sail_Barrier_encode x)
-   = Some x.
-Proof.
-  unfold sail_Barrier_decode, sail_Barrier_encode;
-  intros [x|x|x|x|x|x]; rewrite !decode_encode; reflexivity.
-Qed.
-
-#[export]
-Instance Decidable_eq_Barrier : EqDecision Barrier := decode_encode_eq_dec sail_Barrier_encode
-  sail_Barrier_decode sail_Barrier_decode_encode .
-
-#[export]
-Instance Countable_Barrier : Countable Barrier := {|
-  encode := sail_Barrier_encode;
-  decode := sail_Barrier_decode;
-  decode_encode := sail_Barrier_decode_encode
-|}.
-#[export]
-Instance dummy_Barrier : Inhabited (Barrier) := { inhabitant := Barrier_DSB inhabitant }.
-
-Definition MAIRType : Type := mword 64.
-
-Definition S1PIRType : Type := mword 64.
-
-Definition S2PIRType : Type := mword 64.
-
 Inductive SecurityState := SS_NonSecure | SS_Root | SS_Realm | SS_Secure.
 Definition num_of_SecurityState (arg_ : SecurityState) : Z :=
    match arg_ with | SS_NonSecure => 0 | SS_Root => 1 | SS_Realm => 2 | SS_Secure => 3 end.
 
 Definition SecurityState_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : SecurityState :=
-   let l__130 := arg_ in
-   if Z.eqb l__130 0 then SS_NonSecure
-   else if Z.eqb l__130 1 then SS_Root
-   else if Z.eqb l__130 2 then SS_Realm
+   let l__126 := arg_ in
+   if Z.eqb (l__126) (0) then SS_NonSecure
+   else if Z.eqb (l__126) (1) then SS_Root
+   else if Z.eqb (l__126) (2) then SS_Realm
    else SS_Secure.
 
 Lemma SecurityState_num_of_roundtrip (x : SecurityState) : SecurityState_of_num (num_of_SecurityState x) = x.
@@ -396,10 +87,10 @@ Definition num_of_PARTIDspaceType (arg_ : PARTIDspaceType) : Z :=
    end.
 
 Definition PARTIDspaceType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : PARTIDspaceType :=
-   let l__127 := arg_ in
-   if Z.eqb l__127 0 then PIdSpace_Secure
-   else if Z.eqb l__127 1 then PIdSpace_Root
-   else if Z.eqb l__127 2 then PIdSpace_Realm
+   let l__123 := arg_ in
+   if Z.eqb (l__123) (0) then PIdSpace_Secure
+   else if Z.eqb (l__123) (1) then PIdSpace_Root
+   else if Z.eqb (l__123) (2) then PIdSpace_Realm
    else PIdSpace_NonSecure.
 
 Lemma PARTIDspaceType_num_of_roundtrip (x : PARTIDspaceType) : PARTIDspaceType_of_num (num_of_PARTIDspaceType x) = x.
@@ -518,20 +209,20 @@ Definition num_of_AccessType (arg_ : AccessType) : Z :=
    end.
 
 Definition AccessType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 13)*) : AccessType :=
-   let l__114 := arg_ in
-   if Z.eqb l__114 0 then AccessType_IFETCH
-   else if Z.eqb l__114 1 then AccessType_GPR
-   else if Z.eqb l__114 2 then AccessType_ASIMD
-   else if Z.eqb l__114 3 then AccessType_SVE
-   else if Z.eqb l__114 4 then AccessType_SME
-   else if Z.eqb l__114 5 then AccessType_IC
-   else if Z.eqb l__114 6 then AccessType_DC
-   else if Z.eqb l__114 7 then AccessType_DCZero
-   else if Z.eqb l__114 8 then AccessType_AT
-   else if Z.eqb l__114 9 then AccessType_NV2
-   else if Z.eqb l__114 10 then AccessType_SPE
-   else if Z.eqb l__114 11 then AccessType_GCS
-   else if Z.eqb l__114 12 then AccessType_GPTW
+   let l__110 := arg_ in
+   if Z.eqb (l__110) (0) then AccessType_IFETCH
+   else if Z.eqb (l__110) (1) then AccessType_GPR
+   else if Z.eqb (l__110) (2) then AccessType_ASIMD
+   else if Z.eqb (l__110) (3) then AccessType_SVE
+   else if Z.eqb (l__110) (4) then AccessType_SME
+   else if Z.eqb (l__110) (5) then AccessType_IC
+   else if Z.eqb (l__110) (6) then AccessType_DC
+   else if Z.eqb (l__110) (7) then AccessType_DCZero
+   else if Z.eqb (l__110) (8) then AccessType_AT
+   else if Z.eqb (l__110) (9) then AccessType_NV2
+   else if Z.eqb (l__110) (10) then AccessType_SPE
+   else if Z.eqb (l__110) (11) then AccessType_GCS
+   else if Z.eqb (l__110) (12) then AccessType_GPTW
    else AccessType_TTW.
 
 Lemma AccessType_num_of_roundtrip (x : AccessType) : AccessType_of_num (num_of_AccessType x) = x.
@@ -583,8 +274,8 @@ Definition num_of_VARange (arg_ : VARange) : Z :=
    match arg_ with | VARange_LOWER => 0 | VARange_UPPER => 1 end.
 
 Definition VARange_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : VARange :=
-   let l__113 := arg_ in
-   if Z.eqb l__113 0 then VARange_LOWER
+   let l__109 := arg_ in
+   if Z.eqb (l__109) (0) then VARange_LOWER
    else VARange_UPPER.
 
 Lemma VARange_num_of_roundtrip (x : VARange) : VARange_of_num (num_of_VARange x) = x.
@@ -659,17 +350,17 @@ Definition num_of_MemAtomicOp (arg_ : MemAtomicOp) : Z :=
    end.
 
 Definition MemAtomicOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 10)*) : MemAtomicOp :=
-   let l__103 := arg_ in
-   if Z.eqb l__103 0 then MemAtomicOp_GCSSS1
-   else if Z.eqb l__103 1 then MemAtomicOp_ADD
-   else if Z.eqb l__103 2 then MemAtomicOp_BIC
-   else if Z.eqb l__103 3 then MemAtomicOp_EOR
-   else if Z.eqb l__103 4 then MemAtomicOp_ORR
-   else if Z.eqb l__103 5 then MemAtomicOp_SMAX
-   else if Z.eqb l__103 6 then MemAtomicOp_SMIN
-   else if Z.eqb l__103 7 then MemAtomicOp_UMAX
-   else if Z.eqb l__103 8 then MemAtomicOp_UMIN
-   else if Z.eqb l__103 9 then MemAtomicOp_SWP
+   let l__99 := arg_ in
+   if Z.eqb (l__99) (0) then MemAtomicOp_GCSSS1
+   else if Z.eqb (l__99) (1) then MemAtomicOp_ADD
+   else if Z.eqb (l__99) (2) then MemAtomicOp_BIC
+   else if Z.eqb (l__99) (3) then MemAtomicOp_EOR
+   else if Z.eqb (l__99) (4) then MemAtomicOp_ORR
+   else if Z.eqb (l__99) (5) then MemAtomicOp_SMAX
+   else if Z.eqb (l__99) (6) then MemAtomicOp_SMIN
+   else if Z.eqb (l__99) (7) then MemAtomicOp_UMAX
+   else if Z.eqb (l__99) (8) then MemAtomicOp_UMIN
+   else if Z.eqb (l__99) (9) then MemAtomicOp_SWP
    else MemAtomicOp_CAS.
 
 Lemma MemAtomicOp_num_of_roundtrip (x : MemAtomicOp) : MemAtomicOp_of_num (num_of_MemAtomicOp x) = x.
@@ -721,9 +412,9 @@ Definition num_of_CacheOp (arg_ : CacheOp) : Z :=
    match arg_ with | CacheOp_Clean => 0 | CacheOp_Invalidate => 1 | CacheOp_CleanInvalidate => 2 end.
 
 Definition CacheOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : CacheOp :=
-   let l__101 := arg_ in
-   if Z.eqb l__101 0 then CacheOp_Clean
-   else if Z.eqb l__101 1 then CacheOp_Invalidate
+   let l__97 := arg_ in
+   if Z.eqb (l__97) (0) then CacheOp_Clean
+   else if Z.eqb (l__97) (1) then CacheOp_Invalidate
    else CacheOp_CleanInvalidate.
 
 Lemma CacheOp_num_of_roundtrip (x : CacheOp) : CacheOp_of_num (num_of_CacheOp x) = x.
@@ -794,15 +485,15 @@ Definition num_of_CacheOpScope (arg_ : CacheOpScope) : Z :=
    end.
 
 Definition CacheOpScope_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 8)*) : CacheOpScope :=
-   let l__93 := arg_ in
-   if Z.eqb l__93 0 then CacheOpScope_SetWay
-   else if Z.eqb l__93 1 then CacheOpScope_PoU
-   else if Z.eqb l__93 2 then CacheOpScope_PoC
-   else if Z.eqb l__93 3 then CacheOpScope_PoE
-   else if Z.eqb l__93 4 then CacheOpScope_PoP
-   else if Z.eqb l__93 5 then CacheOpScope_PoDP
-   else if Z.eqb l__93 6 then CacheOpScope_PoPA
-   else if Z.eqb l__93 7 then CacheOpScope_ALLU
+   let l__89 := arg_ in
+   if Z.eqb (l__89) (0) then CacheOpScope_SetWay
+   else if Z.eqb (l__89) (1) then CacheOpScope_PoU
+   else if Z.eqb (l__89) (2) then CacheOpScope_PoC
+   else if Z.eqb (l__89) (3) then CacheOpScope_PoE
+   else if Z.eqb (l__89) (4) then CacheOpScope_PoP
+   else if Z.eqb (l__89) (5) then CacheOpScope_PoDP
+   else if Z.eqb (l__89) (6) then CacheOpScope_PoPA
+   else if Z.eqb (l__89) (7) then CacheOpScope_ALLU
    else CacheOpScope_ALLUIS.
 
 Lemma CacheOpScope_num_of_roundtrip (x : CacheOpScope) : CacheOpScope_of_num (num_of_CacheOpScope x) = x.
@@ -859,10 +550,10 @@ Definition num_of_CacheType (arg_ : CacheType) : Z :=
    end.
 
 Definition CacheType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : CacheType :=
-   let l__90 := arg_ in
-   if Z.eqb l__90 0 then CacheType_Data
-   else if Z.eqb l__90 1 then CacheType_Tag
-   else if Z.eqb l__90 2 then CacheType_Data_Tag
+   let l__86 := arg_ in
+   if Z.eqb (l__86) (0) then CacheType_Data
+   else if Z.eqb (l__86) (1) then CacheType_Tag
+   else if Z.eqb (l__86) (2) then CacheType_Data_Tag
    else CacheType_Instruction.
 
 Lemma CacheType_num_of_roundtrip (x : CacheType) : CacheType_of_num (num_of_CacheType x) = x.
@@ -929,13 +620,13 @@ Definition num_of_CachePASpace (arg_ : CachePASpace) : Z :=
    end.
 
 Definition CachePASpace_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 6)*) : CachePASpace :=
-   let l__84 := arg_ in
-   if Z.eqb l__84 0 then CPAS_NonSecure
-   else if Z.eqb l__84 1 then CPAS_Any
-   else if Z.eqb l__84 2 then CPAS_RealmNonSecure
-   else if Z.eqb l__84 3 then CPAS_Realm
-   else if Z.eqb l__84 4 then CPAS_Root
-   else if Z.eqb l__84 5 then CPAS_SecureNonSecure
+   let l__80 := arg_ in
+   if Z.eqb (l__80) (0) then CPAS_NonSecure
+   else if Z.eqb (l__80) (1) then CPAS_Any
+   else if Z.eqb (l__80) (2) then CPAS_RealmNonSecure
+   else if Z.eqb (l__80) (3) then CPAS_Realm
+   else if Z.eqb (l__80) (4) then CPAS_Root
+   else if Z.eqb (l__80) (5) then CPAS_SecureNonSecure
    else CPAS_Secure.
 
 Lemma CachePASpace_num_of_roundtrip (x : CachePASpace) : CachePASpace_of_num (num_of_CachePASpace x) = x.
@@ -1115,8 +806,8 @@ Definition num_of_MemType (arg_ : MemType) : Z :=
    match arg_ with | MemType_Normal => 0 | MemType_Device => 1 end.
 
 Definition MemType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : MemType :=
-   let l__83 := arg_ in
-   if Z.eqb l__83 0 then MemType_Normal
+   let l__79 := arg_ in
+   if Z.eqb (l__79) (0) then MemType_Normal
    else MemType_Device.
 
 Lemma MemType_num_of_roundtrip (x : MemType) : MemType_of_num (num_of_MemType x) = x.
@@ -1173,10 +864,10 @@ Definition num_of_DeviceType (arg_ : DeviceType) : Z :=
    end.
 
 Definition DeviceType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : DeviceType :=
-   let l__80 := arg_ in
-   if Z.eqb l__80 0 then DeviceType_GRE
-   else if Z.eqb l__80 1 then DeviceType_nGRE
-   else if Z.eqb l__80 2 then DeviceType_nGnRE
+   let l__76 := arg_ in
+   if Z.eqb (l__76) (0) then DeviceType_GRE
+   else if Z.eqb (l__76) (1) then DeviceType_nGRE
+   else if Z.eqb (l__76) (2) then DeviceType_nGnRE
    else DeviceType_nGnRnE.
 
 Lemma DeviceType_num_of_roundtrip (x : DeviceType) : DeviceType_of_num (num_of_DeviceType x) = x.
@@ -1266,9 +957,9 @@ Definition num_of_Shareability (arg_ : Shareability) : Z :=
    match arg_ with | Shareability_NSH => 0 | Shareability_ISH => 1 | Shareability_OSH => 2 end.
 
 Definition Shareability_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : Shareability :=
-   let l__78 := arg_ in
-   if Z.eqb l__78 0 then Shareability_NSH
-   else if Z.eqb l__78 1 then Shareability_ISH
+   let l__74 := arg_ in
+   if Z.eqb (l__74) (0) then Shareability_NSH
+   else if Z.eqb (l__74) (1) then Shareability_ISH
    else Shareability_OSH.
 
 Lemma Shareability_num_of_roundtrip (x : Shareability) : Shareability_of_num (num_of_Shareability x) = x.
@@ -1324,9 +1015,9 @@ Definition num_of_MemTagType (arg_ : MemTagType) : Z :=
    end.
 
 Definition MemTagType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : MemTagType :=
-   let l__76 := arg_ in
-   if Z.eqb l__76 0 then MemTag_Untagged
-   else if Z.eqb l__76 1 then MemTag_AllocationTagged
+   let l__72 := arg_ in
+   if Z.eqb (l__72) (0) then MemTag_Untagged
+   else if Z.eqb (l__72) (1) then MemTag_AllocationTagged
    else MemTag_CanonicallyTagged.
 
 Lemma MemTagType_num_of_roundtrip (x : MemTagType) : MemTagType_of_num (num_of_MemTagType x) = x.
@@ -1431,10 +1122,10 @@ Definition num_of_PASpace (arg_ : PASpace) : Z :=
    match arg_ with | PAS_NonSecure => 0 | PAS_Secure => 1 | PAS_Root => 2 | PAS_Realm => 3 end.
 
 Definition PASpace_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : PASpace :=
-   let l__73 := arg_ in
-   if Z.eqb l__73 0 then PAS_NonSecure
-   else if Z.eqb l__73 1 then PAS_Secure
-   else if Z.eqb l__73 2 then PAS_Root
+   let l__69 := arg_ in
+   if Z.eqb (l__69) (0) then PAS_NonSecure
+   else if Z.eqb (l__69) (1) then PAS_Secure
+   else if Z.eqb (l__69) (2) then PAS_Root
    else PAS_Realm.
 
 Lemma PASpace_num_of_roundtrip (x : PASpace) : PASpace_of_num (num_of_PASpace x) = x.
@@ -1525,11 +1216,11 @@ Definition num_of_GPCF (arg_ : GPCF) : Z :=
    end.
 
 Definition GPCF_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 4)*) : GPCF :=
-   let l__69 := arg_ in
-   if Z.eqb l__69 0 then GPCF_None
-   else if Z.eqb l__69 1 then GPCF_AddressSize
-   else if Z.eqb l__69 2 then GPCF_Walk
-   else if Z.eqb l__69 3 then GPCF_EABT
+   let l__65 := arg_ in
+   if Z.eqb (l__65) (0) then GPCF_None
+   else if Z.eqb (l__65) (1) then GPCF_AddressSize
+   else if Z.eqb (l__65) (2) then GPCF_Walk
+   else if Z.eqb (l__65) (3) then GPCF_EABT
    else GPCF_Fail.
 
 Lemma GPCF_num_of_roundtrip (x : GPCF) : GPCF_of_num (num_of_GPCF x) = x.
@@ -1663,30 +1354,30 @@ Definition num_of_Fault (arg_ : Fault) : Z :=
    end.
 
 Definition Fault_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 23)*) : Fault :=
-   let l__46 := arg_ in
-   if Z.eqb l__46 0 then Fault_None
-   else if Z.eqb l__46 1 then Fault_AccessFlag
-   else if Z.eqb l__46 2 then Fault_Alignment
-   else if Z.eqb l__46 3 then Fault_Background
-   else if Z.eqb l__46 4 then Fault_Domain
-   else if Z.eqb l__46 5 then Fault_Permission
-   else if Z.eqb l__46 6 then Fault_Translation
-   else if Z.eqb l__46 7 then Fault_AddressSize
-   else if Z.eqb l__46 8 then Fault_SyncExternal
-   else if Z.eqb l__46 9 then Fault_SyncExternalOnWalk
-   else if Z.eqb l__46 10 then Fault_SyncParity
-   else if Z.eqb l__46 11 then Fault_SyncParityOnWalk
-   else if Z.eqb l__46 12 then Fault_GPCFOnWalk
-   else if Z.eqb l__46 13 then Fault_GPCFOnOutput
-   else if Z.eqb l__46 14 then Fault_AsyncParity
-   else if Z.eqb l__46 15 then Fault_AsyncExternal
-   else if Z.eqb l__46 16 then Fault_TagCheck
-   else if Z.eqb l__46 17 then Fault_Debug
-   else if Z.eqb l__46 18 then Fault_TLBConflict
-   else if Z.eqb l__46 19 then Fault_BranchTarget
-   else if Z.eqb l__46 20 then Fault_HWUpdateAccessFlag
-   else if Z.eqb l__46 21 then Fault_Lockdown
-   else if Z.eqb l__46 22 then Fault_Exclusive
+   let l__42 := arg_ in
+   if Z.eqb (l__42) (0) then Fault_None
+   else if Z.eqb (l__42) (1) then Fault_AccessFlag
+   else if Z.eqb (l__42) (2) then Fault_Alignment
+   else if Z.eqb (l__42) (3) then Fault_Background
+   else if Z.eqb (l__42) (4) then Fault_Domain
+   else if Z.eqb (l__42) (5) then Fault_Permission
+   else if Z.eqb (l__42) (6) then Fault_Translation
+   else if Z.eqb (l__42) (7) then Fault_AddressSize
+   else if Z.eqb (l__42) (8) then Fault_SyncExternal
+   else if Z.eqb (l__42) (9) then Fault_SyncExternalOnWalk
+   else if Z.eqb (l__42) (10) then Fault_SyncParity
+   else if Z.eqb (l__42) (11) then Fault_SyncParityOnWalk
+   else if Z.eqb (l__42) (12) then Fault_GPCFOnWalk
+   else if Z.eqb (l__42) (13) then Fault_GPCFOnOutput
+   else if Z.eqb (l__42) (14) then Fault_AsyncParity
+   else if Z.eqb (l__42) (15) then Fault_AsyncExternal
+   else if Z.eqb (l__42) (16) then Fault_TagCheck
+   else if Z.eqb (l__42) (17) then Fault_Debug
+   else if Z.eqb (l__42) (18) then Fault_TLBConflict
+   else if Z.eqb (l__42) (19) then Fault_BranchTarget
+   else if Z.eqb (l__42) (20) then Fault_HWUpdateAccessFlag
+   else if Z.eqb (l__42) (21) then Fault_Lockdown
+   else if Z.eqb (l__42) (22) then Fault_Exclusive
    else Fault_ICacheMaint.
 
 Lemma Fault_num_of_roundtrip (x : Fault) : Fault_of_num (num_of_Fault x) = x.
@@ -1753,13 +1444,13 @@ Definition num_of_ErrorState (arg_ : ErrorState) : Z :=
    end.
 
 Definition ErrorState_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 6)*) : ErrorState :=
-   let l__40 := arg_ in
-   if Z.eqb l__40 0 then ErrorState_UC
-   else if Z.eqb l__40 1 then ErrorState_UEU
-   else if Z.eqb l__40 2 then ErrorState_UEO
-   else if Z.eqb l__40 3 then ErrorState_UER
-   else if Z.eqb l__40 4 then ErrorState_CE
-   else if Z.eqb l__40 5 then ErrorState_Uncategorized
+   let l__36 := arg_ in
+   if Z.eqb (l__36) (0) then ErrorState_UC
+   else if Z.eqb (l__36) (1) then ErrorState_UEU
+   else if Z.eqb (l__36) (2) then ErrorState_UEO
+   else if Z.eqb (l__36) (3) then ErrorState_UER
+   else if Z.eqb (l__36) (4) then ErrorState_CE
+   else if Z.eqb (l__36) (5) then ErrorState_Uncategorized
    else ErrorState_IMPDEF.
 
 Lemma ErrorState_num_of_roundtrip (x : ErrorState) : ErrorState_of_num (num_of_ErrorState x) = x.
@@ -1895,6 +1586,124 @@ Instance dummy_FaultRecord : Inhabited (FaultRecord) := {
 |} }.
 
 
+Inductive MBReqDomain :=
+  | MBReqDomain_Nonshareable
+  | MBReqDomain_InnerShareable
+  | MBReqDomain_OuterShareable
+  | MBReqDomain_FullSystem.
+Definition num_of_MBReqDomain (arg_ : MBReqDomain) : Z :=
+   match arg_ with
+   | MBReqDomain_Nonshareable => 0
+   | MBReqDomain_InnerShareable => 1
+   | MBReqDomain_OuterShareable => 2
+   | MBReqDomain_FullSystem => 3
+   end.
+
+Definition MBReqDomain_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : MBReqDomain :=
+   let l__33 := arg_ in
+   if Z.eqb (l__33) (0) then MBReqDomain_Nonshareable
+   else if Z.eqb (l__33) (1) then MBReqDomain_InnerShareable
+   else if Z.eqb (l__33) (2) then MBReqDomain_OuterShareable
+   else MBReqDomain_FullSystem.
+
+Lemma MBReqDomain_num_of_roundtrip (x : MBReqDomain) : MBReqDomain_of_num (num_of_MBReqDomain x) = x.
+  destruct x; reflexivity.
+Qed.
+Lemma num_of_MBReqDomain_injective (x y : MBReqDomain) : num_of_MBReqDomain x = num_of_MBReqDomain y -> x = y.
+  intro.
+  rewrite <- (MBReqDomain_num_of_roundtrip x).
+  rewrite <- (MBReqDomain_num_of_roundtrip y).
+  congruence.
+Qed.
+Definition MBReqDomain_eq_dec (x y : MBReqDomain) : {x = y} + {x <> y}.
+  refine (match Z.eq_dec (num_of_MBReqDomain x) (num_of_MBReqDomain y) with
+  | left e => left (num_of_MBReqDomain_injective x y e)
+  | right ne => right _
+  end).
+  congruence.
+Defined.
+Definition MBReqDomain_beq (x y : MBReqDomain) : bool :=
+  Z.eqb (num_of_MBReqDomain x) (num_of_MBReqDomain y).
+Lemma MBReqDomain_beq_iff x y : MBReqDomain_beq x y = true <-> x = y.
+  unfold MBReqDomain_beq.
+  rewrite Z.eqb_eq.
+  split; [apply num_of_MBReqDomain_injective | congruence].
+Qed.
+Lemma MBReqDomain_beq_refl x : MBReqDomain_beq x x = true.
+apply MBReqDomain_beq_iff; reflexivity.
+Qed.
+#[export]
+Instance Decidable_eq_MBReqDomain : EqDecision MBReqDomain := MBReqDomain_eq_dec.
+#[export]
+Instance Countable_MBReqDomain : Countable MBReqDomain.
+refine {|
+  encode x := encode (num_of_MBReqDomain x);
+  decode x := z ← decode x; mret (MBReqDomain_of_num z);
+|}.
+abstract (
+  intro s; rewrite decode_encode;
+  simpl;
+  rewrite MBReqDomain_num_of_roundtrip;
+  reflexivity).
+Defined.
+#[export]
+Instance dummy_MBReqDomain : Inhabited MBReqDomain := { inhabitant := MBReqDomain_Nonshareable }.
+
+
+Inductive MBReqTypes := MBReqTypes_Reads | MBReqTypes_Writes | MBReqTypes_All.
+Definition num_of_MBReqTypes (arg_ : MBReqTypes) : Z :=
+   match arg_ with | MBReqTypes_Reads => 0 | MBReqTypes_Writes => 1 | MBReqTypes_All => 2 end.
+
+Definition MBReqTypes_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : MBReqTypes :=
+   let l__31 := arg_ in
+   if Z.eqb (l__31) (0) then MBReqTypes_Reads
+   else if Z.eqb (l__31) (1) then MBReqTypes_Writes
+   else MBReqTypes_All.
+
+Lemma MBReqTypes_num_of_roundtrip (x : MBReqTypes) : MBReqTypes_of_num (num_of_MBReqTypes x) = x.
+  destruct x; reflexivity.
+Qed.
+Lemma num_of_MBReqTypes_injective (x y : MBReqTypes) : num_of_MBReqTypes x = num_of_MBReqTypes y -> x = y.
+  intro.
+  rewrite <- (MBReqTypes_num_of_roundtrip x).
+  rewrite <- (MBReqTypes_num_of_roundtrip y).
+  congruence.
+Qed.
+Definition MBReqTypes_eq_dec (x y : MBReqTypes) : {x = y} + {x <> y}.
+  refine (match Z.eq_dec (num_of_MBReqTypes x) (num_of_MBReqTypes y) with
+  | left e => left (num_of_MBReqTypes_injective x y e)
+  | right ne => right _
+  end).
+  congruence.
+Defined.
+Definition MBReqTypes_beq (x y : MBReqTypes) : bool :=
+  Z.eqb (num_of_MBReqTypes x) (num_of_MBReqTypes y).
+Lemma MBReqTypes_beq_iff x y : MBReqTypes_beq x y = true <-> x = y.
+  unfold MBReqTypes_beq.
+  rewrite Z.eqb_eq.
+  split; [apply num_of_MBReqTypes_injective | congruence].
+Qed.
+Lemma MBReqTypes_beq_refl x : MBReqTypes_beq x x = true.
+apply MBReqTypes_beq_iff; reflexivity.
+Qed.
+#[export]
+Instance Decidable_eq_MBReqTypes : EqDecision MBReqTypes := MBReqTypes_eq_dec.
+#[export]
+Instance Countable_MBReqTypes : Countable MBReqTypes.
+refine {|
+  encode x := encode (num_of_MBReqTypes x);
+  decode x := z ← decode x; mret (MBReqTypes_of_num z);
+|}.
+abstract (
+  intro s; rewrite decode_encode;
+  simpl;
+  rewrite MBReqTypes_num_of_roundtrip;
+  reflexivity).
+Defined.
+#[export]
+Instance dummy_MBReqTypes : Inhabited MBReqTypes := { inhabitant := MBReqTypes_Reads }.
+
+
 Record CacheRecord := {
   CacheRecord_acctype : AccessType;
   CacheRecord_cacheop : CacheOp;
@@ -1989,11 +1798,11 @@ Definition num_of_Regime (arg_ : Regime) : Z :=
    end.
 
 Definition Regime_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 4)*) : Regime :=
-   let l__31 := arg_ in
-   if Z.eqb l__31 0 then Regime_EL3
-   else if Z.eqb l__31 1 then Regime_EL30
-   else if Z.eqb l__31 2 then Regime_EL2
-   else if Z.eqb l__31 3 then Regime_EL20
+   let l__27 := arg_ in
+   if Z.eqb (l__27) (0) then Regime_EL3
+   else if Z.eqb (l__27) (1) then Regime_EL30
+   else if Z.eqb (l__27) (2) then Regime_EL2
+   else if Z.eqb (l__27) (3) then Regime_EL20
    else Regime_EL10.
 
 Lemma Regime_num_of_roundtrip (x : Regime) : Regime_of_num (num_of_Regime x) = x.
@@ -2045,9 +1854,9 @@ Definition num_of_TGx (arg_ : TGx) : Z :=
    match arg_ with | TGx_4KB => 0 | TGx_16KB => 1 | TGx_64KB => 2 end.
 
 Definition TGx_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : TGx :=
-   let l__29 := arg_ in
-   if Z.eqb l__29 0 then TGx_4KB
-   else if Z.eqb l__29 1 then TGx_16KB
+   let l__25 := arg_ in
+   if Z.eqb (l__25) (0) then TGx_4KB
+   else if Z.eqb (l__25) (1) then TGx_16KB
    else TGx_64KB.
 
 Lemma TGx_num_of_roundtrip (x : TGx) : TGx_of_num (num_of_TGx x) = x.
@@ -2092,277 +1901,6 @@ abstract (
 Defined.
 #[export]
 Instance dummy_TGx : Inhabited TGx := { inhabitant := TGx_4KB }.
-
-
-Record S1TTWParams := {
-  S1TTWParams_ha : bits 1;
-  S1TTWParams_hd : bits 1;
-  S1TTWParams_tbi : bits 1;
-  S1TTWParams_tbid : bits 1;
-  S1TTWParams_nfd : bits 1;
-  S1TTWParams_e0pd : bits 1;
-  S1TTWParams_d128 : bits 1;
-  S1TTWParams_aie : bits 1;
-  S1TTWParams_mair2 : MAIRType;
-  S1TTWParams_ds : bits 1;
-  S1TTWParams_ps : bits 3;
-  S1TTWParams_txsz : bits 6;
-  S1TTWParams_epan : bits 1;
-  S1TTWParams_dct : bits 1;
-  S1TTWParams_nv1 : bits 1;
-  S1TTWParams_cmow : bits 1;
-  S1TTWParams_pnch : bits 1;
-  S1TTWParams_disch : bits 1;
-  S1TTWParams_haft : bits 1;
-  S1TTWParams_mtx : bits 1;
-  S1TTWParams_skl : bits 2;
-  S1TTWParams_pie : bits 1;
-  S1TTWParams_pir : S1PIRType;
-  S1TTWParams_pire0 : S1PIRType;
-  S1TTWParams_emec : bits 1;
-  S1TTWParams_amec : bits 1;
-  S1TTWParams_t0sz : bits 3;
-  S1TTWParams_t1sz : bits 3;
-  S1TTWParams_uwxn : bits 1;
-  S1TTWParams_tgx : TGx;
-  S1TTWParams_irgn : bits 2;
-  S1TTWParams_orgn : bits 2;
-  S1TTWParams_sh : bits 2;
-  S1TTWParams_hpd : bits 1;
-  S1TTWParams_ee : bits 1;
-  S1TTWParams_wxn : bits 1;
-  S1TTWParams_ntlsmd : bits 1;
-  S1TTWParams_dc : bits 1;
-  S1TTWParams_sif : bits 1;
-  S1TTWParams_mair : MAIRType;
-}.
-Arguments S1TTWParams : clear implicits.
-#[export]
-Instance Decidable_eq_S1TTWParams : EqDecision S1TTWParams.
-   intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39].
-   intros [y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 y15 y16 y17 y18 y19 y20 y21 y22 y23 y24 y25 y26 y27 y28 y29 y30 y31 y32 y33 y34 y35 y36 y37 y38 y39].
-  cmp_record_field x0 y0.
-  cmp_record_field x1 y1.
-  cmp_record_field x2 y2.
-  cmp_record_field x3 y3.
-  cmp_record_field x4 y4.
-  cmp_record_field x5 y5.
-  cmp_record_field x6 y6.
-  cmp_record_field x7 y7.
-  cmp_record_field x8 y8.
-  cmp_record_field x9 y9.
-  cmp_record_field x10 y10.
-  cmp_record_field x11 y11.
-  cmp_record_field x12 y12.
-  cmp_record_field x13 y13.
-  cmp_record_field x14 y14.
-  cmp_record_field x15 y15.
-  cmp_record_field x16 y16.
-  cmp_record_field x17 y17.
-  cmp_record_field x18 y18.
-  cmp_record_field x19 y19.
-  cmp_record_field x20 y20.
-  cmp_record_field x21 y21.
-  cmp_record_field x22 y22.
-  cmp_record_field x23 y23.
-  cmp_record_field x24 y24.
-  cmp_record_field x25 y25.
-  cmp_record_field x26 y26.
-  cmp_record_field x27 y27.
-  cmp_record_field x28 y28.
-  cmp_record_field x29 y29.
-  cmp_record_field x30 y30.
-  cmp_record_field x31 y31.
-  cmp_record_field x32 y32.
-  cmp_record_field x33 y33.
-  cmp_record_field x34 y34.
-  cmp_record_field x35 y35.
-  cmp_record_field x36 y36.
-  cmp_record_field x37 y37.
-  cmp_record_field x38 y38.
-  cmp_record_field x39 y39.
-left; subst; reflexivity.
-Defined.
-#[export]
-Instance Countable_S1TTWParams : Countable S1TTWParams.
-refine {|
-  encode x := encode (S1TTWParams_ha x, S1TTWParams_hd x, S1TTWParams_tbi x, S1TTWParams_tbid x, S1TTWParams_nfd x, S1TTWParams_e0pd x, S1TTWParams_d128 x, S1TTWParams_aie x, S1TTWParams_mair2 x, S1TTWParams_ds x, S1TTWParams_ps x, S1TTWParams_txsz x, S1TTWParams_epan x, S1TTWParams_dct x, S1TTWParams_nv1 x, S1TTWParams_cmow x, S1TTWParams_pnch x, S1TTWParams_disch x, S1TTWParams_haft x, S1TTWParams_mtx x, S1TTWParams_skl x, S1TTWParams_pie x, S1TTWParams_pir x, S1TTWParams_pire0 x, S1TTWParams_emec x, S1TTWParams_amec x, S1TTWParams_t0sz x, S1TTWParams_t1sz x, S1TTWParams_uwxn x, S1TTWParams_tgx x, S1TTWParams_irgn x, S1TTWParams_orgn x, S1TTWParams_sh x, S1TTWParams_hpd x, S1TTWParams_ee x, S1TTWParams_wxn x, S1TTWParams_ntlsmd x, S1TTWParams_dc x, S1TTWParams_sif x, S1TTWParams_mair x);
-  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35, x36, x37, x38, x39) ← decode x;
-              mret (Build_S1TTWParams x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39)
-|}.
-abstract (
-  intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39];
-  rewrite decode_encode;
-  reflexivity).
-Defined.
-
-#[export] Instance eta_S1TTWParams : Settable _ := settable! Build_S1TTWParams <S1TTWParams_ha; S1TTWParams_hd; S1TTWParams_tbi; S1TTWParams_tbid; S1TTWParams_nfd; S1TTWParams_e0pd; S1TTWParams_d128; S1TTWParams_aie; S1TTWParams_mair2; S1TTWParams_ds; S1TTWParams_ps; S1TTWParams_txsz; S1TTWParams_epan; S1TTWParams_dct; S1TTWParams_nv1; S1TTWParams_cmow; S1TTWParams_pnch; S1TTWParams_disch; S1TTWParams_haft; S1TTWParams_mtx; S1TTWParams_skl; S1TTWParams_pie; S1TTWParams_pir; S1TTWParams_pire0; S1TTWParams_emec; S1TTWParams_amec; S1TTWParams_t0sz; S1TTWParams_t1sz; S1TTWParams_uwxn; S1TTWParams_tgx; S1TTWParams_irgn; S1TTWParams_orgn; S1TTWParams_sh; S1TTWParams_hpd; S1TTWParams_ee; S1TTWParams_wxn; S1TTWParams_ntlsmd; S1TTWParams_dc; S1TTWParams_sif; S1TTWParams_mair>.
-#[export]
-Instance dummy_S1TTWParams : Inhabited (S1TTWParams) := {
-  inhabitant := {|
-    S1TTWParams_ha := inhabitant;
-    S1TTWParams_hd := inhabitant;
-    S1TTWParams_tbi := inhabitant;
-    S1TTWParams_tbid := inhabitant;
-    S1TTWParams_nfd := inhabitant;
-    S1TTWParams_e0pd := inhabitant;
-    S1TTWParams_d128 := inhabitant;
-    S1TTWParams_aie := inhabitant;
-    S1TTWParams_mair2 := inhabitant;
-    S1TTWParams_ds := inhabitant;
-    S1TTWParams_ps := inhabitant;
-    S1TTWParams_txsz := inhabitant;
-    S1TTWParams_epan := inhabitant;
-    S1TTWParams_dct := inhabitant;
-    S1TTWParams_nv1 := inhabitant;
-    S1TTWParams_cmow := inhabitant;
-    S1TTWParams_pnch := inhabitant;
-    S1TTWParams_disch := inhabitant;
-    S1TTWParams_haft := inhabitant;
-    S1TTWParams_mtx := inhabitant;
-    S1TTWParams_skl := inhabitant;
-    S1TTWParams_pie := inhabitant;
-    S1TTWParams_pir := inhabitant;
-    S1TTWParams_pire0 := inhabitant;
-    S1TTWParams_emec := inhabitant;
-    S1TTWParams_amec := inhabitant;
-    S1TTWParams_t0sz := inhabitant;
-    S1TTWParams_t1sz := inhabitant;
-    S1TTWParams_uwxn := inhabitant;
-    S1TTWParams_tgx := inhabitant;
-    S1TTWParams_irgn := inhabitant;
-    S1TTWParams_orgn := inhabitant;
-    S1TTWParams_sh := inhabitant;
-    S1TTWParams_hpd := inhabitant;
-    S1TTWParams_ee := inhabitant;
-    S1TTWParams_wxn := inhabitant;
-    S1TTWParams_ntlsmd := inhabitant;
-    S1TTWParams_dc := inhabitant;
-    S1TTWParams_sif := inhabitant;
-    S1TTWParams_mair := inhabitant
-|} }.
-
-
-Record S2TTWParams := {
-  S2TTWParams_ha : bits 1;
-  S2TTWParams_hd : bits 1;
-  S2TTWParams_sl2 : bits 1;
-  S2TTWParams_ds : bits 1;
-  S2TTWParams_d128 : bits 1;
-  S2TTWParams_sw : bits 1;
-  S2TTWParams_nsw : bits 1;
-  S2TTWParams_sa : bits 1;
-  S2TTWParams_nsa : bits 1;
-  S2TTWParams_ps : bits 3;
-  S2TTWParams_txsz : bits 6;
-  S2TTWParams_fwb : bits 1;
-  S2TTWParams_cmow : bits 1;
-  S2TTWParams_skl : bits 2;
-  S2TTWParams_s2pie : bits 1;
-  S2TTWParams_s2pir : S2PIRType;
-  S2TTWParams_tl0 : bits 1;
-  S2TTWParams_tl1 : bits 1;
-  S2TTWParams_assuredonly : bits 1;
-  S2TTWParams_haft : bits 1;
-  S2TTWParams_emec : bits 1;
-  S2TTWParams_s : bits 1;
-  S2TTWParams_t0sz : bits 4;
-  S2TTWParams_tgx : TGx;
-  S2TTWParams_sl0 : bits 2;
-  S2TTWParams_irgn : bits 2;
-  S2TTWParams_orgn : bits 2;
-  S2TTWParams_sh : bits 2;
-  S2TTWParams_ee : bits 1;
-  S2TTWParams_ptw : bits 1;
-  S2TTWParams_vm : bits 1;
-}.
-Arguments S2TTWParams : clear implicits.
-#[export]
-Instance Decidable_eq_S2TTWParams : EqDecision S2TTWParams.
-   intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30].
-   intros [y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 y15 y16 y17 y18 y19 y20 y21 y22 y23 y24 y25 y26 y27 y28 y29 y30].
-  cmp_record_field x0 y0.
-  cmp_record_field x1 y1.
-  cmp_record_field x2 y2.
-  cmp_record_field x3 y3.
-  cmp_record_field x4 y4.
-  cmp_record_field x5 y5.
-  cmp_record_field x6 y6.
-  cmp_record_field x7 y7.
-  cmp_record_field x8 y8.
-  cmp_record_field x9 y9.
-  cmp_record_field x10 y10.
-  cmp_record_field x11 y11.
-  cmp_record_field x12 y12.
-  cmp_record_field x13 y13.
-  cmp_record_field x14 y14.
-  cmp_record_field x15 y15.
-  cmp_record_field x16 y16.
-  cmp_record_field x17 y17.
-  cmp_record_field x18 y18.
-  cmp_record_field x19 y19.
-  cmp_record_field x20 y20.
-  cmp_record_field x21 y21.
-  cmp_record_field x22 y22.
-  cmp_record_field x23 y23.
-  cmp_record_field x24 y24.
-  cmp_record_field x25 y25.
-  cmp_record_field x26 y26.
-  cmp_record_field x27 y27.
-  cmp_record_field x28 y28.
-  cmp_record_field x29 y29.
-  cmp_record_field x30 y30.
-left; subst; reflexivity.
-Defined.
-#[export]
-Instance Countable_S2TTWParams : Countable S2TTWParams.
-refine {|
-  encode x := encode (S2TTWParams_ha x, S2TTWParams_hd x, S2TTWParams_sl2 x, S2TTWParams_ds x, S2TTWParams_d128 x, S2TTWParams_sw x, S2TTWParams_nsw x, S2TTWParams_sa x, S2TTWParams_nsa x, S2TTWParams_ps x, S2TTWParams_txsz x, S2TTWParams_fwb x, S2TTWParams_cmow x, S2TTWParams_skl x, S2TTWParams_s2pie x, S2TTWParams_s2pir x, S2TTWParams_tl0 x, S2TTWParams_tl1 x, S2TTWParams_assuredonly x, S2TTWParams_haft x, S2TTWParams_emec x, S2TTWParams_s x, S2TTWParams_t0sz x, S2TTWParams_tgx x, S2TTWParams_sl0 x, S2TTWParams_irgn x, S2TTWParams_orgn x, S2TTWParams_sh x, S2TTWParams_ee x, S2TTWParams_ptw x, S2TTWParams_vm x);
-  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30) ← decode x;
-              mret (Build_S2TTWParams x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30)
-|}.
-abstract (
-  intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30];
-  rewrite decode_encode;
-  reflexivity).
-Defined.
-
-#[export] Instance eta_S2TTWParams : Settable _ := settable! Build_S2TTWParams <S2TTWParams_ha; S2TTWParams_hd; S2TTWParams_sl2; S2TTWParams_ds; S2TTWParams_d128; S2TTWParams_sw; S2TTWParams_nsw; S2TTWParams_sa; S2TTWParams_nsa; S2TTWParams_ps; S2TTWParams_txsz; S2TTWParams_fwb; S2TTWParams_cmow; S2TTWParams_skl; S2TTWParams_s2pie; S2TTWParams_s2pir; S2TTWParams_tl0; S2TTWParams_tl1; S2TTWParams_assuredonly; S2TTWParams_haft; S2TTWParams_emec; S2TTWParams_s; S2TTWParams_t0sz; S2TTWParams_tgx; S2TTWParams_sl0; S2TTWParams_irgn; S2TTWParams_orgn; S2TTWParams_sh; S2TTWParams_ee; S2TTWParams_ptw; S2TTWParams_vm>.
-#[export]
-Instance dummy_S2TTWParams : Inhabited (S2TTWParams) := {
-  inhabitant := {|
-    S2TTWParams_ha := inhabitant;
-    S2TTWParams_hd := inhabitant;
-    S2TTWParams_sl2 := inhabitant;
-    S2TTWParams_ds := inhabitant;
-    S2TTWParams_d128 := inhabitant;
-    S2TTWParams_sw := inhabitant;
-    S2TTWParams_nsw := inhabitant;
-    S2TTWParams_sa := inhabitant;
-    S2TTWParams_nsa := inhabitant;
-    S2TTWParams_ps := inhabitant;
-    S2TTWParams_txsz := inhabitant;
-    S2TTWParams_fwb := inhabitant;
-    S2TTWParams_cmow := inhabitant;
-    S2TTWParams_skl := inhabitant;
-    S2TTWParams_s2pie := inhabitant;
-    S2TTWParams_s2pir := inhabitant;
-    S2TTWParams_tl0 := inhabitant;
-    S2TTWParams_tl1 := inhabitant;
-    S2TTWParams_assuredonly := inhabitant;
-    S2TTWParams_haft := inhabitant;
-    S2TTWParams_emec := inhabitant;
-    S2TTWParams_s := inhabitant;
-    S2TTWParams_t0sz := inhabitant;
-    S2TTWParams_tgx := inhabitant;
-    S2TTWParams_sl0 := inhabitant;
-    S2TTWParams_irgn := inhabitant;
-    S2TTWParams_orgn := inhabitant;
-    S2TTWParams_sh := inhabitant;
-    S2TTWParams_ee := inhabitant;
-    S2TTWParams_ptw := inhabitant;
-    S2TTWParams_vm := inhabitant
-|} }.
 
 
 Record TLBContext := {
@@ -2492,62 +2030,6 @@ Instance dummy_AddressDescriptor : Inhabited (AddressDescriptor) := {
 |} }.
 
 
-Record TranslationInfo := {
-  TranslationInfo_regime : Regime;
-  TranslationInfo_vmid : option (bits 16);
-  TranslationInfo_asid : option (bits 16);
-  TranslationInfo_va : bits 64;
-  TranslationInfo_s1level : option Z;
-  TranslationInfo_s2info : option ((bits 64 * Z));
-  TranslationInfo_s1params : option S1TTWParams;
-  TranslationInfo_s2params : option S2TTWParams;
-  TranslationInfo_memattrs : MemoryAttributes;
-}.
-Arguments TranslationInfo : clear implicits.
-#[export]
-Instance Decidable_eq_TranslationInfo : EqDecision TranslationInfo.
-   intros [x0 x1 x2 x3 x4 x5 x6 x7 x8].
-   intros [y0 y1 y2 y3 y4 y5 y6 y7 y8].
-  cmp_record_field x0 y0.
-  cmp_record_field x1 y1.
-  cmp_record_field x2 y2.
-  cmp_record_field x3 y3.
-  cmp_record_field x4 y4.
-  cmp_record_field x5 y5.
-  cmp_record_field x6 y6.
-  cmp_record_field x7 y7.
-  cmp_record_field x8 y8.
-left; subst; reflexivity.
-Defined.
-#[export]
-Instance Countable_TranslationInfo : Countable TranslationInfo.
-refine {|
-  encode x := encode (TranslationInfo_regime x, TranslationInfo_vmid x, TranslationInfo_asid x, TranslationInfo_va x, TranslationInfo_s1level x, TranslationInfo_s2info x, TranslationInfo_s1params x, TranslationInfo_s2params x, TranslationInfo_memattrs x);
-  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7, x8) ← decode x;
-              mret (Build_TranslationInfo x0 x1 x2 x3 x4 x5 x6 x7 x8)
-|}.
-abstract (
-  intros [x0 x1 x2 x3 x4 x5 x6 x7 x8];
-  rewrite decode_encode;
-  reflexivity).
-Defined.
-
-#[export] Instance eta_TranslationInfo : Settable _ := settable! Build_TranslationInfo <TranslationInfo_regime; TranslationInfo_vmid; TranslationInfo_asid; TranslationInfo_va; TranslationInfo_s1level; TranslationInfo_s2info; TranslationInfo_s1params; TranslationInfo_s2params; TranslationInfo_memattrs>.
-#[export]
-Instance dummy_TranslationInfo : Inhabited (TranslationInfo) := {
-  inhabitant := {|
-    TranslationInfo_regime := inhabitant;
-    TranslationInfo_vmid := inhabitant;
-    TranslationInfo_asid := inhabitant;
-    TranslationInfo_va := inhabitant;
-    TranslationInfo_s1level := inhabitant;
-    TranslationInfo_s2info := inhabitant;
-    TranslationInfo_s1params := inhabitant;
-    TranslationInfo_s2params := inhabitant;
-    TranslationInfo_memattrs := inhabitant
-|} }.
-
-
 Record TranslationStartInfo := {
   TranslationStartInfo_ss : SecurityState;
   TranslationStartInfo_regime : Regime;
@@ -2606,8 +2088,8 @@ Definition num_of_TLBILevel (arg_ : TLBILevel) : Z :=
    match arg_ with | TLBILevel_Any => 0 | TLBILevel_Last => 1 end.
 
 Definition TLBILevel_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : TLBILevel :=
-   let l__28 := arg_ in
-   if Z.eqb l__28 0 then TLBILevel_Any
+   let l__24 := arg_ in
+   if Z.eqb (l__24) (0) then TLBILevel_Any
    else TLBILevel_Last.
 
 Lemma TLBILevel_num_of_roundtrip (x : TLBILevel) : TLBILevel_of_num (num_of_TLBILevel x) = x.
@@ -2708,30 +2190,30 @@ Definition num_of_TLBIOp (arg_ : TLBIOp) : Z :=
    end.
 
 Definition TLBIOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 23)*) : TLBIOp :=
-   let l__5 := arg_ in
-   if Z.eqb l__5 0 then TLBIOp_DALL
-   else if Z.eqb l__5 1 then TLBIOp_DASID
-   else if Z.eqb l__5 2 then TLBIOp_DVA
-   else if Z.eqb l__5 3 then TLBIOp_IALL
-   else if Z.eqb l__5 4 then TLBIOp_IASID
-   else if Z.eqb l__5 5 then TLBIOp_IVA
-   else if Z.eqb l__5 6 then TLBIOp_ALL
-   else if Z.eqb l__5 7 then TLBIOp_ASID
-   else if Z.eqb l__5 8 then TLBIOp_IPAS2
-   else if Z.eqb l__5 9 then TLBIPOp_IPAS2
-   else if Z.eqb l__5 10 then TLBIOp_VAA
-   else if Z.eqb l__5 11 then TLBIOp_VA
-   else if Z.eqb l__5 12 then TLBIPOp_VAA
-   else if Z.eqb l__5 13 then TLBIPOp_VA
-   else if Z.eqb l__5 14 then TLBIOp_VMALL
-   else if Z.eqb l__5 15 then TLBIOp_VMALLS12
-   else if Z.eqb l__5 16 then TLBIOp_RIPAS2
-   else if Z.eqb l__5 17 then TLBIPOp_RIPAS2
-   else if Z.eqb l__5 18 then TLBIOp_RVAA
-   else if Z.eqb l__5 19 then TLBIOp_RVA
-   else if Z.eqb l__5 20 then TLBIPOp_RVAA
-   else if Z.eqb l__5 21 then TLBIPOp_RVA
-   else if Z.eqb l__5 22 then TLBIOp_RPA
+   let l__1 := arg_ in
+   if Z.eqb (l__1) (0) then TLBIOp_DALL
+   else if Z.eqb (l__1) (1) then TLBIOp_DASID
+   else if Z.eqb (l__1) (2) then TLBIOp_DVA
+   else if Z.eqb (l__1) (3) then TLBIOp_IALL
+   else if Z.eqb (l__1) (4) then TLBIOp_IASID
+   else if Z.eqb (l__1) (5) then TLBIOp_IVA
+   else if Z.eqb (l__1) (6) then TLBIOp_ALL
+   else if Z.eqb (l__1) (7) then TLBIOp_ASID
+   else if Z.eqb (l__1) (8) then TLBIOp_IPAS2
+   else if Z.eqb (l__1) (9) then TLBIPOp_IPAS2
+   else if Z.eqb (l__1) (10) then TLBIOp_VAA
+   else if Z.eqb (l__1) (11) then TLBIOp_VA
+   else if Z.eqb (l__1) (12) then TLBIPOp_VAA
+   else if Z.eqb (l__1) (13) then TLBIPOp_VA
+   else if Z.eqb (l__1) (14) then TLBIOp_VMALL
+   else if Z.eqb (l__1) (15) then TLBIOp_VMALLS12
+   else if Z.eqb (l__1) (16) then TLBIOp_RIPAS2
+   else if Z.eqb (l__1) (17) then TLBIPOp_RIPAS2
+   else if Z.eqb (l__1) (18) then TLBIOp_RVAA
+   else if Z.eqb (l__1) (19) then TLBIOp_RVA
+   else if Z.eqb (l__1) (20) then TLBIPOp_RVAA
+   else if Z.eqb (l__1) (21) then TLBIPOp_RVA
+   else if Z.eqb (l__1) (22) then TLBIOp_RPA
    else TLBIOp_PAALL.
 
 Lemma TLBIOp_num_of_roundtrip (x : TLBIOp) : TLBIOp_of_num (num_of_TLBIOp x) = x.
@@ -2783,8 +2265,8 @@ Definition num_of_TLBIMemAttr (arg_ : TLBIMemAttr) : Z :=
    match arg_ with | TLBI_AllAttr => 0 | TLBI_ExcludeXS => 1 end.
 
 Definition TLBIMemAttr_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : TLBIMemAttr :=
-   let l__4 := arg_ in
-   if Z.eqb l__4 0 then TLBI_AllAttr
+   let l__0 := arg_ in
+   if Z.eqb (l__0) (0) then TLBI_AllAttr
    else TLBI_ExcludeXS.
 
 Lemma TLBIMemAttr_num_of_roundtrip (x : TLBIMemAttr) : TLBIMemAttr_of_num (num_of_TLBIMemAttr x) = x.
@@ -2938,7 +2420,167 @@ Instance dummy_TLBIInfo : Inhabited (TLBIInfo) := {
 |} }.
 
 
+Record DxB := {
+  DxB_domain : MBReqDomain;
+  DxB_types : MBReqTypes;
+  DxB_nXS : bool;
+}.
+Arguments DxB : clear implicits.
+#[export]
+Instance Decidable_eq_DxB : EqDecision DxB.
+   intros [x0 x1 x2].
+   intros [y0 y1 y2].
+  cmp_record_field x0 y0.
+  cmp_record_field x1 y1.
+  cmp_record_field x2 y2.
+left; subst; reflexivity.
+Defined.
+#[export]
+Instance Countable_DxB : Countable DxB.
+refine {|
+  encode x := encode (DxB_domain x, DxB_types x, DxB_nXS x);
+  decode x := '(x0, x1, x2) ← decode x;
+              mret (Build_DxB x0 x1 x2)
+|}.
+abstract (
+  intros [x0 x1 x2];
+  rewrite decode_encode;
+  reflexivity).
+Defined.
+
+#[export] Instance eta_DxB : Settable _ := settable! Build_DxB <DxB_domain; DxB_types; DxB_nXS>.
+#[export]
+Instance dummy_DxB : Inhabited (DxB) := {
+  inhabitant := {| DxB_domain := inhabitant; DxB_types := inhabitant; DxB_nXS := inhabitant
+|} }.
+
+
+Inductive Barrier :=
+| Barrier_DSB : DxB -> Barrier
+| Barrier_DMB : DxB -> Barrier
+| Barrier_ISB : unit -> Barrier
+| Barrier_SSBB : unit -> Barrier
+| Barrier_PSSBB : unit -> Barrier
+| Barrier_SB : unit -> Barrier.
+Arguments Barrier : clear implicits.
+
+Definition sail_Barrier_encode (x : Barrier) := match x with
+  | Barrier_DSB x' => encode (0, encode x')
+  | Barrier_DMB x' => encode (1, encode x')
+  | Barrier_ISB x' => encode (2, encode x')
+  | Barrier_SSBB x' => encode (3, encode x')
+  | Barrier_PSSBB x' => encode (4, encode x')
+  | Barrier_SB x' => encode (5, encode x') end.
+Definition sail_Barrier_decode x : option Barrier := match decode x with
+  | Some (0, x') => Barrier_DSB <$> decode x'
+  | Some (1, x') => Barrier_DMB <$> decode x'
+  | Some (2, x') => Barrier_ISB <$> decode x'
+  | Some (3, x') => Barrier_SSBB <$> decode x'
+  | Some (4, x') => Barrier_PSSBB <$> decode x'
+  | Some (5, x') => Barrier_SB <$> decode x'
+  | _ => None end.
+Lemma sail_Barrier_decode_encode : forall (x : Barrier), sail_Barrier_decode (sail_Barrier_encode x)
+   = Some x.
+Proof.
+  unfold sail_Barrier_decode, sail_Barrier_encode;
+  intros [x|x|x|x|x|x]; rewrite !decode_encode; reflexivity.
+Qed.
+
+#[export]
+Instance Decidable_eq_Barrier : EqDecision Barrier := decode_encode_eq_dec sail_Barrier_encode
+  sail_Barrier_decode sail_Barrier_decode_encode .
+
+#[export]
+Instance Countable_Barrier : Countable Barrier := {|
+  encode := sail_Barrier_encode;
+  decode := sail_Barrier_decode;
+  decode_encode := sail_Barrier_decode_encode
+|}.
+#[export]
+Instance dummy_Barrier : Inhabited (Barrier) := { inhabitant := Barrier_DSB inhabitant }.
+
+Definition reg_index : Type := Z.
+
+Inductive ast :=
+| LoadRegister : (reg_index * reg_index * reg_index) -> ast
+| StoreRegister : (reg_index * reg_index * reg_index) -> ast
+| ExclusiveOr : (reg_index * reg_index * reg_index) -> ast
+| DataMemoryBarrier : MBReqTypes -> ast
+| CompareAndBranch : (reg_index * bits 64) -> ast.
+Arguments ast : clear implicits.
+
+Definition sail_ast_encode (x : ast) := match x with
+  | LoadRegister x' => encode (0, encode x')
+  | StoreRegister x' => encode (1, encode x')
+  | ExclusiveOr x' => encode (2, encode x')
+  | DataMemoryBarrier x' => encode (3, encode x')
+  | CompareAndBranch x' => encode (4, encode x') end.
+Definition sail_ast_decode x : option ast := match decode x with
+  | Some (0, x') => LoadRegister <$> decode x'
+  | Some (1, x') => StoreRegister <$> decode x'
+  | Some (2, x') => ExclusiveOr <$> decode x'
+  | Some (3, x') => DataMemoryBarrier <$> decode x'
+  | Some (4, x') => CompareAndBranch <$> decode x'
+  | _ => None end.
+Lemma sail_ast_decode_encode : forall (x : ast), sail_ast_decode (sail_ast_encode x)  = Some x.
+Proof.
+  unfold sail_ast_decode, sail_ast_encode;
+  intros [x|x|x|x|x]; rewrite !decode_encode; reflexivity.
+Qed.
+
+#[export]
+Instance Decidable_eq_ast : EqDecision ast := decode_encode_eq_dec sail_ast_encode sail_ast_decode
+  sail_ast_decode_encode .
+
+#[export]
+Instance Countable_ast : Countable ast := {|
+  encode := sail_ast_encode;
+  decode := sail_ast_decode;
+  decode_encode := sail_ast_decode_encode
+|}.
+#[export]
+Instance dummy_ast : Inhabited (ast) := { inhabitant := LoadRegister inhabitant }.
+
 Definition abort : Type := unit.
+
+Definition addr_size : Z := 64.
+#[export] Hint Unfold addr_size : sail.
+
+Definition addr_space : Type := unit.
+
+Definition mem_acc_is_atomic_rmw (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_atomicop)).
+
+Definition mem_acc_is_exclusive (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_exclusive)).
+
+Definition mem_acc_is_explicit (acc : AccessDescriptor) : bool :=
+   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR).
+
+Definition mem_acc_is_ifetch (acc : AccessDescriptor) : bool :=
+   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_IFETCH).
+
+Definition mem_acc_is_rel_acq_rcpc (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_acqpc)).
+
+Definition mem_acc_is_rel_acq_rcsc (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     ((orb (acc.(AccessDescriptor_acqsc)) (acc.(AccessDescriptor_relsc)))).
+
+Definition mem_acc_is_relaxed (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     ((andb ((negb (acc.(AccessDescriptor_acqpc))))
+         ((andb ((negb (acc.(AccessDescriptor_acqsc)))) ((negb (acc.(AccessDescriptor_relsc)))))))).
+
+Definition mem_acc_is_standalone (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     ((andb ((negb (acc.(AccessDescriptor_exclusive)))) ((negb (acc.(AccessDescriptor_atomicop)))))).
+
+Definition mem_acc_is_ttw (acc : AccessDescriptor) : bool :=
+   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_TTW).
 
 
 
@@ -3409,28 +3051,45 @@ Module Arch <: Arch.
   Definition regval_cnt := @Countable_register_values.
   Definition regval_transport A B := @register_transport A B (fun x => x).
   Definition regval_transport_sound A := @register_transport_sound A (fun x => x).
-  Definition va_size := 64%N.
-  Definition pa : Type := mword 64.
-  Definition pa_eq : EqDecision pa := _.
-  Definition pa_countable : Countable pa := _.
-  Definition arch_ak : Type := arm_acc_type.
-  Definition arch_ak_eq : EqDecision arch_ak := _.
-  Definition translation : Type := unit.
-  Definition translation_eq : EqDecision translation := _.
-  Definition trans_start := unit.
+  Definition addr_size : N := Z.to_N (addr_size).
+  Definition addr_space : Type := addr_space.
+  Definition addr_space_eq : EqDecision addr_space := _.
+  Definition addr_space_countable : Countable addr_space := _.
+  Definition mem_acc : Type := AccessDescriptor.
+  Definition mem_acc_eq : EqDecision mem_acc := _.
+  Definition mem_acc_countable : Countable mem_acc := _.
+  Definition CHERI : bool := (false).
+  Definition cap_size_log : N := 0.
+  Definition mem_acc_is_explicit := mem_acc_is_explicit.
+  Definition mem_acc_is_ifetch := mem_acc_is_ifetch.
+  Definition mem_acc_is_ttw := mem_acc_is_ttw.
+  Definition mem_acc_is_relaxed := mem_acc_is_relaxed.
+  Definition mem_acc_is_rel_acq_rcpc := mem_acc_is_rel_acq_rcpc.
+  Definition mem_acc_is_rel_acq_rcsc := mem_acc_is_rel_acq_rcsc.
+  Definition mem_acc_is_standalone := mem_acc_is_standalone.
+  Definition mem_acc_is_exclusive := mem_acc_is_exclusive.
+  Definition mem_acc_is_atomic_rmw := mem_acc_is_atomic_rmw.
+  Definition trans_start : Type := unit.
   Definition trans_start_eq : EqDecision trans_start := _.
-  Definition trans_end := unit.
+  Definition trans_start_countable : Countable trans_start := _.
+  Definition trans_end : Type := unit.
   Definition trans_end_eq : EqDecision trans_end := _.
-  Definition abort : Type := unit.
+  Definition trans_end_countable : Countable trans_end := _.
+  Definition abort : Type := abort.
   Definition abort_eq : EqDecision abort := _.
+  Definition abort_countable : Countable abort := _.
   Definition barrier : Type := Barrier.
   Definition barrier_eq : EqDecision barrier := _.
+  Definition barrier_countable : Countable barrier := _.
   Definition cache_op : Type := unit.
   Definition cache_op_eq : EqDecision cache_op := _.
-  Definition tlb_op : Type := unit.
-  Definition tlb_op_eq : EqDecision tlb_op := _.
-  Definition fault : Type := unit.
-  Definition fault_eq : EqDecision fault := _.
+  Definition cache_op_countable : Countable cache_op := _.
+  Definition tlbi : Type := unit.
+  Definition tlbi_eq : EqDecision tlbi := _.
+  Definition tlbi_countable : Countable tlbi := _.
+  Definition exn : Type := unit.
+  Definition exn_eq : EqDecision exn := _.
+  Definition exn_countable : Countable exn := _.
   Definition sys_reg_id : Type := unit.
   Definition sys_reg_id_eq : EqDecision sys_reg_id := _.
   Definition sys_reg_id_countable : Countable sys_reg_id := _.

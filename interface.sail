@@ -169,10 +169,10 @@ function wMem(addr, value) = {
 instantiation sail_barrier with
   'barrier = Barrier
 
-function dataMemoryBarrier() = sail_barrier(
+function dataMemoryBarrier(types) = sail_barrier(
   Barrier_DMB(struct{
     domain = MBReqDomain_FullSystem,
-    types = MBReqTypes_All,
+    types = types,
     nXS = false}))
 
 $ifdef SYSTEM_TINY_ARM
