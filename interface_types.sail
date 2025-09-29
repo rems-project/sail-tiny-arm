@@ -395,3 +395,58 @@ union Barrier = {
   Barrier_PSSBB : unit,
   Barrier_SB : unit
 }
+
+$ifdef SYSTEM_TINY_ARM
+enum DescriptorType = {
+  DescriptorType_Table,
+  DescriptorType_Leaf,
+  DescriptorType_Invalid
+}
+
+enum SDFType = {
+  SDFType_Table,
+  SDFType_Invalid,
+  SDFType_Supersection,
+  SDFType_Section,
+  SDFType_LargePage,
+  SDFType_SmallPage
+}
+
+struct Permissions = {
+  ap_table : bits(2),
+  xn_table : bits(1),
+  pxn_table : bits(1),
+  uxn_table : bits(1),
+  ap : bits(3),
+  xn : bits(1),
+  uxn : bits(1),
+  pxn : bits(1),
+  ppi : bits(4),
+  upi : bits(4),
+  ndirty : bits(1),
+  s2pi : bits(4),
+  s2dirty : bits(1),
+  po_index : bits(4),
+  s2po_index : bits(4),
+  s2ap : bits(2),
+  s2tag_na : bits(1),
+  s2xnx : bits(1),
+  s2xn : bits(1)
+}
+
+struct TTWState = {
+  istable : bool,
+  level : int,
+  baseaddress : FullAddress,
+  contiguous : bits(1),
+  s1assured : bool,
+  s2assuredonly : bits(1),
+  disch : bits(1),
+  nG : bits(1),
+  guardedpage : bits(1),
+  sdftype : SDFType,
+  domain : bits(4),
+  memattrs : MemoryAttributes,
+  permissions : Permissions
+}
+$endif
