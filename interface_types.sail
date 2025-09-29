@@ -449,4 +449,61 @@ struct TTWState = {
   memattrs : MemoryAttributes,
   permissions : Permissions
 }
+
+enum Exception = {
+  Exception_Uncategorized,
+  Exception_WFxTrap,
+  Exception_CP15RTTrap,
+  Exception_CP15RRTTrap,
+  Exception_CP14RTTrap,
+  Exception_CP14DTTrap,
+  Exception_CP14RRTTrap,
+  Exception_AdvSIMDFPAccessTrap,
+  Exception_FPIDTrap,
+  Exception_LDST64BTrap,
+  Exception_PACTrap,
+  Exception_IllegalState,
+  Exception_SupervisorCall,
+  Exception_HypervisorCall,
+  Exception_MonitorCall,
+  Exception_SystemRegisterTrap,
+  Exception_ERetTrap,
+  Exception_InstructionAbort,
+  Exception_PCAlignment,
+  Exception_DataAbort,
+  Exception_NV2DataAbort,
+  Exception_PACFail,
+  Exception_SPAlignment,
+  Exception_FPTrappedException,
+  Exception_SError,
+  Exception_Breakpoint,
+  Exception_SoftwareStep,
+  Exception_Watchpoint,
+  Exception_NV2Watchpoint,
+  Exception_SoftwareBreakpoint,
+  Exception_VectorCatch,
+  Exception_IRQ,
+  Exception_SVEAccessTrap,
+  Exception_SMEAccessTrap,
+  Exception_TSTARTAccessTrap,
+  Exception_GPC,
+  Exception_BranchTarget,
+  Exception_MemCpyMemSet,
+  Exception_GCSFail,
+  Exception_SystemRegister128Trap,
+  Exception_FIQ
+}
+
+struct ExceptionRecord = {
+  exceptype : Exception,
+  syndrome : bits(25),
+  syndrome2 : bits(24),
+  paddress : FullAddress,
+  vaddress : bits(64),
+  ipavalid : bool,
+  pavalid : bool,
+  NS : bits(1),
+  ipaddress : bits(56),
+  trappedsyscallinst : bool
+}
 $endif

@@ -171,6 +171,19 @@ function base_TTWState (baseaddress : FullAddress) -> TTWState = struct {
   memattrs = base_MemoryAttributes(),
   permissions = base_Permissions(),
 }
+
+function base_ExceptionSyndrome (typ : Exception, vaddress : bits(64)) -> ExceptionRecord = struct {
+  exceptype = typ,
+  syndrome = sail_zeros(25),
+  syndrome2 = sail_zeros(24),
+  paddress = base_FullAddress(),
+  vaddress = vaddress,
+  ipavalid = false,
+  pavalid = false,
+  NS = 0b0,
+  ipaddress = sail_zeros(56),
+  trappedsyscallinst = false,
+}
 $endif
 
 $ifdef SYSTEM_TINY_ARM
@@ -553,9 +566,44 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> AddressDescripto
   return walkaddress
 }
 
+function abort (addrdesc : AddressDescriptor) -> unit = {
+  let fault : FaultRecord = addrdesc.fault;
+  let vaddress : bits(64) = addrdesc.vaddress;
+  let preferred_exception_return : bits(64) = _PC;
+  let exception =
+    if fault.access.acctype == AccessType_IFETCH then {
+      base_ExceptionSyndrome(Exception_InstructionAbort, vaddress)
+    } else {
+      base_ExceptionSyndrome(Exception_DataAbort, vaddress)
+    };
 
-function abort (fault : FaultRecord) -> unit = {
-  _PC = VBAR_EL1 - 4;
+  let vect_offset : int = 0;
+
+  // Report exception
+  var ec : int = 0;
+  var il : bits(1) = 0b1;
+  match exception.exceptype {
+    Exception_InstructionAbort => {
+      ec = 32;
+      il = 0b1
+    },
+    Exception_DataAbort => {
+      ec = 36
+    },
+    _ => {
+      ec = 0;
+      il = 0b1
+    }
+  };
+  let iss = exception.syndrome;
+  if (ec == 36 | ec == 37) & [iss[24]] == 0b0 then {
+    il = 0b1;
+  };
+  ESR_EL1 = sail_zero_extend((get_slice_int(6, ec, 0) @ il) @ iss, 64);
+  FAR_EL1 = exception.vaddress;
+  ELR_EL1 = preferred_exception_return;
+
+  _PC = slice(VBAR_EL1, 11, 53) @ get_slice_int(11, vect_offset, 0);
   sail_take_exception(Some(fault));
 }
 
@@ -586,7 +634,7 @@ function translate_address(va) = {
   var addrdesc : AddressDescriptor = pgt_walk(va, accdesc);
   if isFault(addrdesc) then {
     PAR_EL1 = sail_zeros(64); // no "undefined"!
-    abort(addrdesc.fault)
+    abort(addrdesc)
   };
 
   // Announce result
