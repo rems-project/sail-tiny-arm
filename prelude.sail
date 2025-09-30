@@ -12,15 +12,14 @@ function eq_bits_int (x, y) = (unsigned(x) == y)
 overload operator == = {eq_any, eq_bits_int}
 
 /* See tiny-arm for descriptions, interface for definitions */
+val iFetch : bits(64) -> bits(32)
 $ifdef SYSTEM_TINY_ARM
 val rMem : bits(56) -> bits(64)
-val iFetch : bits(64) -> bits(32)
 val wMem_Addr : bits(56) -> unit
 val wMem : (bits(56), bits(64)) -> unit
-val translate_address : bits(64) -> bits(56)
+val translate_address : bits(64) -> option(bits(56))
 $else
 val rMem : bits(64) -> bits(64)
-val iFetch : bits(64) -> bits(32)
 val wMem_Addr : bits(64) -> unit
 val wMem : (bits(64), bits(64)) -> unit
 $endif

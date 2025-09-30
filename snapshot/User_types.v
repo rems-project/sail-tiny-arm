@@ -23,10 +23,10 @@ Definition num_of_SecurityState (arg_ : SecurityState) : Z :=
    match arg_ with | SS_NonSecure => 0 | SS_Root => 1 | SS_Realm => 2 | SS_Secure => 3 end.
 
 Definition SecurityState_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : SecurityState :=
-   let l__126 := arg_ in
-   if Z.eqb (l__126) (0) then SS_NonSecure
-   else if Z.eqb (l__126) (1) then SS_Root
-   else if Z.eqb (l__126) (2) then SS_Realm
+   let l__128 := arg_ in
+   if Z.eqb (l__128) (0) then SS_NonSecure
+   else if Z.eqb (l__128) (1) then SS_Root
+   else if Z.eqb (l__128) (2) then SS_Realm
    else SS_Secure.
 
 Lemma SecurityState_num_of_roundtrip (x : SecurityState) : SecurityState_of_num (num_of_SecurityState x) = x.
@@ -87,10 +87,10 @@ Definition num_of_PARTIDspaceType (arg_ : PARTIDspaceType) : Z :=
    end.
 
 Definition PARTIDspaceType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : PARTIDspaceType :=
-   let l__123 := arg_ in
-   if Z.eqb (l__123) (0) then PIdSpace_Secure
-   else if Z.eqb (l__123) (1) then PIdSpace_Root
-   else if Z.eqb (l__123) (2) then PIdSpace_Realm
+   let l__125 := arg_ in
+   if Z.eqb (l__125) (0) then PIdSpace_Secure
+   else if Z.eqb (l__125) (1) then PIdSpace_Root
+   else if Z.eqb (l__125) (2) then PIdSpace_Realm
    else PIdSpace_NonSecure.
 
 Lemma PARTIDspaceType_num_of_roundtrip (x : PARTIDspaceType) : PARTIDspaceType_of_num (num_of_PARTIDspaceType x) = x.
@@ -209,20 +209,20 @@ Definition num_of_AccessType (arg_ : AccessType) : Z :=
    end.
 
 Definition AccessType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 13)*) : AccessType :=
-   let l__110 := arg_ in
-   if Z.eqb (l__110) (0) then AccessType_IFETCH
-   else if Z.eqb (l__110) (1) then AccessType_GPR
-   else if Z.eqb (l__110) (2) then AccessType_ASIMD
-   else if Z.eqb (l__110) (3) then AccessType_SVE
-   else if Z.eqb (l__110) (4) then AccessType_SME
-   else if Z.eqb (l__110) (5) then AccessType_IC
-   else if Z.eqb (l__110) (6) then AccessType_DC
-   else if Z.eqb (l__110) (7) then AccessType_DCZero
-   else if Z.eqb (l__110) (8) then AccessType_AT
-   else if Z.eqb (l__110) (9) then AccessType_NV2
-   else if Z.eqb (l__110) (10) then AccessType_SPE
-   else if Z.eqb (l__110) (11) then AccessType_GCS
-   else if Z.eqb (l__110) (12) then AccessType_GPTW
+   let l__112 := arg_ in
+   if Z.eqb (l__112) (0) then AccessType_IFETCH
+   else if Z.eqb (l__112) (1) then AccessType_GPR
+   else if Z.eqb (l__112) (2) then AccessType_ASIMD
+   else if Z.eqb (l__112) (3) then AccessType_SVE
+   else if Z.eqb (l__112) (4) then AccessType_SME
+   else if Z.eqb (l__112) (5) then AccessType_IC
+   else if Z.eqb (l__112) (6) then AccessType_DC
+   else if Z.eqb (l__112) (7) then AccessType_DCZero
+   else if Z.eqb (l__112) (8) then AccessType_AT
+   else if Z.eqb (l__112) (9) then AccessType_NV2
+   else if Z.eqb (l__112) (10) then AccessType_SPE
+   else if Z.eqb (l__112) (11) then AccessType_GCS
+   else if Z.eqb (l__112) (12) then AccessType_GPTW
    else AccessType_TTW.
 
 Lemma AccessType_num_of_roundtrip (x : AccessType) : AccessType_of_num (num_of_AccessType x) = x.
@@ -274,8 +274,8 @@ Definition num_of_VARange (arg_ : VARange) : Z :=
    match arg_ with | VARange_LOWER => 0 | VARange_UPPER => 1 end.
 
 Definition VARange_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : VARange :=
-   let l__109 := arg_ in
-   if Z.eqb (l__109) (0) then VARange_LOWER
+   let l__111 := arg_ in
+   if Z.eqb (l__111) (0) then VARange_LOWER
    else VARange_UPPER.
 
 Lemma VARange_num_of_roundtrip (x : VARange) : VARange_of_num (num_of_VARange x) = x.
@@ -350,17 +350,17 @@ Definition num_of_MemAtomicOp (arg_ : MemAtomicOp) : Z :=
    end.
 
 Definition MemAtomicOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 10)*) : MemAtomicOp :=
-   let l__99 := arg_ in
-   if Z.eqb (l__99) (0) then MemAtomicOp_GCSSS1
-   else if Z.eqb (l__99) (1) then MemAtomicOp_ADD
-   else if Z.eqb (l__99) (2) then MemAtomicOp_BIC
-   else if Z.eqb (l__99) (3) then MemAtomicOp_EOR
-   else if Z.eqb (l__99) (4) then MemAtomicOp_ORR
-   else if Z.eqb (l__99) (5) then MemAtomicOp_SMAX
-   else if Z.eqb (l__99) (6) then MemAtomicOp_SMIN
-   else if Z.eqb (l__99) (7) then MemAtomicOp_UMAX
-   else if Z.eqb (l__99) (8) then MemAtomicOp_UMIN
-   else if Z.eqb (l__99) (9) then MemAtomicOp_SWP
+   let l__101 := arg_ in
+   if Z.eqb (l__101) (0) then MemAtomicOp_GCSSS1
+   else if Z.eqb (l__101) (1) then MemAtomicOp_ADD
+   else if Z.eqb (l__101) (2) then MemAtomicOp_BIC
+   else if Z.eqb (l__101) (3) then MemAtomicOp_EOR
+   else if Z.eqb (l__101) (4) then MemAtomicOp_ORR
+   else if Z.eqb (l__101) (5) then MemAtomicOp_SMAX
+   else if Z.eqb (l__101) (6) then MemAtomicOp_SMIN
+   else if Z.eqb (l__101) (7) then MemAtomicOp_UMAX
+   else if Z.eqb (l__101) (8) then MemAtomicOp_UMIN
+   else if Z.eqb (l__101) (9) then MemAtomicOp_SWP
    else MemAtomicOp_CAS.
 
 Lemma MemAtomicOp_num_of_roundtrip (x : MemAtomicOp) : MemAtomicOp_of_num (num_of_MemAtomicOp x) = x.
@@ -412,9 +412,9 @@ Definition num_of_CacheOp (arg_ : CacheOp) : Z :=
    match arg_ with | CacheOp_Clean => 0 | CacheOp_Invalidate => 1 | CacheOp_CleanInvalidate => 2 end.
 
 Definition CacheOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : CacheOp :=
-   let l__97 := arg_ in
-   if Z.eqb (l__97) (0) then CacheOp_Clean
-   else if Z.eqb (l__97) (1) then CacheOp_Invalidate
+   let l__99 := arg_ in
+   if Z.eqb (l__99) (0) then CacheOp_Clean
+   else if Z.eqb (l__99) (1) then CacheOp_Invalidate
    else CacheOp_CleanInvalidate.
 
 Lemma CacheOp_num_of_roundtrip (x : CacheOp) : CacheOp_of_num (num_of_CacheOp x) = x.
@@ -485,15 +485,15 @@ Definition num_of_CacheOpScope (arg_ : CacheOpScope) : Z :=
    end.
 
 Definition CacheOpScope_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 8)*) : CacheOpScope :=
-   let l__89 := arg_ in
-   if Z.eqb (l__89) (0) then CacheOpScope_SetWay
-   else if Z.eqb (l__89) (1) then CacheOpScope_PoU
-   else if Z.eqb (l__89) (2) then CacheOpScope_PoC
-   else if Z.eqb (l__89) (3) then CacheOpScope_PoE
-   else if Z.eqb (l__89) (4) then CacheOpScope_PoP
-   else if Z.eqb (l__89) (5) then CacheOpScope_PoDP
-   else if Z.eqb (l__89) (6) then CacheOpScope_PoPA
-   else if Z.eqb (l__89) (7) then CacheOpScope_ALLU
+   let l__91 := arg_ in
+   if Z.eqb (l__91) (0) then CacheOpScope_SetWay
+   else if Z.eqb (l__91) (1) then CacheOpScope_PoU
+   else if Z.eqb (l__91) (2) then CacheOpScope_PoC
+   else if Z.eqb (l__91) (3) then CacheOpScope_PoE
+   else if Z.eqb (l__91) (4) then CacheOpScope_PoP
+   else if Z.eqb (l__91) (5) then CacheOpScope_PoDP
+   else if Z.eqb (l__91) (6) then CacheOpScope_PoPA
+   else if Z.eqb (l__91) (7) then CacheOpScope_ALLU
    else CacheOpScope_ALLUIS.
 
 Lemma CacheOpScope_num_of_roundtrip (x : CacheOpScope) : CacheOpScope_of_num (num_of_CacheOpScope x) = x.
@@ -550,10 +550,10 @@ Definition num_of_CacheType (arg_ : CacheType) : Z :=
    end.
 
 Definition CacheType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : CacheType :=
-   let l__86 := arg_ in
-   if Z.eqb (l__86) (0) then CacheType_Data
-   else if Z.eqb (l__86) (1) then CacheType_Tag
-   else if Z.eqb (l__86) (2) then CacheType_Data_Tag
+   let l__88 := arg_ in
+   if Z.eqb (l__88) (0) then CacheType_Data
+   else if Z.eqb (l__88) (1) then CacheType_Tag
+   else if Z.eqb (l__88) (2) then CacheType_Data_Tag
    else CacheType_Instruction.
 
 Lemma CacheType_num_of_roundtrip (x : CacheType) : CacheType_of_num (num_of_CacheType x) = x.
@@ -620,13 +620,13 @@ Definition num_of_CachePASpace (arg_ : CachePASpace) : Z :=
    end.
 
 Definition CachePASpace_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 6)*) : CachePASpace :=
-   let l__80 := arg_ in
-   if Z.eqb (l__80) (0) then CPAS_NonSecure
-   else if Z.eqb (l__80) (1) then CPAS_Any
-   else if Z.eqb (l__80) (2) then CPAS_RealmNonSecure
-   else if Z.eqb (l__80) (3) then CPAS_Realm
-   else if Z.eqb (l__80) (4) then CPAS_Root
-   else if Z.eqb (l__80) (5) then CPAS_SecureNonSecure
+   let l__82 := arg_ in
+   if Z.eqb (l__82) (0) then CPAS_NonSecure
+   else if Z.eqb (l__82) (1) then CPAS_Any
+   else if Z.eqb (l__82) (2) then CPAS_RealmNonSecure
+   else if Z.eqb (l__82) (3) then CPAS_Realm
+   else if Z.eqb (l__82) (4) then CPAS_Root
+   else if Z.eqb (l__82) (5) then CPAS_SecureNonSecure
    else CPAS_Secure.
 
 Lemma CachePASpace_num_of_roundtrip (x : CachePASpace) : CachePASpace_of_num (num_of_CachePASpace x) = x.
@@ -806,8 +806,8 @@ Definition num_of_MemType (arg_ : MemType) : Z :=
    match arg_ with | MemType_Normal => 0 | MemType_Device => 1 end.
 
 Definition MemType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : MemType :=
-   let l__79 := arg_ in
-   if Z.eqb (l__79) (0) then MemType_Normal
+   let l__81 := arg_ in
+   if Z.eqb (l__81) (0) then MemType_Normal
    else MemType_Device.
 
 Lemma MemType_num_of_roundtrip (x : MemType) : MemType_of_num (num_of_MemType x) = x.
@@ -864,10 +864,10 @@ Definition num_of_DeviceType (arg_ : DeviceType) : Z :=
    end.
 
 Definition DeviceType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : DeviceType :=
-   let l__76 := arg_ in
-   if Z.eqb (l__76) (0) then DeviceType_GRE
-   else if Z.eqb (l__76) (1) then DeviceType_nGRE
-   else if Z.eqb (l__76) (2) then DeviceType_nGnRE
+   let l__78 := arg_ in
+   if Z.eqb (l__78) (0) then DeviceType_GRE
+   else if Z.eqb (l__78) (1) then DeviceType_nGRE
+   else if Z.eqb (l__78) (2) then DeviceType_nGnRE
    else DeviceType_nGnRnE.
 
 Lemma DeviceType_num_of_roundtrip (x : DeviceType) : DeviceType_of_num (num_of_DeviceType x) = x.
@@ -957,9 +957,9 @@ Definition num_of_Shareability (arg_ : Shareability) : Z :=
    match arg_ with | Shareability_NSH => 0 | Shareability_ISH => 1 | Shareability_OSH => 2 end.
 
 Definition Shareability_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : Shareability :=
-   let l__74 := arg_ in
-   if Z.eqb (l__74) (0) then Shareability_NSH
-   else if Z.eqb (l__74) (1) then Shareability_ISH
+   let l__76 := arg_ in
+   if Z.eqb (l__76) (0) then Shareability_NSH
+   else if Z.eqb (l__76) (1) then Shareability_ISH
    else Shareability_OSH.
 
 Lemma Shareability_num_of_roundtrip (x : Shareability) : Shareability_of_num (num_of_Shareability x) = x.
@@ -1015,9 +1015,9 @@ Definition num_of_MemTagType (arg_ : MemTagType) : Z :=
    end.
 
 Definition MemTagType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : MemTagType :=
-   let l__72 := arg_ in
-   if Z.eqb (l__72) (0) then MemTag_Untagged
-   else if Z.eqb (l__72) (1) then MemTag_AllocationTagged
+   let l__74 := arg_ in
+   if Z.eqb (l__74) (0) then MemTag_Untagged
+   else if Z.eqb (l__74) (1) then MemTag_AllocationTagged
    else MemTag_CanonicallyTagged.
 
 Lemma MemTagType_num_of_roundtrip (x : MemTagType) : MemTagType_of_num (num_of_MemTagType x) = x.
@@ -1122,10 +1122,10 @@ Definition num_of_PASpace (arg_ : PASpace) : Z :=
    match arg_ with | PAS_NonSecure => 0 | PAS_Secure => 1 | PAS_Root => 2 | PAS_Realm => 3 end.
 
 Definition PASpace_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : PASpace :=
-   let l__69 := arg_ in
-   if Z.eqb (l__69) (0) then PAS_NonSecure
-   else if Z.eqb (l__69) (1) then PAS_Secure
-   else if Z.eqb (l__69) (2) then PAS_Root
+   let l__71 := arg_ in
+   if Z.eqb (l__71) (0) then PAS_NonSecure
+   else if Z.eqb (l__71) (1) then PAS_Secure
+   else if Z.eqb (l__71) (2) then PAS_Root
    else PAS_Realm.
 
 Lemma PASpace_num_of_roundtrip (x : PASpace) : PASpace_of_num (num_of_PASpace x) = x.
@@ -1216,11 +1216,11 @@ Definition num_of_GPCF (arg_ : GPCF) : Z :=
    end.
 
 Definition GPCF_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 4)*) : GPCF :=
-   let l__65 := arg_ in
-   if Z.eqb (l__65) (0) then GPCF_None
-   else if Z.eqb (l__65) (1) then GPCF_AddressSize
-   else if Z.eqb (l__65) (2) then GPCF_Walk
-   else if Z.eqb (l__65) (3) then GPCF_EABT
+   let l__67 := arg_ in
+   if Z.eqb (l__67) (0) then GPCF_None
+   else if Z.eqb (l__67) (1) then GPCF_AddressSize
+   else if Z.eqb (l__67) (2) then GPCF_Walk
+   else if Z.eqb (l__67) (3) then GPCF_EABT
    else GPCF_Fail.
 
 Lemma GPCF_num_of_roundtrip (x : GPCF) : GPCF_of_num (num_of_GPCF x) = x.
@@ -1354,30 +1354,30 @@ Definition num_of_Fault (arg_ : Fault) : Z :=
    end.
 
 Definition Fault_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 23)*) : Fault :=
-   let l__42 := arg_ in
-   if Z.eqb (l__42) (0) then Fault_None
-   else if Z.eqb (l__42) (1) then Fault_AccessFlag
-   else if Z.eqb (l__42) (2) then Fault_Alignment
-   else if Z.eqb (l__42) (3) then Fault_Background
-   else if Z.eqb (l__42) (4) then Fault_Domain
-   else if Z.eqb (l__42) (5) then Fault_Permission
-   else if Z.eqb (l__42) (6) then Fault_Translation
-   else if Z.eqb (l__42) (7) then Fault_AddressSize
-   else if Z.eqb (l__42) (8) then Fault_SyncExternal
-   else if Z.eqb (l__42) (9) then Fault_SyncExternalOnWalk
-   else if Z.eqb (l__42) (10) then Fault_SyncParity
-   else if Z.eqb (l__42) (11) then Fault_SyncParityOnWalk
-   else if Z.eqb (l__42) (12) then Fault_GPCFOnWalk
-   else if Z.eqb (l__42) (13) then Fault_GPCFOnOutput
-   else if Z.eqb (l__42) (14) then Fault_AsyncParity
-   else if Z.eqb (l__42) (15) then Fault_AsyncExternal
-   else if Z.eqb (l__42) (16) then Fault_TagCheck
-   else if Z.eqb (l__42) (17) then Fault_Debug
-   else if Z.eqb (l__42) (18) then Fault_TLBConflict
-   else if Z.eqb (l__42) (19) then Fault_BranchTarget
-   else if Z.eqb (l__42) (20) then Fault_HWUpdateAccessFlag
-   else if Z.eqb (l__42) (21) then Fault_Lockdown
-   else if Z.eqb (l__42) (22) then Fault_Exclusive
+   let l__44 := arg_ in
+   if Z.eqb (l__44) (0) then Fault_None
+   else if Z.eqb (l__44) (1) then Fault_AccessFlag
+   else if Z.eqb (l__44) (2) then Fault_Alignment
+   else if Z.eqb (l__44) (3) then Fault_Background
+   else if Z.eqb (l__44) (4) then Fault_Domain
+   else if Z.eqb (l__44) (5) then Fault_Permission
+   else if Z.eqb (l__44) (6) then Fault_Translation
+   else if Z.eqb (l__44) (7) then Fault_AddressSize
+   else if Z.eqb (l__44) (8) then Fault_SyncExternal
+   else if Z.eqb (l__44) (9) then Fault_SyncExternalOnWalk
+   else if Z.eqb (l__44) (10) then Fault_SyncParity
+   else if Z.eqb (l__44) (11) then Fault_SyncParityOnWalk
+   else if Z.eqb (l__44) (12) then Fault_GPCFOnWalk
+   else if Z.eqb (l__44) (13) then Fault_GPCFOnOutput
+   else if Z.eqb (l__44) (14) then Fault_AsyncParity
+   else if Z.eqb (l__44) (15) then Fault_AsyncExternal
+   else if Z.eqb (l__44) (16) then Fault_TagCheck
+   else if Z.eqb (l__44) (17) then Fault_Debug
+   else if Z.eqb (l__44) (18) then Fault_TLBConflict
+   else if Z.eqb (l__44) (19) then Fault_BranchTarget
+   else if Z.eqb (l__44) (20) then Fault_HWUpdateAccessFlag
+   else if Z.eqb (l__44) (21) then Fault_Lockdown
+   else if Z.eqb (l__44) (22) then Fault_Exclusive
    else Fault_ICacheMaint.
 
 Lemma Fault_num_of_roundtrip (x : Fault) : Fault_of_num (num_of_Fault x) = x.
@@ -1444,13 +1444,13 @@ Definition num_of_ErrorState (arg_ : ErrorState) : Z :=
    end.
 
 Definition ErrorState_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 6)*) : ErrorState :=
-   let l__36 := arg_ in
-   if Z.eqb (l__36) (0) then ErrorState_UC
-   else if Z.eqb (l__36) (1) then ErrorState_UEU
-   else if Z.eqb (l__36) (2) then ErrorState_UEO
-   else if Z.eqb (l__36) (3) then ErrorState_UER
-   else if Z.eqb (l__36) (4) then ErrorState_CE
-   else if Z.eqb (l__36) (5) then ErrorState_Uncategorized
+   let l__38 := arg_ in
+   if Z.eqb (l__38) (0) then ErrorState_UC
+   else if Z.eqb (l__38) (1) then ErrorState_UEU
+   else if Z.eqb (l__38) (2) then ErrorState_UEO
+   else if Z.eqb (l__38) (3) then ErrorState_UER
+   else if Z.eqb (l__38) (4) then ErrorState_CE
+   else if Z.eqb (l__38) (5) then ErrorState_Uncategorized
    else ErrorState_IMPDEF.
 
 Lemma ErrorState_num_of_roundtrip (x : ErrorState) : ErrorState_of_num (num_of_ErrorState x) = x.
@@ -1600,10 +1600,10 @@ Definition num_of_MBReqDomain (arg_ : MBReqDomain) : Z :=
    end.
 
 Definition MBReqDomain_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : MBReqDomain :=
-   let l__33 := arg_ in
-   if Z.eqb (l__33) (0) then MBReqDomain_Nonshareable
-   else if Z.eqb (l__33) (1) then MBReqDomain_InnerShareable
-   else if Z.eqb (l__33) (2) then MBReqDomain_OuterShareable
+   let l__35 := arg_ in
+   if Z.eqb (l__35) (0) then MBReqDomain_Nonshareable
+   else if Z.eqb (l__35) (1) then MBReqDomain_InnerShareable
+   else if Z.eqb (l__35) (2) then MBReqDomain_OuterShareable
    else MBReqDomain_FullSystem.
 
 Lemma MBReqDomain_num_of_roundtrip (x : MBReqDomain) : MBReqDomain_of_num (num_of_MBReqDomain x) = x.
@@ -1655,9 +1655,9 @@ Definition num_of_MBReqTypes (arg_ : MBReqTypes) : Z :=
    match arg_ with | MBReqTypes_Reads => 0 | MBReqTypes_Writes => 1 | MBReqTypes_All => 2 end.
 
 Definition MBReqTypes_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : MBReqTypes :=
-   let l__31 := arg_ in
-   if Z.eqb (l__31) (0) then MBReqTypes_Reads
-   else if Z.eqb (l__31) (1) then MBReqTypes_Writes
+   let l__33 := arg_ in
+   if Z.eqb (l__33) (0) then MBReqTypes_Reads
+   else if Z.eqb (l__33) (1) then MBReqTypes_Writes
    else MBReqTypes_All.
 
 Lemma MBReqTypes_num_of_roundtrip (x : MBReqTypes) : MBReqTypes_of_num (num_of_MBReqTypes x) = x.
@@ -1798,11 +1798,11 @@ Definition num_of_Regime (arg_ : Regime) : Z :=
    end.
 
 Definition Regime_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 4)*) : Regime :=
-   let l__27 := arg_ in
-   if Z.eqb (l__27) (0) then Regime_EL3
-   else if Z.eqb (l__27) (1) then Regime_EL30
-   else if Z.eqb (l__27) (2) then Regime_EL2
-   else if Z.eqb (l__27) (3) then Regime_EL20
+   let l__29 := arg_ in
+   if Z.eqb (l__29) (0) then Regime_EL3
+   else if Z.eqb (l__29) (1) then Regime_EL30
+   else if Z.eqb (l__29) (2) then Regime_EL2
+   else if Z.eqb (l__29) (3) then Regime_EL20
    else Regime_EL10.
 
 Lemma Regime_num_of_roundtrip (x : Regime) : Regime_of_num (num_of_Regime x) = x.
@@ -1854,9 +1854,9 @@ Definition num_of_TGx (arg_ : TGx) : Z :=
    match arg_ with | TGx_4KB => 0 | TGx_16KB => 1 | TGx_64KB => 2 end.
 
 Definition TGx_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : TGx :=
-   let l__25 := arg_ in
-   if Z.eqb (l__25) (0) then TGx_4KB
-   else if Z.eqb (l__25) (1) then TGx_16KB
+   let l__27 := arg_ in
+   if Z.eqb (l__27) (0) then TGx_4KB
+   else if Z.eqb (l__27) (1) then TGx_16KB
    else TGx_64KB.
 
 Lemma TGx_num_of_roundtrip (x : TGx) : TGx_of_num (num_of_TGx x) = x.
@@ -2088,8 +2088,8 @@ Definition num_of_TLBILevel (arg_ : TLBILevel) : Z :=
    match arg_ with | TLBILevel_Any => 0 | TLBILevel_Last => 1 end.
 
 Definition TLBILevel_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : TLBILevel :=
-   let l__24 := arg_ in
-   if Z.eqb (l__24) (0) then TLBILevel_Any
+   let l__26 := arg_ in
+   if Z.eqb (l__26) (0) then TLBILevel_Any
    else TLBILevel_Last.
 
 Lemma TLBILevel_num_of_roundtrip (x : TLBILevel) : TLBILevel_of_num (num_of_TLBILevel x) = x.
@@ -2190,30 +2190,30 @@ Definition num_of_TLBIOp (arg_ : TLBIOp) : Z :=
    end.
 
 Definition TLBIOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 23)*) : TLBIOp :=
-   let l__1 := arg_ in
-   if Z.eqb (l__1) (0) then TLBIOp_DALL
-   else if Z.eqb (l__1) (1) then TLBIOp_DASID
-   else if Z.eqb (l__1) (2) then TLBIOp_DVA
-   else if Z.eqb (l__1) (3) then TLBIOp_IALL
-   else if Z.eqb (l__1) (4) then TLBIOp_IASID
-   else if Z.eqb (l__1) (5) then TLBIOp_IVA
-   else if Z.eqb (l__1) (6) then TLBIOp_ALL
-   else if Z.eqb (l__1) (7) then TLBIOp_ASID
-   else if Z.eqb (l__1) (8) then TLBIOp_IPAS2
-   else if Z.eqb (l__1) (9) then TLBIPOp_IPAS2
-   else if Z.eqb (l__1) (10) then TLBIOp_VAA
-   else if Z.eqb (l__1) (11) then TLBIOp_VA
-   else if Z.eqb (l__1) (12) then TLBIPOp_VAA
-   else if Z.eqb (l__1) (13) then TLBIPOp_VA
-   else if Z.eqb (l__1) (14) then TLBIOp_VMALL
-   else if Z.eqb (l__1) (15) then TLBIOp_VMALLS12
-   else if Z.eqb (l__1) (16) then TLBIOp_RIPAS2
-   else if Z.eqb (l__1) (17) then TLBIPOp_RIPAS2
-   else if Z.eqb (l__1) (18) then TLBIOp_RVAA
-   else if Z.eqb (l__1) (19) then TLBIOp_RVA
-   else if Z.eqb (l__1) (20) then TLBIPOp_RVAA
-   else if Z.eqb (l__1) (21) then TLBIPOp_RVA
-   else if Z.eqb (l__1) (22) then TLBIOp_RPA
+   let l__3 := arg_ in
+   if Z.eqb (l__3) (0) then TLBIOp_DALL
+   else if Z.eqb (l__3) (1) then TLBIOp_DASID
+   else if Z.eqb (l__3) (2) then TLBIOp_DVA
+   else if Z.eqb (l__3) (3) then TLBIOp_IALL
+   else if Z.eqb (l__3) (4) then TLBIOp_IASID
+   else if Z.eqb (l__3) (5) then TLBIOp_IVA
+   else if Z.eqb (l__3) (6) then TLBIOp_ALL
+   else if Z.eqb (l__3) (7) then TLBIOp_ASID
+   else if Z.eqb (l__3) (8) then TLBIOp_IPAS2
+   else if Z.eqb (l__3) (9) then TLBIPOp_IPAS2
+   else if Z.eqb (l__3) (10) then TLBIOp_VAA
+   else if Z.eqb (l__3) (11) then TLBIOp_VA
+   else if Z.eqb (l__3) (12) then TLBIPOp_VAA
+   else if Z.eqb (l__3) (13) then TLBIPOp_VA
+   else if Z.eqb (l__3) (14) then TLBIOp_VMALL
+   else if Z.eqb (l__3) (15) then TLBIOp_VMALLS12
+   else if Z.eqb (l__3) (16) then TLBIOp_RIPAS2
+   else if Z.eqb (l__3) (17) then TLBIPOp_RIPAS2
+   else if Z.eqb (l__3) (18) then TLBIOp_RVAA
+   else if Z.eqb (l__3) (19) then TLBIOp_RVA
+   else if Z.eqb (l__3) (20) then TLBIPOp_RVAA
+   else if Z.eqb (l__3) (21) then TLBIPOp_RVA
+   else if Z.eqb (l__3) (22) then TLBIOp_RPA
    else TLBIOp_PAALL.
 
 Lemma TLBIOp_num_of_roundtrip (x : TLBIOp) : TLBIOp_of_num (num_of_TLBIOp x) = x.
@@ -2265,8 +2265,8 @@ Definition num_of_TLBIMemAttr (arg_ : TLBIMemAttr) : Z :=
    match arg_ with | TLBI_AllAttr => 0 | TLBI_ExcludeXS => 1 end.
 
 Definition TLBIMemAttr_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : TLBIMemAttr :=
-   let l__0 := arg_ in
-   if Z.eqb (l__0) (0) then TLBI_AllAttr
+   let l__2 := arg_ in
+   if Z.eqb (l__2) (0) then TLBI_AllAttr
    else TLBI_ExcludeXS.
 
 Lemma TLBIMemAttr_num_of_roundtrip (x : TLBIMemAttr) : TLBIMemAttr_of_num (num_of_TLBIMemAttr x) = x.
@@ -2547,6 +2547,64 @@ Definition addr_size : Z := 64.
 #[export] Hint Unfold addr_size : sail.
 
 Definition addr_space : Type := unit.
+
+Inductive DescriptorType := DescriptorType_Table | DescriptorType_Leaf | DescriptorType_Invalid.
+Definition num_of_DescriptorType (arg_ : DescriptorType) : Z :=
+   match arg_ with
+   | DescriptorType_Table => 0
+   | DescriptorType_Leaf => 1
+   | DescriptorType_Invalid => 2
+   end.
+
+Definition DescriptorType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : DescriptorType :=
+   let l__0 := arg_ in
+   if Z.eqb (l__0) (0) then DescriptorType_Table
+   else if Z.eqb (l__0) (1) then DescriptorType_Leaf
+   else DescriptorType_Invalid.
+
+Lemma DescriptorType_num_of_roundtrip (x : DescriptorType) : DescriptorType_of_num (num_of_DescriptorType x) = x.
+  destruct x; reflexivity.
+Qed.
+Lemma num_of_DescriptorType_injective (x y : DescriptorType) : num_of_DescriptorType x = num_of_DescriptorType y -> x = y.
+  intro.
+  rewrite <- (DescriptorType_num_of_roundtrip x).
+  rewrite <- (DescriptorType_num_of_roundtrip y).
+  congruence.
+Qed.
+Definition DescriptorType_eq_dec (x y : DescriptorType) : {x = y} + {x <> y}.
+  refine (match Z.eq_dec (num_of_DescriptorType x) (num_of_DescriptorType y) with
+  | left e => left (num_of_DescriptorType_injective x y e)
+  | right ne => right _
+  end).
+  congruence.
+Defined.
+Definition DescriptorType_beq (x y : DescriptorType) : bool :=
+  Z.eqb (num_of_DescriptorType x) (num_of_DescriptorType y).
+Lemma DescriptorType_beq_iff x y : DescriptorType_beq x y = true <-> x = y.
+  unfold DescriptorType_beq.
+  rewrite Z.eqb_eq.
+  split; [apply num_of_DescriptorType_injective | congruence].
+Qed.
+Lemma DescriptorType_beq_refl x : DescriptorType_beq x x = true.
+apply DescriptorType_beq_iff; reflexivity.
+Qed.
+#[export]
+Instance Decidable_eq_DescriptorType : EqDecision DescriptorType := DescriptorType_eq_dec.
+#[export]
+Instance Countable_DescriptorType : Countable DescriptorType.
+refine {|
+  encode x := encode (num_of_DescriptorType x);
+  decode x := z ← decode x; mret (DescriptorType_of_num z);
+|}.
+abstract (
+  intro s; rewrite decode_encode;
+  simpl;
+  rewrite DescriptorType_num_of_roundtrip;
+  reflexivity).
+Defined.
+#[export]
+Instance dummy_DescriptorType : Inhabited DescriptorType := { inhabitant := DescriptorType_Table }.
+
 
 Definition mem_acc_is_atomic_rmw (acc : AccessDescriptor) : bool :=
    andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))

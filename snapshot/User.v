@@ -621,7 +621,7 @@ Definition decodeCompareAndBranch (imm19 : mword 19) (Rt : mword 5) : option ast
 
 Definition base_AccessDescriptor (acctype : AccessType) : AccessDescriptor :=
    {| AccessDescriptor_acctype := acctype;
-      AccessDescriptor_el := ('b"00")  : mword 2;
+      AccessDescriptor_el := zeros (2);
       AccessDescriptor_ss := SS_NonSecure;
       AccessDescriptor_acqsc := false;
       AccessDescriptor_acqpc := false;
@@ -717,7 +717,8 @@ Definition sail_address_announce (addrsize : Z) (_ : mword addrsize)
 : unit :=
    tt.
 
-Definition wMem_Addr (addr : mword 64) : unit := sail_address_announce (64) (addr).
+Definition wMem_Addr (addr : mword 64) : unit :=
+   sail_address_announce (64) ((zero_extend (addr) (64))).
 
 Definition execute_StoreRegister (t : Z) (n : Z) (m : Z) (*(0 <=? t) && (t <=? 31)*)
 (*(0 <=? n) && (n <=? 31)*) (*(0 <=? m) && (m <=? 31)*)
@@ -896,6 +897,10 @@ Definition sail_pick_dependency {a : Type} (reg : register_ref register a) : uni
 Definition __monomorphize_int (n : Z) : Z := n.
 
 Definition __monomorphize_bool (b : bool) : bool := b.
+
+Definition undefined_DescriptorType '(tt : unit) : M (DescriptorType) :=
+   (internal_pick ([DescriptorType_Table; DescriptorType_Leaf; DescriptorType_Invalid]))
+    : M (DescriptorType).
 
 Definition initialize_registers '(tt : unit) : M (unit) :=
    (undefined_bitvector (64)) >>= fun (w__0 : mword 64) =>
