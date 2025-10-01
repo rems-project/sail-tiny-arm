@@ -232,6 +232,21 @@ function clause decode(_) = { None() }
 // Simple top level fetch and execute loop.
 val fetch_and_execute : unit -> unit
 
+$ifdef SYSTEM_TINY_ARM
+function fetch_and_execute () = {
+  match translate_address(_PC) {
+    Some(phys_addr) => {
+      let machineCode = iFetch(phys_addr);
+      let instr = decode(machineCode);
+      match instr {
+        Some (instr) => execute(instr),
+        None () => assert (false, "Unsupported Encoding")
+      }
+    },
+    None() => exit()
+  }
+}
+$else
 function fetch_and_execute () = {
   let machineCode = iFetch(_PC);
   let instr = decode(machineCode);
@@ -240,3 +255,4 @@ function fetch_and_execute () = {
     None () => assert (false, "Unsupported Encoding")
   }
 }
+$endif

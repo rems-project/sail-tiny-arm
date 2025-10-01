@@ -474,14 +474,13 @@ function translate_address(va) = {
   sail_translation_start(tsi);
 
   // Actual translation
-  var (addrdesc, paddress) = pgt_walk(va, accdesc);
+  let (addrdesc, paddress) = pgt_walk(va, accdesc);
   if is_fault(addrdesc) then {
     handle_fault(addrdesc);
     return None()
   };
 
   // Announce result
-  addrdesc.vaddress = sail_zero_extend(va, 64);
   sail_translation_end(addrdesc);
 
   return Some(paddress)
