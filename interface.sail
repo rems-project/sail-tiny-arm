@@ -142,18 +142,6 @@ function base_AddressDescriptor (accdesc: AccessDescriptor, level : int) -> Addr
 $endif
 
 $ifdef SYSTEM_TINY_ARM
-let FINAL_LEVEL = 3
-$endif
-
-$ifdef SYSTEM_TINY_ARM
-type addr_size : Int = 56
-let addr_size' : int(56) = 56
-$else
-type addr_size : Int = 64
-let addr_size' : int(64) = 64
-$endif
-
-$ifdef SYSTEM_TINY_ARM
 type addr_space : Type = PASpace
 let addr_space_def = PAS_NonSecure
 $else
@@ -161,12 +149,12 @@ type addr_space : Type = unit
 let addr_space_def = ()
 $endif
 
-
 $ifdef SYSTEM_TINY_ARM
 type abort = Fault
 $else
 type abort = unit
 $endif
+
 
 instantiation sail_mem_read with
   'addr_size = addr_size,
@@ -451,6 +439,10 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
 }
 
 function translate_address(va) = {
+  // Check SCTLR_EL1.M to check if MMU is enabled
+  if slice(SCTLR_EL1, 0, 1) == 0b0 then {
+    return Some(truncate(va, addr_size'))
+  };
   let accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_AT);
 
   // Announce translation start

@@ -47,12 +47,12 @@ function clause execute LoadRegister(t, n, m) = {
   let virt_addr = base_addr + offset;
   /* Translate the virtual address into the physical address */
   match translate_address(virt_addr) {
-    Some(phys_addr) => {
+    Some(addr) => {
       /* The instruction can't fault now (in a real model), so update the PC */
       _PC = _PC + 4;
       /* Ask for the eight-byte value in memory starting from location
-      phys_addr and record it in the local variable data */
-      let data = rMem(phys_addr);
+      addr and record it in the local variable data */
+      let data = rMem(addr);
       /* Ask for the value of data to be written to register Xt */
       X(t) = data;
     },

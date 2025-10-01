@@ -11,18 +11,26 @@ function eq_bits_int (x, y) = (unsigned(x) == y)
 
 overload operator == = {eq_any, eq_bits_int}
 
-/* See tiny-arm for descriptions, interface for definitions */
+
 $ifdef SYSTEM_TINY_ARM
-val iFetch : bits(56) -> bits(32)
-val rMem : bits(56) -> bits(64)
-val wMem_Addr : bits(56) -> unit
-val wMem : (bits(56), bits(64)) -> unit
-val translate_address : bits(64) -> option(bits(56))
+let FINAL_LEVEL = 3
+$endif
+
+$ifdef SYSTEM_TINY_ARM
+type addr_size : Int = 56
+let addr_size' : int(56) = 56
 $else
-val iFetch : bits(64) -> bits(32)
-val rMem : bits(64) -> bits(64)
-val wMem_Addr : bits(64) -> unit
-val wMem : (bits(64), bits(64)) -> unit
+type addr_size : Int = 64
+let addr_size' : int(64) = 64
+$endif
+
+/* See tiny-arm for descriptions, interface for definitions */
+val iFetch : bits(addr_size) -> bits(32)
+val rMem : bits(addr_size) -> bits(64)
+val wMem_Addr : bits(addr_size) -> unit
+val wMem : (bits(addr_size), bits(64)) -> unit
+$ifdef SYSTEM_TINY_ARM
+val translate_address : bits(64) -> option(bits(addr_size))
 $endif
 
 overload operator ^ = {xor_vec}
