@@ -369,49 +369,64 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescript
 
   let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(true, varange);
   var walkaddress = base_AddressDescriptor(walkaccess, 0);
+  var desctype = DescriptorType_Table;
 
   foreach (level from 0 to FINAL_LEVEL)  {
-    let toplevel : bool = level == startlevel;
-    let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(toplevel, varange);
-    walkaddress.fault.level = level;
-    walkaddress.paddress = descaddress;
-    walkaddress.vaddress = va;
-
-    let req : Mem_read_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
-      access_kind = walkaccess,
-      address = truncate(walkaddress.paddress.address, addr_size'),
-      address_space = addr_space_def,
-      size = 8,
-      num_tag = 0
-    };
-    let memval : bits(64) = match sail_mem_read(req) {
-      Ok((memval, _)) => from_bytes_le(memval),
-      Err(_) => exit(),
-    };
-
-    let descriptor : bits(56) = slice(memval, 0, 56);
-    let desctype = decode_desc_type(descriptor, level);
     match desctype {
-      DescriptorType_Table => {
-        let next_baseaddress : FullAddress = struct {
-          address = sail_zeros(8) @ descriptor[47 .. 12] @ sail_zeros(12),
-          paspace = PAS_NonSecure
+      DescriptorType_Leaf => (),
+      _ => {
+        let toplevel : bool = level == startlevel;
+        let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(toplevel, varange);
+        walkaddress.fault.level = level;
+        walkaddress.paddress = descaddress;
+        walkaddress.vaddress = va;
+
+        let req : Mem_read_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
+          access_kind = walkaccess,
+          address = truncate(walkaddress.paddress.address, addr_size'),
+          address_space = addr_space_def,
+          size = 8,
+          num_tag = 0
         };
-        descaddress = get_TTEntryAddress(level + 1, va, next_baseaddress);
-        ()
-      },
-      DescriptorType_Leaf => {
-        let baseaddress : FullAddress = struct {
-          address = sail_zeros(8) @ descriptor[47 .. 12] @ sail_zeros(12),
-          paspace = PAS_NonSecure
+        let memval : bits(64) = match sail_mem_read(req) {
+          Ok((memval, _)) => from_bytes_le(memval),
+          Err(_) => exit(),
         };
-        descaddress = baseaddress;
+
+        let descriptor : bits(56) = slice(memval, 0, 56);
+        desctype = decode_desc_type(descriptor, level);
+        match desctype {
+          DescriptorType_Table => {
+            let next_baseaddress : FullAddress = struct {
+              address = sail_zero_extend(descriptor[47 .. 12] @ sail_zeros(12), 56),
+              paspace = PAS_NonSecure
+            };
+            descaddress = get_TTEntryAddress(level + 1, va, next_baseaddress);
+            ()
+          },
+          DescriptorType_Leaf => {
+            let levels : int = FINAL_LEVEL - level;
+            let 'offset_bits : int = 12 + levels * 9;
+            assert((0 <= 'offset_bits - 1) & 56 >= (('offset_bits - 1) + 1));
+
+            let base_pa : bits(56) =
+              sail_zero_extend(descriptor[47 .. 12] @ sail_zeros(12), 56);
+            let va_off : bits(56) =
+              sail_zero_extend(va[offset_bits - 1 .. 0], 56);
+            let out_pa : bits(56) = base_pa | va_off;
+
+            let baseaddress : FullAddress = struct {
+              address = out_pa,
+              paspace = PAS_NonSecure
+            };
+          },
+          DescriptorType_Invalid => {
+            walkaddress.fault.statuscode = Fault_Translation;
+            return (walkaddress, sail_zeros(56))
+          }
+        }
       },
-      DescriptorType_Invalid => {
-        walkaddress.fault.statuscode = Fault_Translation;
-        return (walkaddress, sail_zeros(56))
-      }
-    }
+    };
   };
   return (walkaddress, descaddress.address)
 }
