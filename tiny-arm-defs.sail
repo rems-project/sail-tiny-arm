@@ -144,6 +144,10 @@ register TCR_EL2 : bits(64)
 register TCR_EL3 : bits(64)
 register VTCR_EL2 : bits(64)
 
+register SCTLR_EL1 : bits(64)
+register SCTLR_EL2 : bits(64)
+register SCTLR_EL3 : bits(64)
+
 $endif
 
 val dataMemoryBarrier : MBReqTypes -> unit

@@ -15,7 +15,6 @@ val execute : ast -> unit
 scattered function execute
 
 
-
 /* LoadStoreRegister: LDR and STR */
 val decodeLoadStoreRegister : (bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
 
@@ -35,6 +34,61 @@ function decodeLoadStoreRegister (opc, Rm, option_v, S, Rn, Rt) = {
   else None ();
 }
 
+$ifdef SYSTEM_TINY_ARM
+/* LDR Xt, [Xn, Xm] */
+function clause execute LoadRegister(t, n, m) = {
+  /* Ask for the value of register Xn and record it in the local
+   * variable base_addr */
+  let base_addr = X(n);
+  /* Ask for the value of register Xm and record it in the local
+   * variable offset */
+  let offset = X(m);
+  /* Compute the address */
+  let virt_addr = base_addr + offset;
+  /* Translate the virtual address into the physical address */
+  match translate_address(virt_addr) {
+    Some(addr) => {
+      /* The instruction can't fault now (in a real model), so update the PC */
+      _PC = _PC + 4;
+      /* Ask for the eight-byte value in memory starting from location
+      addr and record it in the local variable data */
+      let data = rMem(addr);
+      /* Ask for the value of data to be written to register Xt */
+      X(t) = data;
+    },
+    None() => exit(),
+  }
+}
+
+/* STR Xt, [Xn, Xm] */
+function clause execute StoreRegister(t, n, m) = {
+  /* Ask for the value of register Xn and record it in the local
+   * variable base_addr */
+  let base_addr = X(n);
+  /* Ask for the value of register Xm and record it in the local
+   * variable offset */
+  let offset = X(m);
+  /* Compute the address */
+  let virt_addr = base_addr + offset;
+  /* Translate the virtual address into the physical address */
+  match translate_address(virt_addr) {
+    Some(phys_addr) => {
+      /* Announce that a store into the eight bytes of memory starting
+      * from location phys_addr will be performed later */
+      wMem_Addr(phys_addr);
+      /* The instruction can't fault now (in a real model), so update the PC */
+      _PC = _PC + 4;
+      /* Ask for the value of register Xt and record it in the local
+      * variable data */
+      let data = X(t);
+      /* Ask for the value of data to be stored into the eight bytes of
+      * memory starting from location phys_addr */
+      wMem(phys_addr, data);
+    },
+    None() => exit()
+  }
+}
+$else
 /* LDR Xt, [Xn, Xm] */
 function clause execute LoadRegister(t, n, m) = {
   /* Ask for the value of register Xn and record it in the local
@@ -76,6 +130,7 @@ function clause execute StoreRegister(t, n, m) = {
    * memory starting from location addr */
   wMem(addr, data);
 }
+$endif
 
 
 
@@ -177,6 +232,21 @@ function clause decode(_) = { None() }
 // Simple top level fetch and execute loop.
 val fetch_and_execute : unit -> unit
 
+$ifdef SYSTEM_TINY_ARM
+function fetch_and_execute () = {
+  match translate_address(_PC) {
+    Some(phys_addr) => {
+      let machineCode = iFetch(phys_addr);
+      let instr = decode(machineCode);
+      match instr {
+        Some (instr) => execute(instr),
+        None () => assert (false, "Unsupported Encoding")
+      }
+    },
+    None() => exit()
+  }
+}
+$else
 function fetch_and_execute () = {
   let machineCode = iFetch(_PC);
   let instr = decode(machineCode);
@@ -185,3 +255,4 @@ function fetch_and_execute () = {
     None () => assert (false, "Unsupported Encoding")
   }
 }
+$endif
