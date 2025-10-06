@@ -95,6 +95,41 @@ overload PC = {rPC, wPC}
 
 $ifdef SYSTEM_TINY_ARM
 
+struct ProcState = {
+  N : bits(1),
+  Z : bits(1),
+  C : bits(1),
+  V : bits(1),
+  D : bits(1),
+  A : bits(1),
+  I : bits(1),
+  F : bits(1),
+  EXLOCK : bits(1),
+  PAN : bits(1),
+  UAO : bits(1),
+  DIT : bits(1),
+  TCO : bits(1),
+  PM : bits(1),
+  PPEND : bits(1),
+  BTYPE : bits(2),
+  ZA : bits(1),
+  SM : bits(1),
+  ALLINT : bits(1),
+  SS : bits(1),
+  IL : bits(1),
+  EL : bits(2),
+  nRW : bits(1),
+  SP : bits(1),
+  Q : bits(1),
+  GE : bits(4),
+  SSBS : bits(1),
+  IT : bits(8),
+  J : bits(1),
+  T : bits(1),
+  E : bits(1),
+  M : bits(5)
+}
+
 // We fix the size to 64 and happyly ignore 128 bits register extension for VMSA128
 
 register SP_EL0 : bits(64)
@@ -106,8 +141,7 @@ register ELR_EL1 : bits(64)
 register ELR_EL2 : bits(64)
 register ELR_EL3 : bits(64)
 
-// TODO: Split into dependency carring components
-register PSTATE : bits(64)
+register PSTATE : ProcState
 
 register ESR_EL1 : bits(64)
 register ESR_EL2 : bits(64)

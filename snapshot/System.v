@@ -814,7 +814,7 @@ Definition get_TTEntryAddress (level : Z) (ia : mword 64) (baseaddress : FullAdd
         FullAddress_paspace := baseaddress.(FullAddress_paspace) |} in
    returnM (descaddress).
 
-Definition get_baddr (varange : VARange) : M (mword 56) :=
+Definition get_translation_base_address (varange : VARange) : M (mword 56) :=
    (match varange with
     | VARange_LOWER => ((read_reg TTBR0_EL1)  : M (mword 64))  : M (mword 64)
     | VARange_UPPER => ((read_reg TTBR1_EL1)  : M (mword 64))  : M (mword 64)
@@ -872,7 +872,7 @@ Definition pgt_walk (va : mword 64) (accdesc : AccessDescriptor)
    catch_early_return
      (let startlevel : Z := 0 in
      let varange : VARange := get_VARange (va) in
-     liftR ((get_baddr (varange))) >>= fun (w__0 : mword 56) =>
+     liftR ((get_translation_base_address (varange))) >>= fun (w__0 : mword 56) =>
      let baseaddress : FullAddress :=
        {| FullAddress_address := w__0;
           FullAddress_paspace := PAS_NonSecure |} in

@@ -4,6 +4,14 @@ $include <concurrency_interface/exception.sail>
 $include <concurrency_interface/cache_op.sail>
 $include <concurrency_interface/translation.sail>
 
+$ifdef SYSTEM_TINY_ARM
+type addr_size : Int = 56
+let addr_size' : int(56) = 56
+$else
+type addr_size : Int = 64
+let addr_size' : int(64) = 64
+$endif
+
 function mem_acc_is_explicit     (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_GPR
 function mem_acc_is_ifetch       (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_IFETCH
 function mem_acc_is_ttw          (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_TTW
@@ -58,6 +66,27 @@ function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = stru
     partid = 0x0000,
     pmg = 0x00
   }
+}
+
+function create_writeAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_GPR);
+  accdesc.write = true;
+  accdesc.read = false;
+  accdesc
+}
+
+function create_readAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_GPR);
+  accdesc.read = true;
+  accdesc.write = false;
+  accdesc
+}
+
+function create_iFetchAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_IFETCH);
+  accdesc.read = true;
+  accdesc.write = false;
+  accdesc
 }
 
 $ifdef SYSTEM_TINY_ARM
@@ -198,39 +227,40 @@ instantiation sail_mem_address_announce with
   'CHERI = false,
   'cap_size_log = 0
 
-function rMem(addr) = {
-  let req : Mem_read_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
-    access_kind = base_AccessDescriptor(AccessType_GPR),
-    address = truncate(addr, addr_size'),
+  /* See tiny-arm for descriptions, interface for definitions */
+val iFetch : (bits(addr_size), AccessDescriptor) -> bits(32)
+val rMem : (bits(addr_size), AccessDescriptor) -> bits(64)
+val wMem_Addr : bits(addr_size) -> unit
+val wMem : (bits(addr_size), bits(64), AccessDescriptor) -> unit
+val translate_address : (bits(64), AccessDescriptor) -> option(bits(addr_size))
+
+val read_memory : forall 'N, 'N > 0.
+  (int('N), bits(addr_size), AccessDescriptor) -> bits('N * 8)
+
+function read_memory(N, addr, accdesc) = {
+  let req : Mem_read_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
+    access_kind   = accdesc,
+    address       = truncate(addr, addr_size'),
     address_space = addr_space_def,
-    size = 8,
-    num_tag = 0
+    size          = N,
+    num_tag       = 0
   };
+
   match sail_mem_read(req) {
-    Ok((value, _)) => from_bytes_le(value),
-    Err(_) => exit(),
+    Ok((bytes, _)) => from_bytes_le(bytes),
+    Err(_e) => { exit() }
   }
 }
 
-function iFetch(addr) = {
-  let req : Mem_read_request(4, 0, addr_size, addr_space, AccessDescriptor) = struct {
-    access_kind = base_AccessDescriptor(AccessType_IFETCH),
-    address = truncate(addr, addr_size'),
-    address_space = addr_space_def,
-    size = 4,
-    num_tag = 0
-  };
-  match sail_mem_read(req) {
-    Ok((value, _)) => from_bytes_le(value),
-    Err(_) => exit(),
-  }
-}
+function iFetch(addr, accdesc) = read_memory(4, addr, accdesc)
+
+function rMem(addr, accdesc) = read_memory(8, addr, accdesc)
 
 function wMem_Addr(addr) = sail_address_announce(64, sail_zero_extend(addr, 64))
 
-function wMem(addr, value) = {
+function wMem(addr, value, accdesc) = {
   let req : Mem_write_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
-    access_kind = base_AccessDescriptor(AccessType_GPR),
+    access_kind = accdesc,
     address = truncate(addr, addr_size'),
     address_space = addr_space_def,
     size = 8,
@@ -252,244 +282,3 @@ function dataMemoryBarrier(types) = sail_barrier(
     domain = MBReqDomain_FullSystem,
     types = types,
     nXS = false}))
-
-$ifdef SYSTEM_TINY_ARM
-instantiation sail_cache_op with
-  'cache_op = CacheRecord
-
-instantiation sail_tlbi with
-  'tlbi = TLBIInfo
-
-instantiation sail_return_exception
-
-instantiation sail_take_exception with
-  'exn = option(FaultRecord)
-
-instantiation sail_translation_start with
-  'trans_start = TranslationStartInfo
-
-instantiation sail_translation_end with
-  'trans_end = AddressDescriptor
-$endif
-
-$ifdef SYSTEM_TINY_ARM
-function get_VARange (va : bits(64)) -> VARange = {
-  if [va[55]] == sail_zeros(1) then {
-    VARange_LOWER
-  } else {
-    VARange_UPPER
-  }
-}
-
-function get_baddr (varange : VARange) -> bits(56) = {
-  let ttbr : bits(64) = match varange {
-    VARange_LOWER => TTBR0_EL1,
-    VARange_UPPER => TTBR1_EL1
-  };
-  var baddr : bits(56) = sail_zeros(56);
-  baddr[47 .. 0] = ttbr[47 .. 5] @ sail_zeros(5);
-  return baddr
-}
-
-function VMID_read () -> bits(16) = {
-  // TODO
-  return sail_zeros(16)
-}
-
-function ASID_read () -> bits(16) = {
-  if slice(TCR_EL1, 22, 1) == sail_zeros(1) then
-    slice(TTBR0_EL1, 48, 16)
-  else
-    slice(TTBR1_EL1, 48, 16)
-}
-
-function is_fault (addrdesc : AddressDescriptor) -> bool = {
-  match addrdesc.fault.statuscode {
-    Fault_None => false,
-    _ => true
-  }
-}
-
-function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> AccessDescriptor = {
-  var accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_TTW);
-  accdesc.read = true;
-  accdesc.toplevel = toplevel;
-  accdesc.varange = varange;
-  return(accdesc)
-}
-
-function get_TTEntryAddress (level : int, ia : bits(64), baseaddress : FullAddress) -> FullAddress = {
-  let 'descsizelog2 = 3;
-  let 'stride = 9;
-  let 'levels = FINAL_LEVEL - level;
-  let 'lsb = levels * stride + 12;
-  let 'msb = lsb + stride - 1;
-  assert(constraint((0 <= 'lsb & 'lsb <= 'msb & 'msb < 64)));
-  assert(constraint(56 >= 'msb - 'lsb + 1 + 'descsizelog2));
-  let index : bits(56) = sail_zero_extend(ia[msb .. lsb] @ sail_zeros(descsizelog2), 56);
-  let descaddress : FullAddress = struct {
-    address = baseaddress.address | index,
-    paspace = baseaddress.paspace,
-  };
-
-  return descaddress
-}
-
-function decode_desc_type(descriptor : bits(56), level : int) -> DescriptorType = {
-  if [descriptor[0]] == sail_zeros(1) then {
-    return(DescriptorType_Invalid)
-  } else {
-    if [descriptor[1]] == 0b1 then {
-      if level == FINAL_LEVEL then {
-        DescriptorType_Leaf
-      } else {
-        DescriptorType_Table
-      }
-    } else if [descriptor[1]] == sail_zeros(1) then {
-      if (level == 1 | level == 2) then {
-        DescriptorType_Leaf
-      } else {
-        DescriptorType_Invalid
-      }
-    } else {
-      DescriptorType_Invalid
-    }
-  }
-}
-
-function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescriptor, bits(56)) = {
-  let startlevel : int = 0;
-  let varange : VARange = get_VARange(va);
-
-  let baseaddress : FullAddress = struct {
-    address = get_baddr(varange),
-    paspace = PAS_NonSecure,
-  };
-  var descaddress : FullAddress = get_TTEntryAddress(0, va, baseaddress);
-
-  let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(true, varange);
-  var walkaddress = base_AddressDescriptor(walkaccess, 0);
-  var desctype = DescriptorType_Table;
-
-  foreach (level from 0 to FINAL_LEVEL)  {
-    match desctype {
-      DescriptorType_Leaf => (),
-      _ => {
-        let toplevel : bool = level == startlevel;
-        let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(toplevel, varange);
-        walkaddress.fault.level = level;
-        walkaddress.paddress = descaddress;
-        walkaddress.vaddress = va;
-
-        let req : Mem_read_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
-          access_kind = walkaccess,
-          address = truncate(walkaddress.paddress.address, addr_size'),
-          address_space = addr_space_def,
-          size = 8,
-          num_tag = 0
-        };
-        let memval : bits(64) = match sail_mem_read(req) {
-          Ok((memval, _)) => from_bytes_le(memval),
-          Err(_) => exit(),
-        };
-
-        let descriptor : bits(56) = slice(memval, 0, 56);
-        desctype = decode_desc_type(descriptor, level);
-        match desctype {
-          DescriptorType_Table => {
-            let next_baseaddress : FullAddress = struct {
-              address = sail_zero_extend(descriptor[47 .. 12] @ sail_zeros(12), 56),
-              paspace = PAS_NonSecure
-            };
-            descaddress = get_TTEntryAddress(level + 1, va, next_baseaddress);
-            ()
-          },
-          DescriptorType_Leaf => {
-            let levels : int = FINAL_LEVEL - level;
-            let 'offset_bits : int = 12 + levels * 9;
-            assert((0 <= 'offset_bits - 1) & 56 >= (('offset_bits - 1) + 1));
-
-            let base_pa : bits(56) =
-              sail_zero_extend(descriptor[47 .. 12] @ sail_zeros(12), 56);
-            let va_off : bits(56) =
-              sail_zero_extend(va[offset_bits - 1 .. 0], 56);
-            let out_pa : bits(56) = base_pa | va_off;
-
-            let baseaddress : FullAddress = struct {
-              address = out_pa,
-              paspace = PAS_NonSecure
-            };
-          },
-          DescriptorType_Invalid => {
-            walkaddress.fault.statuscode = Fault_Translation;
-            return (walkaddress, sail_zeros(56))
-          }
-        }
-      },
-    };
-  };
-  return (walkaddress, descaddress.address)
-}
-
-function handle_fault (addrdesc : AddressDescriptor) -> unit = {
-  let fault : FaultRecord = addrdesc.fault;
-  let vaddress : bits(64) = addrdesc.vaddress;
-  let vect_offset : int = 0;
-
-  var ec : int = 0;
-  let il : bits(1) = 0b1;
-  if fault.access.acctype == AccessType_IFETCH then {
-    ec = 32;
-  } else if fault.access.acctype == AccessType_TTW then {
-    ec = 36;
-  };
-
-  // Report exception
-  ESR_EL1 = sail_zero_extend((get_slice_int(6, ec, 0) @ il) @ sail_zeros(25), 64);
-  FAR_EL1 = vaddress;
-  ELR_EL1 = _PC;
-
-  _PC = slice(VBAR_EL1, 11, 53) @ get_slice_int(11, vect_offset, 0);
-  sail_take_exception(Some(fault));
-}
-
-function translate_address(va) = {
-  // Check SCTLR_EL1.M to check if MMU is enabled
-  if slice(SCTLR_EL1, 0, 1) == 0b0 then {
-    return Some(truncate(va, addr_size'))
-  };
-  let accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_AT);
-
-  // Announce translation start
-  let cnp: bits(1) =
-    if get_VARange(va) == VARange_LOWER then {
-      slice(TTBR0_EL1, 0, 1)
-    } else {
-      slice(TTBR1_EL1, 0, 1)
-    };
-
-  let tsi : TranslationStartInfo = struct {
-    ss = accdesc.ss,
-    regime = Regime_EL10,
-    vmid = VMID_read(),
-    asid = ASID_read(),
-    va = va,
-    cnp = cnp,
-    accdesc = accdesc,
-    size = 0
-  };
-  sail_translation_start(tsi);
-
-  // Actual translation
-  let (addrdesc, paddress) = pgt_walk(va, accdesc);
-  if is_fault(addrdesc) then {
-    handle_fault(addrdesc);
-    return None()
-  };
-
-  // Announce result
-  sail_translation_end(addrdesc);
-
-  return Some(paddress)
-}
-$endif
