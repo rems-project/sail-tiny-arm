@@ -96,6 +96,7 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescript
   let baseaddress : bits(56) = get_translation_base_address(varange);
   var descaddress : bits(56) = get_TTEntryAddress(0, va, baseaddress);
 
+  // initialize walkaddress
   let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(true, varange);
   var walkaddress = base_AddressDescriptor(walkaccess, 0);
   var desctype = DescriptorType_Table;
@@ -103,25 +104,14 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescript
   foreach (level from 0 to 3) {
     let toplevel : bool = level == 0;
     let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(toplevel, varange);
-    walkaddress.fault.level = level;
+    walkaddress = base_AddressDescriptor(walkaccess, level);
     walkaddress.paddress = struct {
       address = descaddress,
       paspace = PAS_NonSecure,
     };
     walkaddress.vaddress = va;
 
-    let req : Mem_read_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
-      access_kind = walkaccess,
-      address = truncate(walkaddress.paddress.address, addr_size'),
-      address_space = addr_space_def,
-      size = 8,
-      num_tag = 0
-    };
-    let memval : bits(64) = match sail_mem_read(req) {
-      Ok((memval, _)) => from_bytes_le(memval),
-      Err(_) => exit(),
-    };
-
+    let memval : bits(64) = read_memory(8, truncate(walkaddress.paddress.address, addr_size'), walkaccess);
     desctype = decode_desc_type(memval, level);
     match desctype {
       DescriptorType_Table => {
@@ -168,6 +158,9 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
       0x400
     };
 
+  // Report the exception
+  sail_take_exception(Some(fault));
+
   var ec : bits(6) = 0b000000;
   let il : bits(1) = 0b1;
   if fault.access.acctype == AccessType_IFETCH then {
@@ -190,12 +183,10 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
       0b000000
     };
   let iss : bits(25) = sail_zero_extend(wnr @ dfsc, 25);
-  // Report the exception
   ESR_EL1 = sail_zero_extend((ec @ il) @ iss, 64);
   FAR_EL1 = vaddress;
   ELR_EL1 = _PC;
 
-  sail_take_exception(Some(fault));
   _PC = slice(VBAR_EL1, 12, 52) @ vect_offset;
 }
 
