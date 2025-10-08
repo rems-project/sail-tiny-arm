@@ -186,6 +186,8 @@ function translate_address(va, accdesc) = {
     if va_out_of_range(va) then {
       var addrdesc = base_AddressDescriptor(accdesc, 0);
       addrdesc.fault.statuscode = Fault_Translation;
+      addrdesc.fault.write = accdesc.write;
+      addrdesc.fault.access = accdesc;
       (addrdesc, sail_zeros(56))
     } else {
       // Actual translation
