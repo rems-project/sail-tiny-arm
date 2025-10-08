@@ -8,17 +8,6 @@ struct Permissions = {
   xn : bits(1),
   uxn : bits(1),
   pxn : bits(1),
-  ppi : bits(4),
-  upi : bits(4),
-  ndirty : bits(1),
-  s2pi : bits(4),
-  s2dirty : bits(1),
-  po_index : bits(4),
-  s2po_index : bits(4),
-  s2ap : bits(2),
-  s2tag_na : bits(1),
-  s2xnx : bits(1),
-  s2xn : bits(1)
 }
 
 function base_Permissions() -> Permissions = struct {
@@ -30,41 +19,18 @@ function base_Permissions() -> Permissions = struct {
   xn = sail_zeros(1),
   uxn = sail_zeros(1),
   pxn = sail_zeros(1),
-  ppi = sail_zeros(4),
-  upi = sail_zeros(4),
-  ndirty = sail_zeros(1),
-  s2pi = sail_zeros(4),
-  s2dirty = sail_zeros(1),
-  po_index = sail_zeros(4),
-  s2po_index = sail_zeros(4),
-  s2ap = sail_zeros(2),
-  s2tag_na = sail_zeros(1),
-  s2xnx = sail_zeros(1),
-  s2xn = sail_zeros(1),
 }
 
 struct S1AccessControls = {
   r : bits(1),
   w : bits(1),
   x : bits(1),
-  gcs : bits(1),
-  overlay : bool,
-  or : bits(1),
-  ow : bits(1),
-  ox : bits(1),
-  wxn : bits(1)
 }
 
 function base_S1AccessControls () -> S1AccessControls = struct {
   r = 0b0,
   w = 0b0,
   x = 0b0,
-  gcs = 0b0,
-  overlay = false,
-  or = 0b0,
-  ow = 0b0,
-  ox = 0b0,
-  wxn = 0b0
 }
 
 function extract_perms(descriptor : bits(64), is_table : bool) -> Permissions = {
@@ -218,9 +184,6 @@ function decode_leaf_permissions (
   let wxn_enabled = [SCTLR_EL1[19]];
   if wxn_enabled == 0b1 & controls.w == 0b1 then {
     controls.x = 0b0;
-    controls.wxn = 0b1;
-  } else {
-    controls.wxn = 0b0;
   };
 
   return controls;

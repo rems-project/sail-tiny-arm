@@ -933,17 +933,6 @@ Definition undefined_Permissions '(tt : unit) : M (Permissions) :=
    (undefined_bitvector (1)) >>= fun (w__5 : mword 1) =>
    (undefined_bitvector (1)) >>= fun (w__6 : mword 1) =>
    (undefined_bitvector (1)) >>= fun (w__7 : mword 1) =>
-   (undefined_bitvector (4)) >>= fun (w__8 : mword 4) =>
-   (undefined_bitvector (4)) >>= fun (w__9 : mword 4) =>
-   (undefined_bitvector (1)) >>= fun (w__10 : mword 1) =>
-   (undefined_bitvector (4)) >>= fun (w__11 : mword 4) =>
-   (undefined_bitvector (1)) >>= fun (w__12 : mword 1) =>
-   (undefined_bitvector (4)) >>= fun (w__13 : mword 4) =>
-   (undefined_bitvector (4)) >>= fun (w__14 : mword 4) =>
-   (undefined_bitvector (2)) >>= fun (w__15 : mword 2) =>
-   (undefined_bitvector (1)) >>= fun (w__16 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__17 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__18 : mword 1) =>
    returnM (({| Permissions_ap_table := w__0;
                 Permissions_xn_table := w__1;
                 Permissions_pxn_table := w__2;
@@ -951,18 +940,7 @@ Definition undefined_Permissions '(tt : unit) : M (Permissions) :=
                 Permissions_ap := w__4;
                 Permissions_xn := w__5;
                 Permissions_uxn := w__6;
-                Permissions_pxn := w__7;
-                Permissions_ppi := w__8;
-                Permissions_upi := w__9;
-                Permissions_ndirty := w__10;
-                Permissions_s2pi := w__11;
-                Permissions_s2dirty := w__12;
-                Permissions_po_index := w__13;
-                Permissions_s2po_index := w__14;
-                Permissions_s2ap := w__15;
-                Permissions_s2tag_na := w__16;
-                Permissions_s2xnx := w__17;
-                Permissions_s2xn := w__18 |})).
+                Permissions_pxn := w__7 |})).
 
 Definition base_Permissions '(tt : unit) : Permissions :=
    {| Permissions_ap_table := zeros (2);
@@ -972,49 +950,20 @@ Definition base_Permissions '(tt : unit) : Permissions :=
       Permissions_ap := zeros (3);
       Permissions_xn := zeros (1);
       Permissions_uxn := zeros (1);
-      Permissions_pxn := zeros (1);
-      Permissions_ppi := zeros (4);
-      Permissions_upi := zeros (4);
-      Permissions_ndirty := zeros (1);
-      Permissions_s2pi := zeros (4);
-      Permissions_s2dirty := zeros (1);
-      Permissions_po_index := zeros (4);
-      Permissions_s2po_index := zeros (4);
-      Permissions_s2ap := zeros (2);
-      Permissions_s2tag_na := zeros (1);
-      Permissions_s2xnx := zeros (1);
-      Permissions_s2xn := zeros (1) |}.
+      Permissions_pxn := zeros (1) |}.
 
 Definition undefined_S1AccessControls '(tt : unit) : M (S1AccessControls) :=
    (undefined_bitvector (1)) >>= fun (w__0 : mword 1) =>
    (undefined_bitvector (1)) >>= fun (w__1 : mword 1) =>
    (undefined_bitvector (1)) >>= fun (w__2 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__3 : mword 1) =>
-   (undefined_bool (tt)) >>= fun (w__4 : bool) =>
-   (undefined_bitvector (1)) >>= fun (w__5 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__6 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__7 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__8 : mword 1) =>
    returnM (({| S1AccessControls_r := w__0;
                 S1AccessControls_w := w__1;
-                S1AccessControls_x := w__2;
-                S1AccessControls_gcs := w__3;
-                S1AccessControls_overlay := w__4;
-                S1AccessControls_or := w__5;
-                S1AccessControls_ow := w__6;
-                S1AccessControls_ox := w__7;
-                S1AccessControls_wxn := w__8 |})).
+                S1AccessControls_x := w__2 |})).
 
 Definition base_S1AccessControls '(tt : unit) : S1AccessControls :=
    {| S1AccessControls_r := ('b"0")  : mword 1;
       S1AccessControls_w := ('b"0")  : mword 1;
-      S1AccessControls_x := ('b"0")  : mword 1;
-      S1AccessControls_gcs := ('b"0")  : mword 1;
-      S1AccessControls_overlay := false;
-      S1AccessControls_or := ('b"0")  : mword 1;
-      S1AccessControls_ow := ('b"0")  : mword 1;
-      S1AccessControls_ox := ('b"0")  : mword 1;
-      S1AccessControls_wxn := ('b"0")  : mword 1 |}.
+      S1AccessControls_x := ('b"0")  : mword 1 |}.
 
 Definition extract_perms (descriptor : mword 64) (is_table : bool) : Permissions :=
    let perms : Permissions := base_Permissions (tt) in
@@ -1208,10 +1157,9 @@ Definition decode_leaf_permissions (perms : Permissions) (accdesc : AccessDescri
    let controls : S1AccessControls :=
      if andb ((eq_vec (wxn_enabled) ((('b"1")  : mword 1))))
           ((eq_vec (controls.(S1AccessControls_w)) ((('b"1")  : mword 1)))) then
-       let controls : S1AccessControls := controls <|S1AccessControls_x := ('b"0")  : mword 1|> in
        controls
-       <|S1AccessControls_wxn := ('b"1")  : mword 1|>
-     else controls <|S1AccessControls_wxn := ('b"0")  : mword 1|> in
+       <|S1AccessControls_x := ('b"0")  : mword 1|>
+     else controls in
    returnM (controls).
 
 Definition check_leaf_permission_fault (perms : Permissions) (accdesc : AccessDescriptor) : M (bool) :=

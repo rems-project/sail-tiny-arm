@@ -2700,23 +2700,12 @@ Record Permissions := {
   Permissions_xn : bits 1;
   Permissions_uxn : bits 1;
   Permissions_pxn : bits 1;
-  Permissions_ppi : bits 4;
-  Permissions_upi : bits 4;
-  Permissions_ndirty : bits 1;
-  Permissions_s2pi : bits 4;
-  Permissions_s2dirty : bits 1;
-  Permissions_po_index : bits 4;
-  Permissions_s2po_index : bits 4;
-  Permissions_s2ap : bits 2;
-  Permissions_s2tag_na : bits 1;
-  Permissions_s2xnx : bits 1;
-  Permissions_s2xn : bits 1;
 }.
 Arguments Permissions : clear implicits.
 #[export]
 Instance Decidable_eq_Permissions : EqDecision Permissions.
-   intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18].
-   intros [y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 y15 y16 y17 y18].
+   intros [x0 x1 x2 x3 x4 x5 x6 x7].
+   intros [y0 y1 y2 y3 y4 y5 y6 y7].
   cmp_record_field x0 y0.
   cmp_record_field x1 y1.
   cmp_record_field x2 y2.
@@ -2725,33 +2714,22 @@ Instance Decidable_eq_Permissions : EqDecision Permissions.
   cmp_record_field x5 y5.
   cmp_record_field x6 y6.
   cmp_record_field x7 y7.
-  cmp_record_field x8 y8.
-  cmp_record_field x9 y9.
-  cmp_record_field x10 y10.
-  cmp_record_field x11 y11.
-  cmp_record_field x12 y12.
-  cmp_record_field x13 y13.
-  cmp_record_field x14 y14.
-  cmp_record_field x15 y15.
-  cmp_record_field x16 y16.
-  cmp_record_field x17 y17.
-  cmp_record_field x18 y18.
 left; subst; reflexivity.
 Defined.
 #[export]
 Instance Countable_Permissions : Countable Permissions.
 refine {|
-  encode x := encode (Permissions_ap_table x, Permissions_xn_table x, Permissions_pxn_table x, Permissions_uxn_table x, Permissions_ap x, Permissions_xn x, Permissions_uxn x, Permissions_pxn x, Permissions_ppi x, Permissions_upi x, Permissions_ndirty x, Permissions_s2pi x, Permissions_s2dirty x, Permissions_po_index x, Permissions_s2po_index x, Permissions_s2ap x, Permissions_s2tag_na x, Permissions_s2xnx x, Permissions_s2xn x);
-  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18) ← decode x;
-              mret (Build_Permissions x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18)
+  encode x := encode (Permissions_ap_table x, Permissions_xn_table x, Permissions_pxn_table x, Permissions_uxn_table x, Permissions_ap x, Permissions_xn x, Permissions_uxn x, Permissions_pxn x);
+  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7) ← decode x;
+              mret (Build_Permissions x0 x1 x2 x3 x4 x5 x6 x7)
 |}.
 abstract (
-  intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18];
+  intros [x0 x1 x2 x3 x4 x5 x6 x7];
   rewrite decode_encode;
   reflexivity).
 Defined.
 
-#[export] Instance eta_Permissions : Settable _ := settable! Build_Permissions <Permissions_ap_table; Permissions_xn_table; Permissions_pxn_table; Permissions_uxn_table; Permissions_ap; Permissions_xn; Permissions_uxn; Permissions_pxn; Permissions_ppi; Permissions_upi; Permissions_ndirty; Permissions_s2pi; Permissions_s2dirty; Permissions_po_index; Permissions_s2po_index; Permissions_s2ap; Permissions_s2tag_na; Permissions_s2xnx; Permissions_s2xn>.
+#[export] Instance eta_Permissions : Settable _ := settable! Build_Permissions <Permissions_ap_table; Permissions_xn_table; Permissions_pxn_table; Permissions_uxn_table; Permissions_ap; Permissions_xn; Permissions_uxn; Permissions_pxn>.
 #[export]
 Instance dummy_Permissions : Inhabited (Permissions) := {
   inhabitant := {|
@@ -2762,18 +2740,7 @@ Instance dummy_Permissions : Inhabited (Permissions) := {
     Permissions_ap := inhabitant;
     Permissions_xn := inhabitant;
     Permissions_uxn := inhabitant;
-    Permissions_pxn := inhabitant;
-    Permissions_ppi := inhabitant;
-    Permissions_upi := inhabitant;
-    Permissions_ndirty := inhabitant;
-    Permissions_s2pi := inhabitant;
-    Permissions_s2dirty := inhabitant;
-    Permissions_po_index := inhabitant;
-    Permissions_s2po_index := inhabitant;
-    Permissions_s2ap := inhabitant;
-    Permissions_s2tag_na := inhabitant;
-    Permissions_s2xnx := inhabitant;
-    Permissions_s2xn := inhabitant
+    Permissions_pxn := inhabitant
 |} }.
 
 
@@ -2781,55 +2748,37 @@ Record S1AccessControls := {
   S1AccessControls_r : bits 1;
   S1AccessControls_w : bits 1;
   S1AccessControls_x : bits 1;
-  S1AccessControls_gcs : bits 1;
-  S1AccessControls_overlay : bool;
-  S1AccessControls_or : bits 1;
-  S1AccessControls_ow : bits 1;
-  S1AccessControls_ox : bits 1;
-  S1AccessControls_wxn : bits 1;
 }.
 Arguments S1AccessControls : clear implicits.
 #[export]
 Instance Decidable_eq_S1AccessControls : EqDecision S1AccessControls.
-   intros [x0 x1 x2 x3 x4 x5 x6 x7 x8].
-   intros [y0 y1 y2 y3 y4 y5 y6 y7 y8].
+   intros [x0 x1 x2].
+   intros [y0 y1 y2].
   cmp_record_field x0 y0.
   cmp_record_field x1 y1.
   cmp_record_field x2 y2.
-  cmp_record_field x3 y3.
-  cmp_record_field x4 y4.
-  cmp_record_field x5 y5.
-  cmp_record_field x6 y6.
-  cmp_record_field x7 y7.
-  cmp_record_field x8 y8.
 left; subst; reflexivity.
 Defined.
 #[export]
 Instance Countable_S1AccessControls : Countable S1AccessControls.
 refine {|
-  encode x := encode (S1AccessControls_r x, S1AccessControls_w x, S1AccessControls_x x, S1AccessControls_gcs x, S1AccessControls_overlay x, S1AccessControls_or x, S1AccessControls_ow x, S1AccessControls_ox x, S1AccessControls_wxn x);
-  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7, x8) ← decode x;
-              mret (Build_S1AccessControls x0 x1 x2 x3 x4 x5 x6 x7 x8)
+  encode x := encode (S1AccessControls_r x, S1AccessControls_w x, S1AccessControls_x x);
+  decode x := '(x0, x1, x2) ← decode x;
+              mret (Build_S1AccessControls x0 x1 x2)
 |}.
 abstract (
-  intros [x0 x1 x2 x3 x4 x5 x6 x7 x8];
+  intros [x0 x1 x2];
   rewrite decode_encode;
   reflexivity).
 Defined.
 
-#[export] Instance eta_S1AccessControls : Settable _ := settable! Build_S1AccessControls <S1AccessControls_r; S1AccessControls_w; S1AccessControls_x; S1AccessControls_gcs; S1AccessControls_overlay; S1AccessControls_or; S1AccessControls_ow; S1AccessControls_ox; S1AccessControls_wxn>.
+#[export] Instance eta_S1AccessControls : Settable _ := settable! Build_S1AccessControls <S1AccessControls_r; S1AccessControls_w; S1AccessControls_x>.
 #[export]
 Instance dummy_S1AccessControls : Inhabited (S1AccessControls) := {
   inhabitant := {|
     S1AccessControls_r := inhabitant;
     S1AccessControls_w := inhabitant;
-    S1AccessControls_x := inhabitant;
-    S1AccessControls_gcs := inhabitant;
-    S1AccessControls_overlay := inhabitant;
-    S1AccessControls_or := inhabitant;
-    S1AccessControls_ow := inhabitant;
-    S1AccessControls_ox := inhabitant;
-    S1AccessControls_wxn := inhabitant
+    S1AccessControls_x := inhabitant
 |} }.
 
 
