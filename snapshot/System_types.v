@@ -2692,93 +2692,43 @@ Definition addr_space : Type := PASpace.
 Definition abort : Type := Fault.
 
 Record Permissions := {
-  Permissions_ap_table : bits 2;
-  Permissions_xn_table : bits 1;
-  Permissions_pxn_table : bits 1;
-  Permissions_uxn_table : bits 1;
-  Permissions_ap : bits 3;
-  Permissions_xn : bits 1;
-  Permissions_uxn : bits 1;
-  Permissions_pxn : bits 1;
+  Permissions_allow_write : bool;
+  Permissions_allow_unpriviledged_data : bool;
+  Permissions_allow_unpriviledged_exec : bool;
+  Permissions_allow_priviledged_exec : bool;
 }.
 Arguments Permissions : clear implicits.
 #[export]
 Instance Decidable_eq_Permissions : EqDecision Permissions.
-   intros [x0 x1 x2 x3 x4 x5 x6 x7].
-   intros [y0 y1 y2 y3 y4 y5 y6 y7].
+   intros [x0 x1 x2 x3].
+   intros [y0 y1 y2 y3].
   cmp_record_field x0 y0.
   cmp_record_field x1 y1.
   cmp_record_field x2 y2.
   cmp_record_field x3 y3.
-  cmp_record_field x4 y4.
-  cmp_record_field x5 y5.
-  cmp_record_field x6 y6.
-  cmp_record_field x7 y7.
 left; subst; reflexivity.
 Defined.
 #[export]
 Instance Countable_Permissions : Countable Permissions.
 refine {|
-  encode x := encode (Permissions_ap_table x, Permissions_xn_table x, Permissions_pxn_table x, Permissions_uxn_table x, Permissions_ap x, Permissions_xn x, Permissions_uxn x, Permissions_pxn x);
-  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7) ← decode x;
-              mret (Build_Permissions x0 x1 x2 x3 x4 x5 x6 x7)
+  encode x := encode (Permissions_allow_write x, Permissions_allow_unpriviledged_data x, Permissions_allow_unpriviledged_exec x, Permissions_allow_priviledged_exec x);
+  decode x := '(x0, x1, x2, x3) ← decode x;
+              mret (Build_Permissions x0 x1 x2 x3)
 |}.
 abstract (
-  intros [x0 x1 x2 x3 x4 x5 x6 x7];
+  intros [x0 x1 x2 x3];
   rewrite decode_encode;
   reflexivity).
 Defined.
 
-#[export] Instance eta_Permissions : Settable _ := settable! Build_Permissions <Permissions_ap_table; Permissions_xn_table; Permissions_pxn_table; Permissions_uxn_table; Permissions_ap; Permissions_xn; Permissions_uxn; Permissions_pxn>.
+#[export] Instance eta_Permissions : Settable _ := settable! Build_Permissions <Permissions_allow_write; Permissions_allow_unpriviledged_data; Permissions_allow_unpriviledged_exec; Permissions_allow_priviledged_exec>.
 #[export]
 Instance dummy_Permissions : Inhabited (Permissions) := {
   inhabitant := {|
-    Permissions_ap_table := inhabitant;
-    Permissions_xn_table := inhabitant;
-    Permissions_pxn_table := inhabitant;
-    Permissions_uxn_table := inhabitant;
-    Permissions_ap := inhabitant;
-    Permissions_xn := inhabitant;
-    Permissions_uxn := inhabitant;
-    Permissions_pxn := inhabitant
-|} }.
-
-
-Record S1AccessControls := {
-  S1AccessControls_r : bits 1;
-  S1AccessControls_w : bits 1;
-  S1AccessControls_x : bits 1;
-}.
-Arguments S1AccessControls : clear implicits.
-#[export]
-Instance Decidable_eq_S1AccessControls : EqDecision S1AccessControls.
-   intros [x0 x1 x2].
-   intros [y0 y1 y2].
-  cmp_record_field x0 y0.
-  cmp_record_field x1 y1.
-  cmp_record_field x2 y2.
-left; subst; reflexivity.
-Defined.
-#[export]
-Instance Countable_S1AccessControls : Countable S1AccessControls.
-refine {|
-  encode x := encode (S1AccessControls_r x, S1AccessControls_w x, S1AccessControls_x x);
-  decode x := '(x0, x1, x2) ← decode x;
-              mret (Build_S1AccessControls x0 x1 x2)
-|}.
-abstract (
-  intros [x0 x1 x2];
-  rewrite decode_encode;
-  reflexivity).
-Defined.
-
-#[export] Instance eta_S1AccessControls : Settable _ := settable! Build_S1AccessControls <S1AccessControls_r; S1AccessControls_w; S1AccessControls_x>.
-#[export]
-Instance dummy_S1AccessControls : Inhabited (S1AccessControls) := {
-  inhabitant := {|
-    S1AccessControls_r := inhabitant;
-    S1AccessControls_w := inhabitant;
-    S1AccessControls_x := inhabitant
+    Permissions_allow_write := inhabitant;
+    Permissions_allow_unpriviledged_data := inhabitant;
+    Permissions_allow_unpriviledged_exec := inhabitant;
+    Permissions_allow_priviledged_exec := inhabitant
 |} }.
 
 

@@ -925,101 +925,57 @@ Definition dataMemoryBarrier (types : MBReqTypes) : M (unit) :=
     : M (unit).
 
 Definition undefined_Permissions '(tt : unit) : M (Permissions) :=
-   (undefined_bitvector (2)) >>= fun (w__0 : mword 2) =>
-   (undefined_bitvector (1)) >>= fun (w__1 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__2 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__3 : mword 1) =>
-   (undefined_bitvector (3)) >>= fun (w__4 : mword 3) =>
-   (undefined_bitvector (1)) >>= fun (w__5 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__6 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__7 : mword 1) =>
-   returnM (({| Permissions_ap_table := w__0;
-                Permissions_xn_table := w__1;
-                Permissions_pxn_table := w__2;
-                Permissions_uxn_table := w__3;
-                Permissions_ap := w__4;
-                Permissions_xn := w__5;
-                Permissions_uxn := w__6;
-                Permissions_pxn := w__7 |})).
+   (undefined_bool (tt)) >>= fun (w__0 : bool) =>
+   (undefined_bool (tt)) >>= fun (w__1 : bool) =>
+   (undefined_bool (tt)) >>= fun (w__2 : bool) =>
+   (undefined_bool (tt)) >>= fun (w__3 : bool) =>
+   returnM (({| Permissions_allow_write := w__0;
+                Permissions_allow_unpriviledged_data := w__1;
+                Permissions_allow_unpriviledged_exec := w__2;
+                Permissions_allow_priviledged_exec := w__3 |})).
 
 Definition base_Permissions '(tt : unit) : Permissions :=
-   {| Permissions_ap_table := zeros (2);
-      Permissions_xn_table := zeros (1);
-      Permissions_pxn_table := zeros (1);
-      Permissions_uxn_table := zeros (1);
-      Permissions_ap := zeros (3);
-      Permissions_xn := zeros (1);
-      Permissions_uxn := zeros (1);
-      Permissions_pxn := zeros (1) |}.
-
-Definition undefined_S1AccessControls '(tt : unit) : M (S1AccessControls) :=
-   (undefined_bitvector (1)) >>= fun (w__0 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__1 : mword 1) =>
-   (undefined_bitvector (1)) >>= fun (w__2 : mword 1) =>
-   returnM (({| S1AccessControls_r := w__0;
-                S1AccessControls_w := w__1;
-                S1AccessControls_x := w__2 |})).
-
-Definition base_S1AccessControls '(tt : unit) : S1AccessControls :=
-   {| S1AccessControls_r := ('b"0")  : mword 1;
-      S1AccessControls_w := ('b"0")  : mword 1;
-      S1AccessControls_x := ('b"0")  : mword 1 |}.
+   {| Permissions_allow_write := false;
+      Permissions_allow_unpriviledged_data := false;
+      Permissions_allow_unpriviledged_exec := false;
+      Permissions_allow_priviledged_exec := false |}.
 
 Definition extract_perms (descriptor : mword 64) (is_table : bool) : Permissions :=
    let perms : Permissions := base_Permissions (tt) in
    if is_table then
+     let ap_table := subrange_vec_dec (descriptor) (62) (61) in
      let perms : Permissions :=
        perms
-       <|Permissions_ap_table := subrange_vec_dec (descriptor) (62) (61)|> in
+       <|Permissions_allow_write :=
+         eq_vec ((vec_of_bits [access_vec_dec (ap_table) (1)]  : mword 1)) ((('b"0")  : mword 1))|> in
      let perms : Permissions :=
        perms
-       <|Permissions_xn_table := (vec_of_bits [access_vec_dec (descriptor) (60)]  : mword 1)|> in
+       <|Permissions_allow_unpriviledged_data :=
+         eq_vec ((vec_of_bits [access_vec_dec (ap_table) (0)]  : mword 1)) ((('b"0")  : mword 1))|> in
      let perms : Permissions :=
        perms
-       <|Permissions_pxn_table := (vec_of_bits [access_vec_dec (descriptor) (59)]  : mword 1)|> in
+       <|Permissions_allow_unpriviledged_exec :=
+         eq_vec ((vec_of_bits [access_vec_dec (descriptor) (60)]  : mword 1)) ((('b"0")  : mword 1))|> in
      perms
-     <|Permissions_uxn_table := (vec_of_bits [access_vec_dec (descriptor) (60)]  : mword 1)|>
+     <|Permissions_allow_priviledged_exec :=
+       eq_vec ((vec_of_bits [access_vec_dec (descriptor) (59)]  : mword 1)) ((('b"0")  : mword 1))|>
    else
+     let ap := subrange_vec_dec (descriptor) (7) (6) in
      let perms : Permissions :=
        perms
-       <|Permissions_ap :=
-         concat_vec ((subrange_vec_dec (descriptor) (7) (6))) ((('b"0")  : mword 1))|> in
+       <|Permissions_allow_write :=
+         eq_vec ((vec_of_bits [access_vec_dec (ap) (1)]  : mword 1)) ((('b"0")  : mword 1))|> in
      let perms : Permissions :=
        perms
-       <|Permissions_xn := (vec_of_bits [access_vec_dec (descriptor) (54)]  : mword 1)|> in
+       <|Permissions_allow_unpriviledged_data :=
+         eq_vec ((vec_of_bits [access_vec_dec (ap) (0)]  : mword 1)) ((('b"1")  : mword 1))|> in
      let perms : Permissions :=
        perms
-       <|Permissions_uxn := (vec_of_bits [access_vec_dec (descriptor) (54)]  : mword 1)|> in
+       <|Permissions_allow_unpriviledged_exec :=
+         eq_vec ((vec_of_bits [access_vec_dec (descriptor) (54)]  : mword 1)) ((('b"0")  : mword 1))|> in
      perms
-     <|Permissions_pxn := (vec_of_bits [access_vec_dec (descriptor) (53)]  : mword 1)|>.
-
-Definition combine_perms (prev : Permissions) (current : Permissions) : Permissions :=
-   let result' := current in
-   let result' : Permissions :=
-     result'
-     <|Permissions_ap_table := or_vec (current.(Permissions_ap_table)) (prev.(Permissions_ap_table))|> in
-   let result' : Permissions :=
-     result'
-     <|Permissions_xn_table := or_vec (current.(Permissions_xn_table)) (prev.(Permissions_xn_table))|> in
-   let result' : Permissions :=
-     result'
-     <|Permissions_pxn_table :=
-       or_vec (current.(Permissions_pxn_table)) (prev.(Permissions_pxn_table))|> in
-   let result' : Permissions :=
-     result'
-     <|Permissions_uxn_table :=
-       or_vec (current.(Permissions_uxn_table)) (prev.(Permissions_uxn_table))|> in
-   let result' : Permissions :=
-     result'
-     <|Permissions_ap := or_vec (current.(Permissions_ap)) (prev.(Permissions_ap))|> in
-   let result' : Permissions :=
-     result'
-     <|Permissions_xn := or_vec (current.(Permissions_xn)) (prev.(Permissions_xn))|> in
-   let result' : Permissions :=
-     result'
-     <|Permissions_pxn := or_vec (current.(Permissions_pxn)) (prev.(Permissions_pxn))|> in
-   result'
-   <|Permissions_uxn := or_vec (current.(Permissions_uxn)) (prev.(Permissions_uxn))|>.
+     <|Permissions_allow_priviledged_exec :=
+       eq_vec ((vec_of_bits [access_vec_dec (descriptor) (53)]  : mword 1)) ((('b"0")  : mword 1))|>.
 
 Definition create_AccessDescriptorTTW (toplevel : bool) (varange : VARange) : M (AccessDescriptor) :=
    let accdesc : AccessDescriptor := base_AccessDescriptor (AccessType_TTW) in
@@ -1066,138 +1022,15 @@ Definition is_fault (addrdesc : AddressDescriptor) : bool :=
    | _ => true
    end.
 
-Definition check_table_permission_fault (perms : Permissions) (accdesc : AccessDescriptor) : bool :=
-   pure_early_return
-     (let at_el0 := eq_vec (accdesc.(AccessDescriptor_el)) ((('b"00")  : mword 2)) in
-     let ap_table := perms.(Permissions_ap_table) in
-     (if andb (at_el0)
-           ((eq_vec ((vec_of_bits [access_vec_dec (ap_table) (0)]  : mword 1))
-               ((('b"1")
-                : mword 1)))) then
-        inr (true)
-      else if andb (accdesc.(AccessDescriptor_write))
-                ((eq_vec ((vec_of_bits [access_vec_dec (ap_table) (1)]  : mword 1))
-                    ((('b"1")
-                     : mword 1)))) then
-        inr (true)
-      else
-        (if generic_eq (accdesc.(AccessDescriptor_acctype)) (AccessType_IFETCH)
-           return
-           sum (bool) (unit) then
-           (if at_el0 return sum (bool) (unit) then
-              (if orb ((eq_vec (perms.(Permissions_uxn_table)) ((('b"1")  : mword 1))))
-                    ((eq_vec (perms.(Permissions_xn_table)) ((('b"1")  : mword 1))))
-                 return
-                 sum (bool) (unit) then
-                 (inl (true  : bool) : sum bool unit)
-                  : sum (bool) (unit)
-               else inr (tt))
-               : sum (bool) (unit)
-            else if orb ((eq_vec (perms.(Permissions_pxn_table)) ((('b"1")  : mword 1))))
-                      ((eq_vec (perms.(Permissions_xn_table)) ((('b"1")  : mword 1))))
-              return
-              sum (bool) (unit) then
-              (inl (true  : bool) : sum bool unit)
-               : sum (bool) (unit)
-            else inr (tt))
-            : sum (bool) (unit)
-         else inr (tt)) >>$
-        inr (false))
-      : sum (bool) (bool)).
-
-Definition decode_leaf_permissions (perms : Permissions) (accdesc : AccessDescriptor)
-: M (S1AccessControls) :=
-   let controls : S1AccessControls := base_S1AccessControls (tt) in
+Definition check_permission (perms : Permissions) (accdesc : AccessDescriptor) : bool :=
    let at_el0 := eq_vec (accdesc.(AccessDescriptor_el)) ((('b"00")  : mword 2)) in
-   let ap := subrange_vec_dec (perms.(Permissions_ap)) (2) (1) in
-   let b__0 := ap in
-   let controls : S1AccessControls :=
-     if eq_vec (b__0) ((('b"00")  : mword 2)) then
-       let controls : S1AccessControls :=
-         controls
-         <|S1AccessControls_r := if at_el0 then ('b"0")  : mword 1 else ('b"1")  : mword 1|> in
-       controls
-       <|S1AccessControls_w := if at_el0 then ('b"0")  : mword 1 else ('b"1")  : mword 1|>
-     else if eq_vec (b__0) ((('b"01")  : mword 2)) then
-       let controls : S1AccessControls := controls <|S1AccessControls_r := ('b"1")  : mword 1|> in
-       controls
-       <|S1AccessControls_w := ('b"1")  : mword 1|>
-     else if eq_vec (b__0) ((('b"10")  : mword 2)) then
-       let controls : S1AccessControls :=
-         controls
-         <|S1AccessControls_r := if at_el0 then ('b"0")  : mword 1 else ('b"1")  : mword 1|> in
-       controls
-       <|S1AccessControls_w := ('b"0")  : mword 1|>
-     else if eq_vec (b__0) ((('b"11")  : mword 2)) then
-       let controls : S1AccessControls := controls <|S1AccessControls_r := ('b"1")  : mword 1|> in
-       controls
-       <|S1AccessControls_w := ('b"0")  : mword 1|>
-     else controls in
-   let controls : S1AccessControls :=
-     if at_el0 then
-       controls
-       <|S1AccessControls_x :=
-         if orb ((eq_vec (perms.(Permissions_uxn)) ((('b"1")  : mword 1))))
-              ((orb ((eq_vec (perms.(Permissions_xn_table)) ((('b"1")  : mword 1))))
-                  ((eq_vec (perms.(Permissions_uxn_table)) ((('b"1")  : mword 1)))))) then
-           ('b"0")
-            : mword 1
-         else ('b"1")  : mword 1|>
-     else
-       controls
-       <|S1AccessControls_x :=
-         if orb ((eq_vec (perms.(Permissions_pxn)) ((('b"1")  : mword 1))))
-              ((orb ((eq_vec (perms.(Permissions_xn_table)) ((('b"1")  : mword 1))))
-                  ((eq_vec (perms.(Permissions_pxn_table)) ((('b"1")  : mword 1)))))) then
-           ('b"0")
-            : mword 1
-         else ('b"1")  : mword 1|> in
-   ((read_reg SCTLR_EL1)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
-   let wxn_enabled := (vec_of_bits [access_vec_dec (w__0) (19)]  : mword 1) in
-   let controls : S1AccessControls :=
-     if andb ((eq_vec (wxn_enabled) ((('b"1")  : mword 1))))
-          ((eq_vec (controls.(S1AccessControls_w)) ((('b"1")  : mword 1)))) then
-       controls
-       <|S1AccessControls_x := ('b"0")  : mword 1|>
-     else controls in
-   returnM (controls).
-
-Definition check_leaf_permission_fault (perms : Permissions) (accdesc : AccessDescriptor) : M (bool) :=
-   catch_early_return
-     (liftR ((decode_leaf_permissions (perms) (accdesc))) >>= fun controls =>
-     (if andb (accdesc.(AccessDescriptor_read))
-           ((generic_neq (accdesc.(AccessDescriptor_acctype)) (AccessType_IFETCH)))
-        return
-        MR (bool) (unit) then
-        (if eq_vec (controls.(S1AccessControls_r)) ((('b"0")  : mword 1))
-           return
-           MR (bool) (unit) then
-           (early_return (true  : bool) : MR bool unit)
-            : MR (bool) (unit)
-         else returnR (bool) (tt))
-         : MR (bool) (unit)
-      else returnR (bool) (tt)) >>
-     (if accdesc.(AccessDescriptor_write) return MR (bool) (unit) then
-        (if eq_vec (controls.(S1AccessControls_w)) ((('b"0")  : mword 1))
-           return
-           MR (bool) (unit) then
-           (early_return (true  : bool) : MR bool unit)
-            : MR (bool) (unit)
-         else returnR (bool) (tt))
-         : MR (bool) (unit)
-      else returnR (bool) (tt)) >>
-     (if generic_eq (accdesc.(AccessDescriptor_acctype)) (AccessType_IFETCH)
-        return
-        MR (bool) (unit) then
-        (if eq_vec (controls.(S1AccessControls_x)) ((('b"0")  : mword 1))
-           return
-           MR (bool) (unit) then
-           (early_return (true  : bool) : MR bool unit)
-            : MR (bool) (unit)
-         else returnR (bool) (tt))
-         : MR (bool) (unit)
-      else returnR (bool) (tt)) >>
-     returnR (bool) (false)).
+   if generic_eq (accdesc.(AccessDescriptor_acctype)) (AccessType_IFETCH) then
+     if at_el0 then perms.(Permissions_allow_unpriviledged_exec)
+     else perms.(Permissions_allow_priviledged_exec)
+   else if andb (accdesc.(AccessDescriptor_write)) ((negb (perms.(Permissions_allow_write)))) then
+     false
+   else if andb (at_el0) ((negb (perms.(Permissions_allow_unpriviledged_data)))) then false
+   else true.
 
 Definition get_TTEntryAddress (level : Z) (ia : mword 64) (baseaddress : mword 56)
 (*(0 <=? level) && (level <=? 3)*)
@@ -1233,8 +1066,8 @@ Definition pgt_walk (va : mword 64) (accdesc : AccessDescriptor)
      let accumulated_perms := base_Permissions (tt) in
      (let '(loop_level_lower) := 0 in
      let '(loop_level_upper) := 3 in
-     (foreach_ZM_up loop_level_lower loop_level_upper 1 (accumulated_perms, descaddress)
-       (fun level '(accumulated_perms, descaddress) =>
+     (foreach_ZM_up loop_level_lower loop_level_upper 1 descaddress
+       (fun level descaddress =>
          let addrdesc := base_AddressDescriptor (accdesc) (level) in
          let addrdesc : AddressDescriptor :=
            addrdesc
@@ -1244,14 +1077,10 @@ Definition pgt_walk (va : mword 64) (accdesc : AccessDescriptor)
          let addrdesc : AddressDescriptor := addrdesc <|AddressDescriptor_vaddress := va|> in
          liftR ((create_AccessDescriptorTTW ((Z.eqb (level) (0))) (varange))) >>= fun walkaccess =>
          liftR ((read_memory (8) (descaddress) (walkaccess))) >>= fun descriptor =>
-         let perms := extract_perms (descriptor) ((Z.eqb (level) (3))) in
-         let accumulated_perms : Permissions := combine_perms (accumulated_perms) (perms) in
          (match (decode_desc_type (descriptor) (level)) with
           | DescriptorType_Table =>
-             let next_baseaddress :=
-               concat_vec (((Ox"00")  : mword 8))
-                 ((concat_vec ((subrange_vec_dec (descriptor) (47) (12))) (((Ox"000")  : mword 12)))) in
-             (if check_table_permission_fault (accumulated_perms) (accdesc)
+             let perms := extract_perms (descriptor) (true) in
+             (if negb ((check_permission (perms) (accdesc)))
                 return
                 MR ((AddressDescriptor * mword 56)) (mword 56) then
                 let addrdesc : AddressDescriptor :=
@@ -1277,6 +1106,11 @@ Definition pgt_walk (va : mword 64) (accdesc : AccessDescriptor)
                 (early_return (addrdesc, zeros (56)) : MR (AddressDescriptor * mword 56) unit) >>
                 returnR ((AddressDescriptor * mword 56)) (descaddress)
               else
+                let next_baseaddress :=
+                  concat_vec (((Ox"00")  : mword 8))
+                    ((concat_vec ((subrange_vec_dec (descriptor) (47) (12)))
+                        (((Ox"000")
+                         : mword 12)))) in
                 liftR (assert_exp' (Z.ltb (level) (3)) "Table entry at level 3") >>= fun _ =>
                 let descaddress : mword 56 :=
                   get_TTEntryAddress ((Z.add (level) (1))) (va) (next_baseaddress) in
@@ -1305,9 +1139,8 @@ Definition pgt_walk (va : mword 64) (accdesc : AccessDescriptor)
                  <|FaultRecord_level := level|>|> in
              (early_return (addrdesc, zeros (56)) : MR (AddressDescriptor * mword 56) unit) >>
              returnR ((AddressDescriptor * mword 56)) (descaddress)
-          end) >>= fun (descaddress : mword 56) =>
-         returnR ((AddressDescriptor * mword 56)) ((accumulated_perms, descaddress))))) >>= fun '((accumulated_perms, descaddress)
-     : (Permissions * mword 56)) =>
+          end)
+          : MR ((AddressDescriptor * mword 56)) (mword 56)))) >>= fun (descaddress : mword 56) =>
      liftR (exit tt)
       : MR ((AddressDescriptor * mword 56)) ((AddressDescriptor * mword 56))).
 
