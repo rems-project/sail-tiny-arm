@@ -1,24 +1,15 @@
-
 $ifdef SYSTEM_TINY_ARM
-instantiation sail_cache_op with
-  'cache_op = CacheRecord
-
-instantiation sail_tlbi with
-  'tlbi = TLBIInfo
-
-instantiation sail_return_exception
-
-instantiation sail_take_exception with
-  'exn = option(FaultRecord)
-
-instantiation sail_translation_start with
-  'trans_start = TranslationStartInfo
-
-instantiation sail_translation_end with
-  'trans_end = AddressDescriptor
+function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> AccessDescriptor = {
+  var accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_TTW);
+  accdesc.el = 0b01;
+  accdesc.read = true;
+  accdesc.toplevel = toplevel;
+  accdesc.varange = varange;
+  return(accdesc)
+}
 
 function get_VARange (va : bits(64)) -> VARange = {
-  if [va[55]] == sail_zeros(1) then {
+  if [va[48]] == 0b0 then {
     VARange_LOWER
   } else {
     VARange_UPPER
@@ -31,7 +22,7 @@ function get_translation_base_address (varange : VARange) -> bits(56) = {
     VARange_UPPER => TTBR1_EL1
   };
   var baddr : bits(56) = sail_zeros(56);
-  baddr[47 .. 0] = ttbr[47 .. 5] @ sail_zeros(5);
+  baddr[47 .. 5] = ttbr[47 .. 5];
   return baddr
 }
 
@@ -49,21 +40,11 @@ function is_fault (addrdesc : AddressDescriptor) -> bool = {
   }
 }
 
-function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> AccessDescriptor = {
-  var accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_TTW);
-  accdesc.read = true;
-  accdesc.toplevel = toplevel;
-  accdesc.varange = varange;
-  return(accdesc)
-}
-
 function get_TTEntryAddress (level : range(0, 3), ia : bits(64), baseaddress : bits(56)) -> bits(56) = {
-  let 'descsizelog2 = 3;
   let 'stride = 9;
-  let 'levels = 3 - level;
-  let 'lsb = levels * stride + 12;
+  let 'lsb = (3 - level) * stride + 12;
   let 'msb = lsb + stride - 1;
-  let index : bits(56) = sail_zero_extend(ia[msb .. lsb] @ sail_zeros(descsizelog2), 56);
+  let index : bits(56) = sail_zero_extend(ia[msb .. lsb] @ sail_zeros(3), 56);
   let descaddress : bits(56) = baseaddress | index;
   return descaddress
 }
@@ -96,37 +77,27 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescript
   let baseaddress : bits(56) = get_translation_base_address(varange);
   var descaddress : bits(56) = get_TTEntryAddress(0, va, baseaddress);
 
-  // initialize walkaddress
-  let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(true, varange);
-  var walkaddress = base_AddressDescriptor(walkaccess, 0);
-  var desctype = DescriptorType_Table;
-
   foreach (level from 0 to 3) {
     let toplevel : bool = level == 0;
     let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(toplevel, varange);
-    walkaddress = base_AddressDescriptor(walkaccess, level);
-    walkaddress.paddress = struct {
-      address = descaddress,
-      paspace = PAS_NonSecure,
-    };
+    var walkaddress = base_AddressDescriptor(walkaccess, level);
+    walkaddress.paddress.address = descaddress;
     walkaddress.vaddress = va;
 
-    let memval : bits(64) = read_memory(8, truncate(walkaddress.paddress.address, addr_size'), walkaccess);
-    desctype = decode_desc_type(memval, level);
-    match desctype {
+    let descriptor : bits(64) = read_memory(8, descaddress, walkaccess);
+    match decode_desc_type(descriptor, level) {
       DescriptorType_Table => {
-        let next_baseaddress : bits(56) = sail_zero_extend(memval[47 .. 12] @ sail_zeros(12), 56);
-        assert (0 <= ('loop_level + 1) & ('loop_level + 1) <= 3);
+        let next_baseaddress : bits(56) = sail_zero_extend(descriptor[47 .. 12] @ sail_zeros(12), 56);
+        assert ((level + 1) <= 3, "Table entry at level 3");
         descaddress = get_TTEntryAddress(level + 1, va, next_baseaddress);
         ()
       },
       DescriptorType_Leaf => {
-        let levels : int = 3 - level;
-        let 'offset_bits : int = 12 + levels * 9;
-        assert((0 <= 'offset_bits - 1) & 56 >= (('offset_bits - 1) + 1));
+        let 'offset_bits : int = 12 + (3 - level) * 9;
+        assert (0 < 'offset_bits & 'offset_bits <= 39);
 
         let base_pa : bits(56) =
-          sail_zero_extend(memval[47 .. 12] @ sail_zeros(12), 56);
+          sail_zero_extend(descriptor[47..offset_bits] @ sail_zeros(offset_bits), 56);
         let va_off : bits(56) =
           sail_zero_extend(va[offset_bits - 1 .. 0], 56);
         let out_pa : bits(56) = base_pa | va_off;
@@ -138,7 +109,7 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescript
       }
     }
   };
-  return (walkaddress, descaddress)
+  exit()
 }
 
 function handle_fault (addrdesc : AddressDescriptor) -> unit = {
@@ -165,22 +136,18 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   let il : bits(1) = 0b1;
   if fault.access.acctype == AccessType_IFETCH then {
     ec = 0b100000;
-  } else if fault.access.acctype == AccessType_TTW then {
+  } else if fault.access.acctype == AccessType_GPR then {
     ec = 0b100100;
   };
 
   let wnr : bits(1) = if fault.write then 0b1 else 0b0;
   let dfsc : bits(6) =
-    if fault.level == 0 then {
-      0b000100
-    } else if fault.level == 1 then {
-      0b000101
-    } else if fault.level == 2 then {
-      0b000110
-    } else if fault.level == 3 then {
-      0b000111
-    } else {
-      0b000000
+    match fault.level {
+      0 => 0b000100,
+      1 => 0b000101,
+      2 => 0b000110,
+      3 => 0b000111,
+      _ => 0b000000,
     };
   let iss : bits(25) = sail_zero_extend(wnr @ dfsc, 25);
   ESR_EL1 = sail_zero_extend((ec @ il) @ iss, 64);

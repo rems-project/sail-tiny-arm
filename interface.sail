@@ -12,6 +12,25 @@ type addr_size : Int = 64
 let addr_size' : int(64) = 64
 $endif
 
+$ifdef SYSTEM_TINY_ARM
+instantiation sail_cache_op with
+  'cache_op = CacheRecord
+
+instantiation sail_tlbi with
+  'tlbi = TLBIInfo
+
+instantiation sail_return_exception
+
+instantiation sail_take_exception with
+  'exn = option(FaultRecord)
+
+instantiation sail_translation_start with
+  'trans_start = TranslationStartInfo
+
+instantiation sail_translation_end with
+  'trans_end = AddressDescriptor
+$endif
+
 function mem_acc_is_explicit     (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_GPR
 function mem_acc_is_ifetch       (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_IFETCH
 function mem_acc_is_ttw          (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_TTW
@@ -68,10 +87,12 @@ function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = stru
   }
 }
 
+$ifdef SYSTEM_TINY_ARM
 function create_writeAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.write = true;
   accdesc.read = false;
+  accdesc.el = 0b01;
   accdesc
 }
 
@@ -79,6 +100,7 @@ function create_readAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.read = true;
   accdesc.write = false;
+  accdesc.el = 0b01;
   accdesc
 }
 
@@ -86,8 +108,34 @@ function create_iFetchAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_IFETCH);
   accdesc.read = true;
   accdesc.write = false;
+  accdesc.el = 0b01;
   accdesc
 }
+$else
+function create_writeAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_GPR);
+  accdesc.write = true;
+  accdesc.read = false;
+  accdesc.el = 0b00;
+  accdesc
+}
+
+function create_readAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_GPR);
+  accdesc.read = true;
+  accdesc.write = false;
+  accdesc.el = 0b00;
+  accdesc
+}
+
+function create_iFetchAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_IFETCH);
+  accdesc.read = true;
+  accdesc.write = false;
+  accdesc.el = 0b00;
+  accdesc
+}
+$endif
 
 $ifdef SYSTEM_TINY_ARM
 function base_FullAddress () -> FullAddress = struct {
