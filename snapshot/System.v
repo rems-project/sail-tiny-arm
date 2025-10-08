@@ -1029,7 +1029,7 @@ Definition pgt_walk (va : mword 64) (accdesc : AccessDescriptor)
                concat_vec (((Ox"00")  : mword 8))
                  ((concat_vec ((subrange_vec_dec (descriptor) (47) (offset)))
                      ((subrange_vec_dec (va) ((Z.sub (offset) (1))) (0))))) in
-             (early_return (walkaddress, autocast (T := mword) 
+             (early_return (walkaddress, autocast (T := mword)
              out_pa) :
                MR (AddressDescriptor * mword 56) unit) >>
              returnR ((AddressDescriptor * mword 56)) (descaddress)
