@@ -12,3 +12,8 @@ function eq_bits_int (x, y) = (unsigned(x) == y)
 overload operator == = {eq_any, eq_bits_int}
 
 overload operator ^ = {xor_vec}
+
+val neq_any = pure {lem: "neq", coq: "generic_neq"} : forall ('a : Type). ('a, 'a) -> bool
+function neq_any(x, y) = not_bool(x == y)
+
+overload operator != = {neq_any}

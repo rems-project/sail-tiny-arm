@@ -1,4 +1,109 @@
 $ifdef SYSTEM_TINY_ARM
+struct Permissions = {
+  ap_table : bits(2),
+  xn_table : bits(1),
+  pxn_table : bits(1),
+  uxn_table : bits(1),
+  ap : bits(3),
+  xn : bits(1),
+  uxn : bits(1),
+  pxn : bits(1),
+  ppi : bits(4),
+  upi : bits(4),
+  ndirty : bits(1),
+  s2pi : bits(4),
+  s2dirty : bits(1),
+  po_index : bits(4),
+  s2po_index : bits(4),
+  s2ap : bits(2),
+  s2tag_na : bits(1),
+  s2xnx : bits(1),
+  s2xn : bits(1)
+}
+
+function base_Permissions() -> Permissions = struct {
+  ap_table = sail_zeros(2),
+  xn_table = sail_zeros(1),
+  pxn_table = sail_zeros(1),
+  uxn_table = sail_zeros(1),
+  ap = sail_zeros(3),
+  xn = sail_zeros(1),
+  uxn = sail_zeros(1),
+  pxn = sail_zeros(1),
+  ppi = sail_zeros(4),
+  upi = sail_zeros(4),
+  ndirty = sail_zeros(1),
+  s2pi = sail_zeros(4),
+  s2dirty = sail_zeros(1),
+  po_index = sail_zeros(4),
+  s2po_index = sail_zeros(4),
+  s2ap = sail_zeros(2),
+  s2tag_na = sail_zeros(1),
+  s2xnx = sail_zeros(1),
+  s2xn = sail_zeros(1),
+}
+
+struct S1AccessControls = {
+  r : bits(1),
+  w : bits(1),
+  x : bits(1),
+  gcs : bits(1),
+  overlay : bool,
+  or : bits(1),
+  ow : bits(1),
+  ox : bits(1),
+  wxn : bits(1)
+}
+
+function base_S1AccessControls () -> S1AccessControls = struct {
+  r = 0b0,
+  w = 0b0,
+  x = 0b0,
+  gcs = 0b0,
+  overlay = false,
+  or = 0b0,
+  ow = 0b0,
+  ox = 0b0,
+  wxn = 0b0
+}
+
+function extract_perms(descriptor : bits(64), is_table : bool) -> Permissions = {
+  var perms : Permissions = base_Permissions();
+
+  if is_table then {
+    perms.ap_table = descriptor[62..61];
+    perms.xn_table = [descriptor[60]];
+    perms.pxn_table = [descriptor[59]];
+    perms.uxn_table = [descriptor[60]];
+  } else {
+    perms.ap  = descriptor[7..6] @ 0b0;
+    perms.xn  = [descriptor[54]];
+    perms.uxn = [descriptor[54]];
+    perms.pxn = [descriptor[53]];
+  };
+
+  return perms;
+}
+
+function combine_perms(
+  prev : Permissions,
+  current : Permissions
+) -> Permissions = {
+  var result = current;
+
+  result.ap_table  = current.ap_table | prev.ap_table;
+  result.xn_table  = current.xn_table | prev.xn_table;
+  result.pxn_table = current.pxn_table | prev.pxn_table;
+  result.uxn_table = current.uxn_table | prev.uxn_table;
+
+  result.ap  = current.ap | prev.ap;
+  result.xn  = current.xn | prev.xn;
+  result.pxn = current.pxn | prev.pxn;
+  result.uxn = current.uxn | prev.uxn;
+
+  return result;
+}
+
 function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> AccessDescriptor = {
   var accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_TTW);
   accdesc.el = PSTATE.EL;
@@ -44,6 +149,112 @@ function is_fault (addrdesc : AddressDescriptor) -> bool = {
   }
 }
 
+function check_table_permission_fault(
+  perms : Permissions,
+  accdesc : AccessDescriptor
+) -> bool = {
+  let at_el0 = accdesc.el == 0b00;
+  let ap_table = perms.ap_table;
+
+  if at_el0 & ([ap_table[0]] == 0b1) then {
+    return true;
+  };
+
+  if accdesc.write & ([ap_table[1]] == 0b1) then {
+    return true;
+  };
+
+  if accdesc.acctype == AccessType_IFETCH then {
+    if at_el0 then {
+      if perms.uxn_table == 0b1 | perms.xn_table == 0b1 then {
+        return true;
+      }
+    } else {
+      if perms.pxn_table == 0b1 | perms.xn_table == 0b1 then {
+        return true;
+      }
+    }
+  };
+
+  return false;
+}
+
+function decode_leaf_permissions (
+  perms : Permissions,
+  accdesc : AccessDescriptor
+) -> S1AccessControls = {
+  var controls : S1AccessControls = base_S1AccessControls();
+  let at_el0 = (accdesc.el == 0b00);
+
+  let ap = perms.ap[2..1];
+  match ap {
+    0b00 => {  // EL1+ read-write
+      controls.r = if at_el0 then 0b0 else 0b1;
+      controls.w = if at_el0 then 0b0 else 0b1;
+    },
+    0b01 => {  // EL0/EL1+ read-write
+      controls.r = 0b1;
+      controls.w = 0b1;
+    },
+    0b10 => {  // EL1+ read-only
+      controls.r = if at_el0 then 0b0 else 0b1;
+      controls.w = 0b0;
+    },
+    0b11 => {  // EL0/EL1+ read-only
+      controls.r = 0b1;
+      controls.w = 0b0;
+    },
+    _ => ()
+  };
+
+  if at_el0 then {
+    controls.x = if (perms.uxn == 0b1 | perms.xn_table == 0b1 | perms.uxn_table == 0b1)
+                 then 0b0 else 0b1;
+  } else {
+    controls.x = if (perms.pxn == 0b1 | perms.xn_table == 0b1 | perms.pxn_table == 0b1)
+                 then 0b0 else 0b1;
+  };
+
+  let wxn_enabled = [SCTLR_EL1[19]];
+  if wxn_enabled == 0b1 & controls.w == 0b1 then {
+    controls.x = 0b0;
+    controls.wxn = 0b1;
+  } else {
+    controls.wxn = 0b0;
+  };
+
+  return controls;
+}
+
+function check_leaf_permission_fault (
+  perms : Permissions,
+  accdesc : AccessDescriptor
+) -> bool = {
+  let controls = decode_leaf_permissions(perms, accdesc);
+  // Check read permission
+  if accdesc.read & (accdesc.acctype != AccessType_IFETCH) then {
+    if controls.r == 0b0 then {
+      return true;
+    }
+  };
+
+  // Check write permission
+  if accdesc.write then {
+    if controls.w == 0b0 then {
+      return true;
+    }
+  };
+
+  // Check execute permission
+  if accdesc.acctype == AccessType_IFETCH then {
+    if controls.x == 0b0 then {
+      return true;
+    }
+  };
+
+  return false;
+}
+
 function get_TTEntryAddress (level : range(0, 3), ia : bits(64), baseaddress : bits(56)) -> bits(56) = {
   let 'stride = 9;
   let 'lsb = (3 - level) * stride + 12;
@@ -76,34 +287,55 @@ function decode_desc_type(descriptor : bits(64), level : int) -> DescriptorType 
 }
 
 function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescriptor, bits(56)) = {
-  let varange : VARange = get_VARange(va);
+  let varange = get_VARange(va);
 
   let baseaddress = get_translation_base_address(varange);
   var descaddress = get_TTEntryAddress(0, va, baseaddress);
+  var accumulated_perms = base_Permissions();
 
   foreach (level from 0 to 3) {
-    let toplevel : bool = level == 0;
-    let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(toplevel, varange);
-    var walkaddress = base_AddressDescriptor(walkaccess, level);
-    walkaddress.paddress.address = descaddress;
-    walkaddress.vaddress = va;
+    var addrdesc = base_AddressDescriptor(accdesc, level);
+    addrdesc.paddress.address = descaddress;
+    addrdesc.vaddress = va;
 
+    let walkaccess = create_AccessDescriptorTTW(level == 0, varange);
     let descriptor = read_memory(8, descaddress, walkaccess);
+
+    let perms = extract_perms(descriptor, level == 3);
+    accumulated_perms = combine_perms(accumulated_perms, perms);
+
     match decode_desc_type(descriptor, level) {
       DescriptorType_Table => {
         let next_baseaddress = 0x00 @ descriptor[47..12] @ 0x000;
+        if check_table_permission_fault(accumulated_perms, accdesc) then {
+          addrdesc.fault.statuscode = Fault_Permission;
+          addrdesc.fault.level = level;
+          addrdesc.fault.write = accdesc.write;
+          addrdesc.fault.access = accdesc;
+          return (addrdesc, sail_zeros(56))
+        };
+
         assert (level < 3, "Table entry at level 3");
         descaddress = get_TTEntryAddress(level + 1, va, next_baseaddress);
         ()
       },
       DescriptorType_Leaf => {
+        if check_leaf_permission_fault(accumulated_perms, accdesc) then {
+          addrdesc.fault.statuscode = Fault_Permission;
+          addrdesc.fault.level = level;
+          addrdesc.fault.write = accdesc.write;
+          addrdesc.fault.access = accdesc;
+          return (addrdesc, sail_zeros(56))
+        };
+
         let offset = 12 + (3 - level) * 9;
         let out_pa = 0x00 @ descriptor[47..offset] @ va[offset - 1 .. 0];
-        return (walkaddress, out_pa)
+        return (addrdesc, out_pa)
       },
       DescriptorType_Invalid => {
-        walkaddress.fault.statuscode = Fault_Translation;
-        return (walkaddress, sail_zeros(56))
+        addrdesc.fault.statuscode = Fault_Translation;
+        addrdesc.fault.level = level;
+        return (addrdesc, sail_zeros(56))
       }
     }
   };
@@ -130,23 +362,41 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   // Report the exception
   sail_take_exception(Some(fault));
 
+  // Determine Exception Class (EC)
   var ec = 0b000000;
   let il = 0b1;
+
   if fault.access.acctype == AccessType_IFETCH then {
-    ec = 0b100000;
+    ec = if source_el == target_el then 0b100001 else 0b100000;
   } else if fault.access.acctype == AccessType_GPR then {
-    ec = 0b100100;
+    ec = if source_el == target_el then 0b100101 else 0b100100;
+  } else {
+    ec = if source_el == target_el then 0b100101 else 0b100100;
   };
 
-  let wnr = if fault.write then 0b1 else 0b0;
-  let dfsc : bits(6) =
+  // Determine Fault Status Code (FSC) based on fault type and level
+  let level_bit : bits(2) =
     match fault.level {
-      0 => 0b000100,
-      1 => 0b000101,
-      2 => 0b000110,
-      3 => 0b000111,
-      _ => 0b000000,
+      0 => 0b00,
+      1 => 0b01,
+      2 => 0b10,
+      3 => 0b11,
+      _ => exit(),
     };
+  let dfsc : bits(6) =
+    if fault.statuscode == Fault_Translation then {
+      // Translation faults: 0b0001xx (where xx is level)
+      0b0001 @ level_bit
+    } else if fault.statuscode == Fault_Permission then {
+      // Permission faults: 0b0011xx (where xx is level)
+      0b0011 @ level_bit
+    } else {
+      // Default/unknown fault
+      0b000000
+    };
+
+  // Build ISS (Instruction Specific Syndrome)
+  let wnr = if fault.write then 0b1 else 0b0;
   let iss = sail_zero_extend(wnr @ dfsc, 25);
   ESR_EL1 = sail_zero_extend((ec @ il) @ iss, 64);
   FAR_EL1 = vaddress;
@@ -162,9 +412,8 @@ function translate_address(va, accdesc) = {
   };
 
   // Announce translation start
-  let varange = get_VARange(va);
   let cnp =
-    if varange == VARange_LOWER then {
+    if get_VARange(va) == VARange_LOWER then {
       slice(TTBR0_EL1, 0, 1)
     } else {
       slice(TTBR1_EL1, 0, 1)
