@@ -1,5 +1,6 @@
 prelude.sail
 interface_types.sail
-tiny-arm-defs.sail
-tiny-arm.sail
+registers.sail
 interface.sail
+translation.sail
+tiny-arm.sail

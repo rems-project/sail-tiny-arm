@@ -4,6 +4,33 @@ $include <concurrency_interface/exception.sail>
 $include <concurrency_interface/cache_op.sail>
 $include <concurrency_interface/translation.sail>
 
+$ifdef SYSTEM_TINY_ARM
+type addr_size : Int = 56
+let addr_size' : int(56) = 56
+$else
+type addr_size : Int = 64
+let addr_size' : int(64) = 64
+$endif
+
+$ifdef SYSTEM_TINY_ARM
+instantiation sail_cache_op with
+  'cache_op = CacheRecord
+
+instantiation sail_tlbi with
+  'tlbi = TLBIInfo
+
+instantiation sail_return_exception
+
+instantiation sail_take_exception with
+  'exn = option(FaultRecord)
+
+instantiation sail_translation_start with
+  'trans_start = TranslationStartInfo
+
+instantiation sail_translation_end with
+  'trans_end = AddressDescriptor
+$endif
+
 function mem_acc_is_explicit     (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_GPR
 function mem_acc_is_ifetch       (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_IFETCH
 function mem_acc_is_ttw          (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_TTW
@@ -16,7 +43,7 @@ function mem_acc_is_atomic_rmw   (acc : AccessDescriptor) -> bool = acc.acctype 
 
 function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = struct {
   acctype = acctype,
-  el = 0b00,
+  el = sail_zeros(2),
   ss = SS_NonSecure,
   acqsc = false,
   acqpc = false,
@@ -55,11 +82,140 @@ function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = stru
 }
 
 $ifdef SYSTEM_TINY_ARM
-type addr_size : Int = 56
-let addr_size' : int(56) = 56
+function create_writeAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_GPR);
+  accdesc.write = true;
+  accdesc.read = false;
+  accdesc.el = PSTATE.EL;
+  accdesc
+}
+
+function create_readAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_GPR);
+  accdesc.read = true;
+  accdesc.write = false;
+  accdesc.el = PSTATE.EL;
+  accdesc
+}
+
+function create_iFetchAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_IFETCH);
+  accdesc.read = true;
+  accdesc.write = false;
+  accdesc.el = PSTATE.EL;
+  accdesc
+}
 $else
-type addr_size : Int = 64
-let addr_size' : int(64) = 64
+function create_writeAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_GPR);
+  accdesc.write = true;
+  accdesc.read = false;
+  accdesc.el = 0b00;
+  accdesc
+}
+
+function create_readAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_GPR);
+  accdesc.read = true;
+  accdesc.write = false;
+  accdesc.el = 0b00;
+  accdesc
+}
+
+function create_iFetchAccessDescriptor() -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_IFETCH);
+  accdesc.read = true;
+  accdesc.write = false;
+  accdesc.el = 0b00;
+  accdesc
+}
+$endif
+
+$ifdef SYSTEM_TINY_ARM
+enum DescriptorType = {
+  DescriptorType_Table,
+  DescriptorType_Leaf,
+  DescriptorType_Invalid
+}
+
+function base_FullAddress () -> FullAddress = struct {
+  paspace = PAS_NonSecure,
+  address = sail_zeros(56)
+}
+
+function base_FaultRecord (accdesc : AccessDescriptor, level : int) -> FaultRecord = struct {
+  statuscode = Fault_None,
+  access = accdesc,
+  ipaddress = base_FullAddress(),
+  gpcf = struct {
+    gpf = GPCF_None,
+    level = 0
+  },
+  paddress = base_FullAddress(),
+  gpcfs2walk = false,
+  s2fs1walk = false,
+  write = not_bool(accdesc.read) & accdesc.write,
+  s1tagnotdata = false,
+  tagaccess = false,
+  level = level,
+  extflag = sail_zeros(1),
+  secondstage = false,
+  assuredonly = false,
+  toplevel = false,
+  overlay = false,
+  dirtybit = false,
+  domain = sail_zeros(4),
+  merrorstate = ErrorState_UC,
+  debugmoe = sail_zeros(4)
+}
+
+function base_MemoryAttributes () -> MemoryAttributes = struct {
+  memtype = MemType_Normal,
+  device = DeviceType_GRE,
+  inner = struct {
+    attrs = sail_zeros(2),
+    hints = sail_zeros(2),
+    transient = false,
+  },
+  outer = struct {
+    attrs = sail_zeros(2),
+    hints = sail_zeros(2),
+    transient = false,
+  },
+  shareability = Shareability_ISH,
+  tags = MemTag_Untagged,
+  notagaccess = false,
+  xs = sail_zeros(1),
+}
+
+function base_TLBContext () -> TLBContext = struct {
+  ss = SS_NonSecure,
+  regime = Regime_EL10,
+  vmid = sail_zeros(16),
+  asid = sail_zeros(16),
+  nG = sail_zeros(1),
+  ipaspace = PAS_NonSecure,
+  includes_s1_name = false,
+  includes_s2_name = false,
+  includes_gpt_name = false,
+  ia = sail_zeros(64),
+  tg = TGx_4KB,
+  cnp = sail_zeros(1),
+  level = 0,
+  isd128 = false,
+  xs = sail_zeros(1),
+}
+
+function base_AddressDescriptor (accdesc: AccessDescriptor, level : int) -> AddressDescriptor = struct {
+  fault = base_FaultRecord(accdesc, level),
+  memattrs = base_MemoryAttributes(),
+  paddress = base_FullAddress(),
+  tlbcontext = base_TLBContext(),
+  s1assured = false,
+  s2fs1mro = false,
+  mecid = sail_zeros(16),
+  vaddress = sail_zeros(64)
+}
 $endif
 
 $ifdef SYSTEM_TINY_ARM
@@ -70,12 +226,12 @@ type addr_space : Type = unit
 let addr_space_def = ()
 $endif
 
-
 $ifdef SYSTEM_TINY_ARM
 type abort = Fault
 $else
 type abort = unit
 $endif
+
 
 instantiation sail_mem_read with
   'addr_size = addr_size,
@@ -119,40 +275,40 @@ instantiation sail_mem_address_announce with
   'CHERI = false,
   'cap_size_log = 0
 
+  /* See tiny-arm for descriptions, interface for definitions */
+val iFetch : (bits(addr_size), AccessDescriptor) -> bits(32)
+val rMem : (bits(addr_size), AccessDescriptor) -> bits(64)
+val wMem_Addr : bits(addr_size) -> unit
+val wMem : (bits(addr_size), bits(64), AccessDescriptor) -> unit
+val translate_address : (bits(64), AccessDescriptor) -> option(bits(addr_size))
 
-function rMem(addr) = {
-  let req : Mem_read_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
-    access_kind = base_AccessDescriptor(AccessType_GPR),
-    address = truncate(addr, addr_size'),
+val read_memory : forall 'N, 'N > 0.
+  (int('N), bits(addr_size), AccessDescriptor) -> bits('N * 8)
+
+function read_memory(N, addr, accdesc) = {
+  let req : Mem_read_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
+    access_kind   = accdesc,
+    address       = truncate(addr, addr_size'),
     address_space = addr_space_def,
-    size = 8,
-    num_tag = 0
+    size          = N,
+    num_tag       = 0
   };
+
   match sail_mem_read(req) {
-    Ok((value, _)) => from_bytes_le(value),
-    Err(_) => exit(),
+    Ok((bytes, _)) => from_bytes_le(bytes),
+    Err(_e) => { exit() }
   }
 }
 
-function iFetch(addr) = {
-  let req : Mem_read_request(4, 0, addr_size, addr_space, AccessDescriptor) = struct {
-    access_kind = base_AccessDescriptor(AccessType_IFETCH),
-    address = truncate(addr, addr_size'),
-    address_space = addr_space_def,
-    size = 4,
-    num_tag = 0
-  };
-  match sail_mem_read(req) {
-    Ok((value, _)) => from_bytes_le(value),
-    Err(_) => exit(),
-  }
-}
+function iFetch(addr, accdesc) = read_memory(4, addr, accdesc)
 
-function wMem_Addr(addr) = sail_address_announce(64, addr)
+function rMem(addr, accdesc) = read_memory(8, addr, accdesc)
 
-function wMem(addr, value) = {
+function wMem_Addr(addr) = sail_address_announce(64, sail_zero_extend(addr, 64))
+
+function wMem(addr, value, accdesc) = {
   let req : Mem_write_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
-    access_kind = base_AccessDescriptor(AccessType_GPR),
+    access_kind = accdesc,
     address = truncate(addr, addr_size'),
     address_space = addr_space_def,
     size = 8,
@@ -174,23 +330,3 @@ function dataMemoryBarrier(types) = sail_barrier(
     domain = MBReqDomain_FullSystem,
     types = types,
     nXS = false}))
-
-$ifdef SYSTEM_TINY_ARM
-instantiation sail_cache_op with
-  'cache_op = CacheRecord
-
-instantiation sail_tlbi with
-  'tlbi = TLBIInfo
-
-instantiation sail_return_exception
-
-instantiation sail_take_exception with
-  'exn = option(FaultRecord)
-
-instantiation sail_translation_start with
-  'trans_start = TranslationStartInfo
-
-instantiation sail_translation_end with
-  'trans_end = AddressDescriptor
-$endif
-

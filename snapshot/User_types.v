@@ -2501,6 +2501,13 @@ Instance dummy_Barrier : Inhabited (Barrier) := { inhabitant := Barrier_DSB inha
 
 Definition reg_index : Type := Z.
 
+Definition addr_size : Z := 64.
+#[export] Hint Unfold addr_size : sail.
+
+Definition addr_space : Type := unit.
+
+Definition abort : Type := unit.
+
 Inductive ast :=
 | LoadRegister : (reg_index * reg_index * reg_index) -> ast
 | StoreRegister : (reg_index * reg_index * reg_index) -> ast
@@ -2541,26 +2548,19 @@ Instance Countable_ast : Countable ast := {|
 #[export]
 Instance dummy_ast : Inhabited (ast) := { inhabitant := LoadRegister inhabitant }.
 
-Definition abort : Type := unit.
-
-Definition addr_size : Z := 64.
-#[export] Hint Unfold addr_size : sail.
-
-Definition addr_space : Type := unit.
-
-Definition mem_acc_is_atomic_rmw (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_atomicop)).
-
-Definition mem_acc_is_exclusive (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_exclusive)).
-
 Definition mem_acc_is_explicit (acc : AccessDescriptor) : bool :=
    generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR).
 
 Definition mem_acc_is_ifetch (acc : AccessDescriptor) : bool :=
    generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_IFETCH).
+
+Definition mem_acc_is_ttw (acc : AccessDescriptor) : bool :=
+   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_TTW).
+
+Definition mem_acc_is_relaxed (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     ((andb ((negb (acc.(AccessDescriptor_acqpc))))
+         ((andb ((negb (acc.(AccessDescriptor_acqsc)))) ((negb (acc.(AccessDescriptor_relsc)))))))).
 
 Definition mem_acc_is_rel_acq_rcpc (acc : AccessDescriptor) : bool :=
    andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
@@ -2570,17 +2570,17 @@ Definition mem_acc_is_rel_acq_rcsc (acc : AccessDescriptor) : bool :=
    andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
      ((orb (acc.(AccessDescriptor_acqsc)) (acc.(AccessDescriptor_relsc)))).
 
-Definition mem_acc_is_relaxed (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     ((andb ((negb (acc.(AccessDescriptor_acqpc))))
-         ((andb ((negb (acc.(AccessDescriptor_acqsc)))) ((negb (acc.(AccessDescriptor_relsc)))))))).
-
 Definition mem_acc_is_standalone (acc : AccessDescriptor) : bool :=
    andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
      ((andb ((negb (acc.(AccessDescriptor_exclusive)))) ((negb (acc.(AccessDescriptor_atomicop)))))).
 
-Definition mem_acc_is_ttw (acc : AccessDescriptor) : bool :=
-   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_TTW).
+Definition mem_acc_is_exclusive (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_exclusive)).
+
+Definition mem_acc_is_atomic_rmw (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_atomicop)).
 
 
 

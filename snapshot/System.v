@@ -586,42 +586,165 @@ Definition rPC '(tt : unit) : M (mword 64) := ((read_reg _PC)  : M (mword 64))  
 
 Definition wPC (pc : mword 64) : M (unit) := write_reg _PC pc  : M (unit).
 
-Definition decodeLoadStoreRegister
-(opc : mword 2) (Rm : mword 5) (option_v : mword 3) (S' : bitU) (Rn : mword 5) (Rt : mword 5)
-: option ast :=
-   let t : reg_index := uint (Rt) in
-   let n : reg_index := uint (Rn) in
-   let m : reg_index := uint (Rm) in
-   if orb ((neq_vec (option_v) ((('b"011")  : mword 3)))) ((eq_bit (S') (B1))) then None
-   else if eq_vec (opc) ((('b"01")  : mword 2)) then Some ((LoadRegister ((t, n, m))))
-   else if eq_vec (opc) ((('b"00")  : mword 2)) then Some ((StoreRegister ((t, n, m))))
-   else None.
+Definition undefined_ProcState '(tt : unit) : M (ProcState) :=
+   (undefined_bitvector (1)) >>= fun (w__0 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__1 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__2 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__3 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__4 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__5 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__6 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__7 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__8 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__9 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__10 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__11 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__12 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__13 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__14 : mword 1) =>
+   (undefined_bitvector (2)) >>= fun (w__15 : mword 2) =>
+   (undefined_bitvector (1)) >>= fun (w__16 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__17 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__18 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__19 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__20 : mword 1) =>
+   (undefined_bitvector (2)) >>= fun (w__21 : mword 2) =>
+   (undefined_bitvector (1)) >>= fun (w__22 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__23 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__24 : mword 1) =>
+   (undefined_bitvector (4)) >>= fun (w__25 : mword 4) =>
+   (undefined_bitvector (1)) >>= fun (w__26 : mword 1) =>
+   (undefined_bitvector (8)) >>= fun (w__27 : mword 8) =>
+   (undefined_bitvector (1)) >>= fun (w__28 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__29 : mword 1) =>
+   (undefined_bitvector (1)) >>= fun (w__30 : mword 1) =>
+   (undefined_bitvector (5)) >>= fun (w__31 : mword 5) =>
+   returnM (({| ProcState_N := w__0;
+                ProcState_Z := w__1;
+                ProcState_C := w__2;
+                ProcState_V := w__3;
+                ProcState_D := w__4;
+                ProcState_A := w__5;
+                ProcState_I := w__6;
+                ProcState_F := w__7;
+                ProcState_EXLOCK := w__8;
+                ProcState_PAN := w__9;
+                ProcState_UAO := w__10;
+                ProcState_DIT := w__11;
+                ProcState_TCO := w__12;
+                ProcState_PM := w__13;
+                ProcState_PPEND := w__14;
+                ProcState_BTYPE := w__15;
+                ProcState_ZA := w__16;
+                ProcState_SM := w__17;
+                ProcState_ALLINT := w__18;
+                ProcState_SS := w__19;
+                ProcState_IL := w__20;
+                ProcState_EL := w__21;
+                ProcState_nRW := w__22;
+                ProcState_SP := w__23;
+                ProcState_Q := w__24;
+                ProcState_GE := w__25;
+                ProcState_SSBS := w__26;
+                ProcState_IT := w__27;
+                ProcState_J := w__28;
+                ProcState_T := w__29;
+                ProcState_E := w__30;
+                ProcState_M := w__31 |})).
 
-Definition decodeExclusiveOr
-(sf : bitU) (shift : mword 2) (N : bitU) (Rm : mword 5) (imm6 : mword 6) (Rn : mword 5)
-(Rd : mword 5)
-: option ast :=
-   let d : reg_index := uint (Rd) in
-   let n : reg_index := uint (Rn) in
-   let m : reg_index := uint (Rm) in
-   if andb ((eq_bit (sf) (B0))) ((eq_bit ((access_vec_dec (imm6) (5))) (B1))) then None
-   else if neq_vec (imm6) ((('b"000000")  : mword 6)) then None
-   else Some ((ExclusiveOr ((d, n, m)))).
+Definition is_ok {a : Type} {b : Type} (r : result a b) : bool :=
+   match r with | Ok _ => true | Err _ => false end.
 
-Definition decodeDataMemoryBarrier (b__0 : mword 4) : option ast :=
-   if eq_vec (b__0) (((Ox"F")  : mword 4)) then Some ((DataMemoryBarrier (MBReqTypes_All)))
-   else if eq_vec (b__0) (((Ox"E")  : mword 4)) then Some ((DataMemoryBarrier (MBReqTypes_Writes)))
-   else if eq_vec (b__0) (((Ox"D")  : mword 4)) then Some ((DataMemoryBarrier (MBReqTypes_Reads)))
-   else None.
+Definition is_err {a : Type} {b : Type} (r : result a b) : bool :=
+   match r with | Ok _ => false | Err _ => true end.
 
-Definition decodeCompareAndBranch (imm19 : mword 19) (Rt : mword 5) : option ast :=
-   let t : reg_index := uint (Rt) in
-   let offset : bits 64 := sign_extend ((concat_vec (imm19) ((('b"00")  : mword 2)))) (64) in
-   Some ((CompareAndBranch ((t, offset)))).
+Definition ok_option {a : Type} {b : Type} (r : result a b) : option a :=
+   match r with | Ok x => Some (x) | Err _ => None end.
+
+Definition err_option {a : Type} {b : Type} (r : result a b) : option b :=
+   match r with | Ok _ => None | Err err => Some (err) end.
+
+Definition unwrap_or {a : Type} {b : Type} (r : result a b) (y : a) : a :=
+   match r with | Ok x => x | Err _ => y end.
+
+Definition sail_instr_announce {n : Z} (_ : mword n) (*n >? 0*) : unit := tt.
+
+Definition sail_branch_announce (addrsize : Z) (_ : mword addrsize)
+(*member_Z_list addrsize [32; 64]*)
+: unit :=
+   tt.
+
+Definition sail_reset_registers '(tt : unit) : unit := tt.
+
+Definition sail_synchronize_registers '(tt : unit) : unit := tt.
+
+Definition sail_mark_register {a : Type} (_ : register_ref register a) (_ : string) : unit := tt.
+
+Definition sail_mark_register_pair {a : Type} {b : Type}
+(_ : register_ref register a) (_ : register_ref register b) (_ : string)
+: unit :=
+   tt.
+
+Definition sail_ignore_write_to {a : Type} (reg : register_ref register a) : unit :=
+   sail_mark_register (reg) ("ignore_write").
+
+Definition sail_pick_dependency {a : Type} (reg : register_ref register a) : unit :=
+   sail_mark_register (reg) ("pick").
+
+Definition __monomorphize {n : Z} (bv : mword n) (*n >=? 0*) : mword n := bv.
+
+Definition __monomorphize_int (n : Z) : Z := n.
+
+Definition __monomorphize_bool (b : bool) : bool := b.
+
+Definition __monomorphize_reads : bool := false.
+#[export] Hint Unfold __monomorphize_reads : sail.
+Definition __monomorphize_writes : bool := false.
+#[export] Hint Unfold __monomorphize_writes : sail.
+Definition sail_address_announce (addrsize : Z) (_ : mword addrsize)
+(*member_Z_list addrsize [32; 64]*)
+: unit :=
+   tt.
+
+Definition addr_size' : Z := 56.
+#[export] Hint Unfold addr_size' : sail.
+Definition mem_acc_is_explicit (acc : AccessDescriptor) : bool :=
+   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR).
+
+Definition mem_acc_is_ifetch (acc : AccessDescriptor) : bool :=
+   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_IFETCH).
+
+Definition mem_acc_is_ttw (acc : AccessDescriptor) : bool :=
+   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_TTW).
+
+Definition mem_acc_is_relaxed (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     ((andb ((negb (acc.(AccessDescriptor_acqpc))))
+         ((andb ((negb (acc.(AccessDescriptor_acqsc)))) ((negb (acc.(AccessDescriptor_relsc)))))))).
+
+Definition mem_acc_is_rel_acq_rcpc (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_acqpc)).
+
+Definition mem_acc_is_rel_acq_rcsc (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     ((orb (acc.(AccessDescriptor_acqsc)) (acc.(AccessDescriptor_relsc)))).
+
+Definition mem_acc_is_standalone (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     ((andb ((negb (acc.(AccessDescriptor_exclusive)))) ((negb (acc.(AccessDescriptor_atomicop)))))).
+
+Definition mem_acc_is_exclusive (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_exclusive)).
+
+Definition mem_acc_is_atomic_rmw (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_atomicop)).
 
 Definition base_AccessDescriptor (acctype : AccessType) : AccessDescriptor :=
    {| AccessDescriptor_acctype := acctype;
-      AccessDescriptor_el := ('b"00")  : mword 2;
+      AccessDescriptor_el := zeros (2);
       AccessDescriptor_ss := SS_NonSecure;
       AccessDescriptor_acqsc := false;
       AccessDescriptor_acqpc := false;
@@ -657,51 +780,132 @@ Definition base_AccessDescriptor (acctype : AccessType) : AccessDescriptor :=
            MPAMinfo_partid := (Ox"0000")  : mword 16;
            MPAMinfo_pmg := (Ox"00")  : mword 8 |} |}.
 
-Definition mem_acc_is_atomic_rmw (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_atomicop)).
+Definition create_writeAccessDescriptor '(tt : unit) : M (AccessDescriptor) :=
+   let accdesc := base_AccessDescriptor (AccessType_GPR) in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_write := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := false|> in
+   read_reg PSTATE >>= fun (w__0 : ProcState) =>
+   let accdesc := (accdesc <|AccessDescriptor_el := w__0.(ProcState_EL)|>)  : AccessDescriptor in
+   returnM (accdesc).
 
-Definition mem_acc_is_exclusive (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_exclusive)).
+Definition create_readAccessDescriptor '(tt : unit) : M (AccessDescriptor) :=
+   let accdesc := base_AccessDescriptor (AccessType_GPR) in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_write := false|> in
+   read_reg PSTATE >>= fun (w__0 : ProcState) =>
+   let accdesc := (accdesc <|AccessDescriptor_el := w__0.(ProcState_EL)|>)  : AccessDescriptor in
+   returnM (accdesc).
 
-Definition mem_acc_is_explicit (acc : AccessDescriptor) : bool :=
-   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR).
+Definition create_iFetchAccessDescriptor '(tt : unit) : M (AccessDescriptor) :=
+   let accdesc := base_AccessDescriptor (AccessType_IFETCH) in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_write := false|> in
+   read_reg PSTATE >>= fun (w__0 : ProcState) =>
+   let accdesc := (accdesc <|AccessDescriptor_el := w__0.(ProcState_EL)|>)  : AccessDescriptor in
+   returnM (accdesc).
 
-Definition mem_acc_is_ifetch (acc : AccessDescriptor) : bool :=
-   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_IFETCH).
+Definition undefined_DescriptorType '(tt : unit) : M (DescriptorType) :=
+   (internal_pick ([DescriptorType_Table; DescriptorType_Leaf; DescriptorType_Invalid]))
+    : M (DescriptorType).
 
-Definition mem_acc_is_rel_acq_rcpc (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_acqpc)).
+Definition base_FullAddress '(tt : unit) : FullAddress :=
+   {| FullAddress_paspace := PAS_NonSecure;  FullAddress_address := zeros (56) |}.
 
-Definition mem_acc_is_rel_acq_rcsc (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     ((orb (acc.(AccessDescriptor_acqsc)) (acc.(AccessDescriptor_relsc)))).
+Definition base_FaultRecord (accdesc : AccessDescriptor) (level : Z) : FaultRecord :=
+   {| FaultRecord_statuscode := Fault_None;
+      FaultRecord_access := accdesc;
+      FaultRecord_ipaddress := base_FullAddress (tt);
+      FaultRecord_gpcf := {| GPCFRecord_gpf := GPCF_None;  GPCFRecord_level := 0 |};
+      FaultRecord_paddress := base_FullAddress (tt);
+      FaultRecord_gpcfs2walk := false;
+      FaultRecord_s2fs1walk := false;
+      FaultRecord_write :=
+        andb ((negb (accdesc.(AccessDescriptor_read)))) (accdesc.(AccessDescriptor_write));
+      FaultRecord_s1tagnotdata := false;
+      FaultRecord_tagaccess := false;
+      FaultRecord_level := level;
+      FaultRecord_extflag := zeros (1);
+      FaultRecord_secondstage := false;
+      FaultRecord_assuredonly := false;
+      FaultRecord_toplevel := false;
+      FaultRecord_overlay := false;
+      FaultRecord_dirtybit := false;
+      FaultRecord_domain := zeros (4);
+      FaultRecord_merrorstate := ErrorState_UC;
+      FaultRecord_debugmoe := zeros (4) |}.
 
-Definition mem_acc_is_relaxed (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     ((andb ((negb (acc.(AccessDescriptor_acqpc))))
-         ((andb ((negb (acc.(AccessDescriptor_acqsc)))) ((negb (acc.(AccessDescriptor_relsc)))))))).
+Definition base_MemoryAttributes '(tt : unit) : MemoryAttributes :=
+   {| MemoryAttributes_memtype := MemType_Normal;
+      MemoryAttributes_device := DeviceType_GRE;
+      MemoryAttributes_inner :=
+        {| MemAttrHints_attrs := zeros (2);
+           MemAttrHints_hints := zeros (2);
+           MemAttrHints_transient := false |};
+      MemoryAttributes_outer :=
+        {| MemAttrHints_attrs := zeros (2);
+           MemAttrHints_hints := zeros (2);
+           MemAttrHints_transient := false |};
+      MemoryAttributes_shareability := Shareability_ISH;
+      MemoryAttributes_tags := MemTag_Untagged;
+      MemoryAttributes_notagaccess := false;
+      MemoryAttributes_xs := zeros (1) |}.
 
-Definition mem_acc_is_standalone (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     ((andb ((negb (acc.(AccessDescriptor_exclusive)))) ((negb (acc.(AccessDescriptor_atomicop)))))).
+Definition base_TLBContext '(tt : unit) : TLBContext :=
+   {| TLBContext_ss := SS_NonSecure;
+      TLBContext_regime := Regime_EL10;
+      TLBContext_vmid := zeros (16);
+      TLBContext_asid := zeros (16);
+      TLBContext_nG := zeros (1);
+      TLBContext_ipaspace := PAS_NonSecure;
+      TLBContext_includes_s1_name := false;
+      TLBContext_includes_s2_name := false;
+      TLBContext_includes_gpt_name := false;
+      TLBContext_ia := zeros (64);
+      TLBContext_tg := TGx_4KB;
+      TLBContext_cnp := zeros (1);
+      TLBContext_level := 0;
+      TLBContext_isd128 := false;
+      TLBContext_xs := zeros (1) |}.
 
-Definition mem_acc_is_ttw (acc : AccessDescriptor) : bool :=
-   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_TTW).
+Definition base_AddressDescriptor (accdesc : AccessDescriptor) (level : Z) : AddressDescriptor :=
+   {| AddressDescriptor_fault := base_FaultRecord (accdesc) (level);
+      AddressDescriptor_memattrs := base_MemoryAttributes (tt);
+      AddressDescriptor_paddress := base_FullAddress (tt);
+      AddressDescriptor_tlbcontext := base_TLBContext (tt);
+      AddressDescriptor_s1assured := false;
+      AddressDescriptor_s2fs1mro := false;
+      AddressDescriptor_mecid := zeros (16);
+      AddressDescriptor_vaddress := zeros (64) |}.
 
-Definition __monomorphize {n : Z} (bv : mword n) (*n >=? 0*) : mword n := bv.
-
-Definition __monomorphize_writes : bool := false.
-#[export] Hint Unfold __monomorphize_writes : sail.
-Definition addr_size' : Z := 56.
-#[export] Hint Unfold addr_size' : sail.
 Definition addr_space_def := PAS_NonSecure.
 #[export] Hint Unfold addr_space_def : sail.
-Definition wMem (addr : mword 64) (value : mword 64) : M (unit) :=
+Definition read_memory (N : Z) (addr : mword 56) (accdesc : AccessDescriptor) (*N >? 0*)
+: M (mword (N * 8)) :=
+   let req : Mem_read_request N 0 addr_size addr_space AccessDescriptor :=
+     {| Mem_read_request_access_kind := accdesc;
+        Mem_read_request_address := vector_truncate (addr) (addr_size');
+        Mem_read_request_address_space := addr_space_def;
+        Mem_read_request_size := N;
+        Mem_read_request_num_tag := 0 |} in
+   (sail_mem_read ((autocast (T := fun _sz => (Mem_read_request _ _ _sz _ _)%type) req))) >>= fun (w__0 : result ((vec (mword 8) N * vec bool 0)) Fault) =>
+   (match w__0 with
+    | Ok (bytes, _) => returnM ((autocast (T := mword) (from_bytes_le ((__id (N))) (bytes))))
+    | Err _e => exit tt  : M (mword (N * 8))
+    end)
+    : M (mword (N * 8)).
+
+Definition iFetch (addr : mword 56) (accdesc : AccessDescriptor) : M (mword 32) :=
+   (read_memory (4) (addr) (accdesc))  : M (mword (4 * 8)).
+
+Definition rMem (addr : mword 56) (accdesc : AccessDescriptor) : M (mword 64) :=
+   (read_memory (8) (addr) (accdesc))  : M (mword (8 * 8)).
+
+Definition wMem_Addr (addr : mword 56) : unit :=
+   sail_address_announce (64) ((zero_extend (addr) (64))).
+
+Definition wMem (addr : mword 56) (value : mword 64) (accdesc : AccessDescriptor) : M (unit) :=
    let req : Mem_write_request 8 0 addr_size addr_space AccessDescriptor :=
-     {| Mem_write_request_access_kind := base_AccessDescriptor (AccessType_GPR);
+     {| Mem_write_request_access_kind := accdesc;
         Mem_write_request_address := vector_truncate (addr) (addr_size');
         Mem_write_request_address_space := addr_space_def;
         Mem_write_request_size := 8;
@@ -712,49 +916,269 @@ Definition wMem (addr : mword 64) (value : mword 64) : M (unit) :=
    (match w__0 with | Ok _ => returnM (tt) | Err _ => exit tt  : M (unit) end)
     : M (unit).
 
-Definition sail_address_announce (addrsize : Z) (_ : mword addrsize)
-(*member_Z_list addrsize [32; 64]*)
-: unit :=
-   tt.
+Definition dataMemoryBarrier (types : MBReqTypes) : M (unit) :=
+   (sail_barrier
+      ((Barrier_DMB
+          (({| DxB_domain := MBReqDomain_FullSystem;
+               DxB_types := types;
+               DxB_nXS := false |})))))
+    : M (unit).
 
-Definition wMem_Addr (addr : mword 64) : unit := sail_address_announce (64) (addr).
+Definition create_AccessDescriptorTTW (toplevel : bool) (varange : VARange) : M (AccessDescriptor) :=
+   let accdesc : AccessDescriptor := base_AccessDescriptor (AccessType_TTW) in
+   read_reg PSTATE >>= fun (w__0 : ProcState) =>
+   let accdesc := (accdesc <|AccessDescriptor_el := w__0.(ProcState_EL)|>)  : AccessDescriptor in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_toplevel := toplevel|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_varange := varange|> in
+   returnM (accdesc).
+
+Definition get_VARange (va : mword 64) : VARange :=
+   if eq_vec ((vec_of_bits [access_vec_dec (va) (48)]  : mword 1)) ((('b"0")  : mword 1)) then
+     VARange_LOWER
+   else VARange_UPPER.
+
+Definition get_translation_base_address (varange : VARange) : M (mword 56) :=
+   (match varange with
+    | VARange_LOWER => ((read_reg TTBR0_EL1)  : M (mword 64))  : M (mword 64)
+    | VARange_UPPER => ((read_reg TTBR1_EL1)  : M (mword 64))  : M (mword 64)
+    end) >>= fun (ttbr : bits 64) =>
+   let baddr : bits 56 := zeros (56) in
+   let baddr : bits 56 :=
+     update_subrange_vec_dec (baddr) (47) (5) ((subrange_vec_dec (ttbr) (47) (5))) in
+   returnM (baddr).
+
+Definition ASID_read '(tt : unit) : M (mword 16) :=
+   ((read_reg TCR_EL1)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
+   (if eq_vec ((slice (w__0) (22) (1))) ((zeros (1))) return M (mword 16) then
+      ((read_reg TTBR0_EL1)  : M (mword 64)) >>= fun (w__1 : mword 64) =>
+      returnM ((slice (w__1) (48) (16)))
+    else
+      ((read_reg TTBR1_EL1)  : M (mword 64)) >>= fun (w__2 : mword 64) =>
+      returnM ((slice (w__2) (48) (16))))
+    : M (mword 16).
+
+Definition is_fault (addrdesc : AddressDescriptor) : bool :=
+   match addrdesc.(AddressDescriptor_fault).(FaultRecord_statuscode) with
+   | Fault_None => false
+   | _ => true
+   end.
+
+Definition get_TTEntryAddress (level : Z) (ia : mword 64) (baseaddress : mword 56)
+(*(0 <=? level) && (level <=? 3)*)
+: mword 56 :=
+   let stride := 9 in
+   let lsb := Z.add ((Z.mul ((Z.sub (3) (level))) (stride))) (12) in
+   let msb := Z.sub ((Z.add (lsb) (stride))) (1) in
+   let index := zero_extend ((concat_vec ((subrange_vec_dec (ia) (msb) (lsb))) ((zeros (3))))) (56) in
+   or_vec (baseaddress) (index).
+
+Definition decode_desc_type (descriptor : mword 64) (level : Z) : DescriptorType :=
+   if eq_vec ((vec_of_bits [access_vec_dec (descriptor) (0)]  : mword 1)) ((('b"0")  : mword 1))
+   then
+     DescriptorType_Invalid
+   else if eq_vec ((vec_of_bits [access_vec_dec (descriptor) (1)]  : mword 1))
+             ((('b"1")
+              : mword 1)) then
+     if Z.eqb (level) (3) then DescriptorType_Leaf
+     else DescriptorType_Table
+   else if eq_vec ((vec_of_bits [access_vec_dec (descriptor) (1)]  : mword 1))
+             ((('b"0")
+              : mword 1)) then
+     if orb ((Z.eqb (level) (1))) ((Z.eqb (level) (2))) then DescriptorType_Leaf
+     else DescriptorType_Invalid
+   else DescriptorType_Invalid.
+
+Definition pgt_walk (va : mword 64) (accdesc : AccessDescriptor)
+: M ((AddressDescriptor * mword 56)) :=
+   catch_early_return
+     (let varange : VARange := get_VARange (va) in
+     liftR ((get_translation_base_address (varange))) >>= fun baseaddress =>
+     let descaddress := get_TTEntryAddress (0) (va) (baseaddress) in
+     (let '(loop_level_lower) := 0 in
+     let '(loop_level_upper) := 3 in
+     (foreach_ZM_up loop_level_lower loop_level_upper 1 descaddress
+       (fun level descaddress =>
+         let toplevel : bool := Z.eqb (level) (0) in
+         liftR ((create_AccessDescriptorTTW (toplevel) (varange))) >>= fun (walkaccess : AccessDescriptor) =>
+         let walkaddress := base_AddressDescriptor (walkaccess) (level) in
+         let walkaddress : AddressDescriptor :=
+           walkaddress
+           <|AddressDescriptor_paddress :=
+             walkaddress.(AddressDescriptor_paddress)
+             <|FullAddress_address := descaddress|>|> in
+         let walkaddress : AddressDescriptor := walkaddress <|AddressDescriptor_vaddress := va|> in
+         liftR ((read_memory (8) (descaddress) (walkaccess))) >>= fun descriptor =>
+         (match (decode_desc_type (descriptor) (level)) with
+          | DescriptorType_Table =>
+             let next_baseaddress :=
+               concat_vec (((Ox"00")  : mword 8))
+                 ((concat_vec ((subrange_vec_dec (descriptor) (47) (12))) (((Ox"000")  : mword 12)))) in
+             liftR (assert_exp' (Z.ltb (level) (3)) "Table entry at level 3") >>= fun _ =>
+             let descaddress : mword 56 :=
+               get_TTEntryAddress ((Z.add (level) (1))) (va) (next_baseaddress) in
+             returnR ((AddressDescriptor * mword 56)) (descaddress)
+          | DescriptorType_Leaf =>
+             let offset := Z.add (12) ((Z.mul ((Z.sub (3) (level))) (9))) in
+             let out_pa :=
+               concat_vec (((Ox"00")  : mword 8))
+                 ((concat_vec ((subrange_vec_dec (descriptor) (47) (offset)))
+                     ((subrange_vec_dec (va) ((Z.sub (offset) (1))) (0))))) in
+             (early_return (walkaddress, autocast (T := mword) 
+             out_pa) :
+               MR (AddressDescriptor * mword 56) unit) >>
+             returnR ((AddressDescriptor * mword 56)) (descaddress)
+          | DescriptorType_Invalid =>
+             let walkaddress : AddressDescriptor :=
+               walkaddress
+               <|AddressDescriptor_fault :=
+                 walkaddress.(AddressDescriptor_fault)
+                 <|FaultRecord_statuscode := Fault_Translation|>|> in
+             (early_return (walkaddress, zeros (56)) : MR (AddressDescriptor * mword 56) unit) >>
+             returnR ((AddressDescriptor * mword 56)) (descaddress)
+          end)
+          : MR ((AddressDescriptor * mword 56)) (mword 56)))) >>= fun (descaddress : mword 56) =>
+     liftR (exit tt)
+      : MR ((AddressDescriptor * mword 56)) ((AddressDescriptor * mword 56))).
+
+Definition handle_fault (addrdesc : AddressDescriptor) : M (unit) :=
+   let fault : FaultRecord := addrdesc.(AddressDescriptor_fault) in
+   let vaddress := addrdesc.(AddressDescriptor_vaddress) in
+   let source_el := fault.(FaultRecord_access).(AccessDescriptor_el) in
+   let target_el := ('b"01")  : mword 2 in
+   (if eq_vec (source_el) (target_el) return M (mword 12) then
+      read_reg PSTATE >>= fun (w__0 : ProcState) =>
+      let w__1 : mword 12 :=
+        if eq_vec (w__0.(ProcState_SP)) ((('b"0")  : mword 1)) then (Ox"000")  : mword 12
+        else (Ox"200")  : mword 12 in
+      returnM (w__1)
+    else returnM (((Ox"400")  : mword 12))) >>= fun vect_offset =>
+   (sail_take_exception ((Some (fault)))) >>
+   let ec := ('b"000000")  : mword 6 in
+   let il := ('b"1")  : mword 1 in
+   let ec : mword 6 :=
+     if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_IFETCH) then
+       ('b"100000")
+        : mword 6
+     else if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_GPR)
+     then
+       ('b"100100")
+        : mword 6
+     else ec in
+   let wnr := if fault.(FaultRecord_write) then ('b"1")  : mword 1 else ('b"0")  : mword 1 in
+   let l__0 := fault.(FaultRecord_level) in
+   let dfsc : bits 6 :=
+     if Z.eqb (l__0) (0) then ('b"000100")  : mword 6
+     else if Z.eqb (l__0) (1) then ('b"000101")  : mword 6
+     else if Z.eqb (l__0) (2) then ('b"000110")  : mword 6
+     else if Z.eqb (l__0) (3) then ('b"000111")  : mword 6
+     else ('b"000000")  : mword 6 in
+   let iss := zero_extend ((concat_vec (wnr) (dfsc))) (25) in
+   write_reg ESR_EL1 (zero_extend ((concat_vec ((concat_vec (ec) (il))) (iss))) (64)) >>
+   write_reg FAR_EL1 vaddress >>
+   ((read_reg _PC)  : M (mword 64)) >>= fun (w__2 : mword 64) =>
+   write_reg ELR_EL1 w__2 >>
+   ((read_reg VBAR_EL1)  : M (mword 64)) >>= fun (w__3 : mword 64) =>
+   write_reg _PC (concat_vec ((slice (w__3) (12) (52))) (vect_offset))
+    : M (unit).
+
+Definition translate_address (va : mword 64) (accdesc : AccessDescriptor) : M (option (mword 56)) :=
+   ((read_reg SCTLR_EL1)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
+   (if eq_vec ((slice (w__0) (0) (1))) ((('b"0")  : mword 1)) then
+      returnM ((Some ((vector_truncate (va) (addr_size')))))
+    else
+      (if generic_eq ((get_VARange (va))) (VARange_LOWER) return M (mword 1) then
+         ((read_reg TTBR0_EL1)  : M (mword 64)) >>= fun (w__1 : mword 64) =>
+         returnM ((slice (w__1) (0) (1)))
+       else
+         ((read_reg TTBR1_EL1)  : M (mword 64)) >>= fun (w__2 : mword 64) =>
+         returnM ((slice (w__2) (0) (1)))) >>= fun cnp =>
+      (ASID_read (tt)) >>= fun (w__3 : mword 16) =>
+      let tsi : TranslationStartInfo :=
+        {| TranslationStartInfo_ss := SS_NonSecure;
+           TranslationStartInfo_regime := Regime_EL10;
+           TranslationStartInfo_vmid := (Ox"0000")  : mword 16;
+           TranslationStartInfo_asid := w__3;
+           TranslationStartInfo_va := va;
+           TranslationStartInfo_cnp := cnp;
+           TranslationStartInfo_accdesc := accdesc;
+           TranslationStartInfo_size := 0 |} in
+      (sail_translation_start (tsi)) >>
+      (pgt_walk (va) (accdesc)) >>= fun '((addrdesc, paddress)) =>
+      (sail_translation_end (addrdesc)) >>
+      (if is_fault (addrdesc) return M (option (mword 56)) then
+         (handle_fault (addrdesc)) >> returnM (None)
+       else returnM ((Some (paddress))))
+       : M (option (mword 56)))
+    : M (option (mword 56)).
+
+Definition decodeLoadStoreRegister
+(opc : mword 2) (Rm : mword 5) (option_v : mword 3) (S' : bitU) (Rn : mword 5) (Rt : mword 5)
+: option ast :=
+   let t : reg_index := uint (Rt) in
+   let n : reg_index := uint (Rn) in
+   let m : reg_index := uint (Rm) in
+   if orb ((neq_vec (option_v) ((('b"011")  : mword 3)))) ((eq_bit (S') (B1))) then None
+   else if eq_vec (opc) ((('b"01")  : mword 2)) then Some ((LoadRegister ((t, n, m))))
+   else if eq_vec (opc) ((('b"00")  : mword 2)) then Some ((StoreRegister ((t, n, m))))
+   else None.
+
+Definition decodeExclusiveOr
+(sf : bitU) (shift : mword 2) (N : bitU) (Rm : mword 5) (imm6 : mword 6) (Rn : mword 5)
+(Rd : mword 5)
+: option ast :=
+   let d : reg_index := uint (Rd) in
+   let n : reg_index := uint (Rn) in
+   let m : reg_index := uint (Rm) in
+   if andb ((eq_bit (sf) (B0))) ((eq_bit ((access_vec_dec (imm6) (5))) (B1))) then None
+   else if neq_vec (imm6) ((('b"000000")  : mword 6)) then None
+   else Some ((ExclusiveOr ((d, n, m)))).
+
+Definition decodeDataMemoryBarrier (b__0 : mword 4) : option ast :=
+   if eq_vec (b__0) (((Ox"F")  : mword 4)) then Some ((DataMemoryBarrier (MBReqTypes_All)))
+   else if eq_vec (b__0) (((Ox"E")  : mword 4)) then Some ((DataMemoryBarrier (MBReqTypes_Writes)))
+   else if eq_vec (b__0) (((Ox"D")  : mword 4)) then Some ((DataMemoryBarrier (MBReqTypes_Reads)))
+   else None.
+
+Definition decodeCompareAndBranch (imm19 : mword 19) (Rt : mword 5) : option ast :=
+   let t : reg_index := uint (Rt) in
+   let offset : bits 64 := sign_extend ((concat_vec (imm19) ((('b"00")  : mword 2)))) (64) in
+   Some ((CompareAndBranch ((t, offset)))).
 
 Definition execute_StoreRegister (t : Z) (n : Z) (m : Z) (*(0 <=? t) && (t <=? 31)*)
 (*(0 <=? n) && (n <=? 31)*) (*(0 <=? m) && (m <=? 31)*)
 : M (unit) :=
-   (rX (n)) >>= fun base_addr =>
-   (rX (m)) >>= fun offset =>
-   let addr := add_vec (base_addr) (offset) in
-   let '(_) := (wMem_Addr (addr))  : unit in
-   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
-   write_reg _PC (add_vec_int (w__0) (4)) >>
-   (rX (t)) >>= fun data => (wMem (addr) (data))  : M (unit).
-
-Definition __monomorphize_reads : bool := false.
-#[export] Hint Unfold __monomorphize_reads : sail.
-Definition rMem (addr : mword 64) : M (mword 64) :=
-   let req : Mem_read_request 8 0 addr_size addr_space AccessDescriptor :=
-     {| Mem_read_request_access_kind := base_AccessDescriptor (AccessType_GPR);
-        Mem_read_request_address := vector_truncate (addr) (addr_size');
-        Mem_read_request_address_space := addr_space_def;
-        Mem_read_request_size := 8;
-        Mem_read_request_num_tag := 0 |} in
-   (sail_mem_read ((autocast (T := fun _sz => (Mem_read_request _ _ _sz _ _)%type) req))) >>= fun (w__0 : result ((vec (mword 8) 8 * vec bool 0)) Fault) =>
-   (match w__0 with
-    | Ok (value, _) => returnM ((from_bytes_le (8) (value)))
-    | Err _ => exit tt  : M (mword 64)
-    end)
-    : M (mword 64).
+   catch_early_return
+     (liftR ((rX (n))) >>= fun base_addr =>
+     liftR ((rX (m))) >>= fun offset =>
+     let addr := add_vec (base_addr) (offset) in
+     liftR ((create_writeAccessDescriptor (tt))) >>= fun accdesc =>
+     liftR ((translate_address (addr) (accdesc))) >>= fun (w__0 : option (mword 56)) =>
+     (match w__0 with
+      | Some addr => returnR (unit) (addr)
+      | None => (early_return (tt  : unit) : MR unit (mword 56))  : MR (unit) (mword 56)
+      end) >>= fun (addr : bits addr_size) =>
+     let '(_) := (wMem_Addr (addr))  : unit in
+     ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__2 : mword 64) =>
+     liftR (write_reg _PC (add_vec_int (w__2) (4))) >>
+     liftR ((rX (t))) >>= fun data => liftR ((wMem (addr) (data) (accdesc)))  : MR (unit) (unit)).
 
 Definition execute_LoadRegister (t : Z) (n : Z) (m : Z) (*(0 <=? t) && (t <=? 31)*)
 (*(0 <=? n) && (n <=? 31)*) (*(0 <=? m) && (m <=? 31)*)
 : M (unit) :=
-   (rX (n)) >>= fun base_addr =>
-   (rX (m)) >>= fun offset =>
-   let addr := add_vec (base_addr) (offset) in
-   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
-   write_reg _PC (add_vec_int (w__0) (4)) >>
-   (rMem (addr)) >>= fun data => (wX (t) (data))  : M (unit).
+   catch_early_return
+     (liftR ((rX (n))) >>= fun base_addr =>
+     liftR ((rX (m))) >>= fun offset =>
+     let addr := add_vec (base_addr) (offset) in
+     liftR ((create_readAccessDescriptor (tt))) >>= fun accdesc =>
+     liftR ((translate_address (addr) (accdesc))) >>= fun (w__0 : option (mword 56)) =>
+     (match w__0 with
+      | Some addr => returnR (unit) (addr)
+      | None => (early_return (tt  : unit) : MR unit (mword 56))  : MR (unit) (mword 56)
+      end) >>= fun (addr : bits addr_size) =>
+     ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__2 : mword 64) =>
+     liftR (write_reg _PC (add_vec_int (w__2) (4))) >>
+     liftR ((rMem (addr) (accdesc))) >>= fun data => liftR ((wX (t) (data)))  : MR (unit) (unit)).
 
 Definition execute_ExclusiveOr (d : Z) (n : Z) (m : Z) (*(0 <=? d) && (d <=? 31)*)
 (*(0 <=? n) && (n <=? 31)*) (*(0 <=? m) && (m <=? 31)*)
@@ -763,14 +1187,6 @@ Definition execute_ExclusiveOr (d : Z) (n : Z) (m : Z) (*(0 <=? d) && (d <=? 31)
    write_reg _PC (add_vec_int (w__0) (4)) >>
    (rX (n)) >>= fun operand1 =>
    (rX (m)) >>= fun operand2 => (wX (d) ((xor_vec (operand1) (operand2))))  : M (unit).
-
-Definition dataMemoryBarrier (types : MBReqTypes) : M (unit) :=
-   (sail_barrier
-      ((Barrier_DMB
-          (({| DxB_domain := MBReqDomain_FullSystem;
-               DxB_types := types;
-               DxB_nXS := false |})))))
-    : M (unit).
 
 Definition execute_DataMemoryBarrier (types : MBReqTypes) : M (unit) :=
    ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
@@ -830,72 +1246,22 @@ Definition decode (v__0 : mword 32) : option ast :=
      decodeCompareAndBranch (imm19) (Rt)
    else None.
 
-Definition iFetch (addr : mword 64) : M (mword 32) :=
-   let req : Mem_read_request 4 0 addr_size addr_space AccessDescriptor :=
-     {| Mem_read_request_access_kind := base_AccessDescriptor (AccessType_IFETCH);
-        Mem_read_request_address := vector_truncate (addr) (addr_size');
-        Mem_read_request_address_space := addr_space_def;
-        Mem_read_request_size := 4;
-        Mem_read_request_num_tag := 0 |} in
-   (sail_mem_read ((autocast (T := fun _sz => (Mem_read_request _ _ _sz _ _)%type) req))) >>= fun (w__0 : result ((vec (mword 8) 4 * vec bool 0)) Fault) =>
-   (match w__0 with
-    | Ok (value, _) => returnM ((from_bytes_le (4) (value)))
-    | Err _ => exit tt  : M (mword 32)
-    end)
-    : M (mword 32).
-
 Definition fetch_and_execute '(tt : unit) : M (unit) :=
-   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
-   (iFetch (w__0)) >>= fun machineCode =>
-   let instr := decode (machineCode) in
-   (match instr with
-    | Some instr => (execute (instr))  : M (unit)
-    | None => assert_exp' false "Unsupported Encoding" >>= fun _ => exit tt
-    end)
-    : M (unit).
-
-Definition is_ok {a : Type} {b : Type} (r : result a b) : bool :=
-   match r with | Ok _ => true | Err _ => false end.
-
-Definition is_err {a : Type} {b : Type} (r : result a b) : bool :=
-   match r with | Ok _ => false | Err _ => true end.
-
-Definition ok_option {a : Type} {b : Type} (r : result a b) : option a :=
-   match r with | Ok x => Some (x) | Err _ => None end.
-
-Definition err_option {a : Type} {b : Type} (r : result a b) : option b :=
-   match r with | Ok _ => None | Err err => Some (err) end.
-
-Definition unwrap_or {a : Type} {b : Type} (r : result a b) (y : a) : a :=
-   match r with | Ok x => x | Err _ => y end.
-
-Definition sail_instr_announce {n : Z} (_ : mword n) (*n >? 0*) : unit := tt.
-
-Definition sail_branch_announce (addrsize : Z) (_ : mword addrsize)
-(*member_Z_list addrsize [32; 64]*)
-: unit :=
-   tt.
-
-Definition sail_reset_registers '(tt : unit) : unit := tt.
-
-Definition sail_synchronize_registers '(tt : unit) : unit := tt.
-
-Definition sail_mark_register {a : Type} (_ : register_ref register a) (_ : string) : unit := tt.
-
-Definition sail_mark_register_pair {a : Type} {b : Type}
-(_ : register_ref register a) (_ : register_ref register b) (_ : string)
-: unit :=
-   tt.
-
-Definition sail_ignore_write_to {a : Type} (reg : register_ref register a) : unit :=
-   sail_mark_register (reg) ("ignore_write").
-
-Definition sail_pick_dependency {a : Type} (reg : register_ref register a) : unit :=
-   sail_mark_register (reg) ("pick").
-
-Definition __monomorphize_int (n : Z) : Z := n.
-
-Definition __monomorphize_bool (b : bool) : bool := b.
+   catch_early_return
+     (liftR ((create_iFetchAccessDescriptor (tt))) >>= fun accdesc =>
+     ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__0 : mword 64) =>
+     liftR ((translate_address (w__0) (accdesc))) >>= fun (w__1 : option (mword 56)) =>
+     (match w__1 with
+      | Some addr => returnR (unit) (addr)
+      | None => (early_return (tt  : unit) : MR unit (mword 56))  : MR (unit) (mword 56)
+      end) >>= fun (addr : bits addr_size) =>
+     liftR ((iFetch (addr) (accdesc))) >>= fun machineCode =>
+     let instr := decode (machineCode) in
+     (match instr with
+      | Some instr => liftR ((execute (instr)))  : MR (unit) (unit)
+      | None => liftR (assert_exp' false "Unsupported Encoding") >>= fun _ => liftR (exit tt)
+      end)
+      : MR (unit) (unit)).
 
 Definition initialize_registers '(tt : unit) : M (unit) :=
    (undefined_bitvector (64)) >>= fun (w__0 : mword 64) =>
@@ -976,7 +1342,7 @@ Definition initialize_registers '(tt : unit) : M (unit) :=
    write_reg ELR_EL2 w__37 >>
    (undefined_bitvector (64)) >>= fun (w__38 : mword 64) =>
    write_reg ELR_EL3 w__38 >>
-   (undefined_bitvector (64)) >>= fun (w__39 : mword 64) =>
+   (undefined_ProcState (tt)) >>= fun (w__39 : ProcState) =>
    write_reg PSTATE w__39 >>
    (undefined_bitvector (64)) >>= fun (w__40 : mword 64) =>
    write_reg ESR_EL1 w__40 >>
@@ -1017,20 +1383,28 @@ Definition initialize_registers '(tt : unit) : M (unit) :=
    (undefined_bitvector (64)) >>= fun (w__58 : mword 64) =>
    write_reg SPSR_EL3 w__58 >>
    (undefined_bitvector (64)) >>= fun (w__59 : mword 64) =>
-   write_reg MMFR0_EL1 w__59 >>
+   write_reg ID_AA64MMFR0_EL1 w__59 >>
    (undefined_bitvector (64)) >>= fun (w__60 : mword 64) =>
-   write_reg MMFR1_EL1 w__60 >>
+   write_reg ID_AA64MMFR1_EL1 w__60 >>
    (undefined_bitvector (64)) >>= fun (w__61 : mword 64) =>
-   write_reg MMFR2_EL1 w__61 >>
+   write_reg ID_AA64MMFR2_EL1 w__61 >>
    (undefined_bitvector (64)) >>= fun (w__62 : mword 64) =>
-   write_reg MMFR3_EL1 w__62 >>
+   write_reg ID_AA64MMFR3_EL1 w__62 >>
    (undefined_bitvector (64)) >>= fun (w__63 : mword 64) =>
-   write_reg TCR_EL1 w__63 >>
+   write_reg ID_AA64MMFR4_EL1 w__63 >>
    (undefined_bitvector (64)) >>= fun (w__64 : mword 64) =>
-   write_reg TCR_EL2 w__64 >>
+   write_reg TCR_EL1 w__64 >>
    (undefined_bitvector (64)) >>= fun (w__65 : mword 64) =>
-   write_reg TCR_EL3 w__65 >>
-   (undefined_bitvector (64)) >>= fun (w__66 : mword 64) => write_reg VTCR_EL2 w__66  : M (unit).
+   write_reg TCR_EL2 w__65 >>
+   (undefined_bitvector (64)) >>= fun (w__66 : mword 64) =>
+   write_reg TCR_EL3 w__66 >>
+   (undefined_bitvector (64)) >>= fun (w__67 : mword 64) =>
+   write_reg VTCR_EL2 w__67 >>
+   (undefined_bitvector (64)) >>= fun (w__68 : mword 64) =>
+   write_reg SCTLR_EL1 w__68 >>
+   (undefined_bitvector (64)) >>= fun (w__69 : mword 64) =>
+   write_reg SCTLR_EL2 w__69 >>
+   (undefined_bitvector (64)) >>= fun (w__70 : mword 64) => write_reg SCTLR_EL3 w__70  : M (unit).
 
 Definition sail_model_init (_ : unit) : M (unit) := (initialize_registers (tt))  : M (unit).
 

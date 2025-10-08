@@ -23,10 +23,10 @@ Definition num_of_SecurityState (arg_ : SecurityState) : Z :=
    match arg_ with | SS_NonSecure => 0 | SS_Root => 1 | SS_Realm => 2 | SS_Secure => 3 end.
 
 Definition SecurityState_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : SecurityState :=
-   let l__126 := arg_ in
-   if Z.eqb (l__126) (0) then SS_NonSecure
-   else if Z.eqb (l__126) (1) then SS_Root
-   else if Z.eqb (l__126) (2) then SS_Realm
+   let l__132 := arg_ in
+   if Z.eqb (l__132) (0) then SS_NonSecure
+   else if Z.eqb (l__132) (1) then SS_Root
+   else if Z.eqb (l__132) (2) then SS_Realm
    else SS_Secure.
 
 Lemma SecurityState_num_of_roundtrip (x : SecurityState) : SecurityState_of_num (num_of_SecurityState x) = x.
@@ -87,10 +87,10 @@ Definition num_of_PARTIDspaceType (arg_ : PARTIDspaceType) : Z :=
    end.
 
 Definition PARTIDspaceType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : PARTIDspaceType :=
-   let l__123 := arg_ in
-   if Z.eqb (l__123) (0) then PIdSpace_Secure
-   else if Z.eqb (l__123) (1) then PIdSpace_Root
-   else if Z.eqb (l__123) (2) then PIdSpace_Realm
+   let l__129 := arg_ in
+   if Z.eqb (l__129) (0) then PIdSpace_Secure
+   else if Z.eqb (l__129) (1) then PIdSpace_Root
+   else if Z.eqb (l__129) (2) then PIdSpace_Realm
    else PIdSpace_NonSecure.
 
 Lemma PARTIDspaceType_num_of_roundtrip (x : PARTIDspaceType) : PARTIDspaceType_of_num (num_of_PARTIDspaceType x) = x.
@@ -209,20 +209,20 @@ Definition num_of_AccessType (arg_ : AccessType) : Z :=
    end.
 
 Definition AccessType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 13)*) : AccessType :=
-   let l__110 := arg_ in
-   if Z.eqb (l__110) (0) then AccessType_IFETCH
-   else if Z.eqb (l__110) (1) then AccessType_GPR
-   else if Z.eqb (l__110) (2) then AccessType_ASIMD
-   else if Z.eqb (l__110) (3) then AccessType_SVE
-   else if Z.eqb (l__110) (4) then AccessType_SME
-   else if Z.eqb (l__110) (5) then AccessType_IC
-   else if Z.eqb (l__110) (6) then AccessType_DC
-   else if Z.eqb (l__110) (7) then AccessType_DCZero
-   else if Z.eqb (l__110) (8) then AccessType_AT
-   else if Z.eqb (l__110) (9) then AccessType_NV2
-   else if Z.eqb (l__110) (10) then AccessType_SPE
-   else if Z.eqb (l__110) (11) then AccessType_GCS
-   else if Z.eqb (l__110) (12) then AccessType_GPTW
+   let l__116 := arg_ in
+   if Z.eqb (l__116) (0) then AccessType_IFETCH
+   else if Z.eqb (l__116) (1) then AccessType_GPR
+   else if Z.eqb (l__116) (2) then AccessType_ASIMD
+   else if Z.eqb (l__116) (3) then AccessType_SVE
+   else if Z.eqb (l__116) (4) then AccessType_SME
+   else if Z.eqb (l__116) (5) then AccessType_IC
+   else if Z.eqb (l__116) (6) then AccessType_DC
+   else if Z.eqb (l__116) (7) then AccessType_DCZero
+   else if Z.eqb (l__116) (8) then AccessType_AT
+   else if Z.eqb (l__116) (9) then AccessType_NV2
+   else if Z.eqb (l__116) (10) then AccessType_SPE
+   else if Z.eqb (l__116) (11) then AccessType_GCS
+   else if Z.eqb (l__116) (12) then AccessType_GPTW
    else AccessType_TTW.
 
 Lemma AccessType_num_of_roundtrip (x : AccessType) : AccessType_of_num (num_of_AccessType x) = x.
@@ -274,8 +274,8 @@ Definition num_of_VARange (arg_ : VARange) : Z :=
    match arg_ with | VARange_LOWER => 0 | VARange_UPPER => 1 end.
 
 Definition VARange_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : VARange :=
-   let l__109 := arg_ in
-   if Z.eqb (l__109) (0) then VARange_LOWER
+   let l__115 := arg_ in
+   if Z.eqb (l__115) (0) then VARange_LOWER
    else VARange_UPPER.
 
 Lemma VARange_num_of_roundtrip (x : VARange) : VARange_of_num (num_of_VARange x) = x.
@@ -350,17 +350,17 @@ Definition num_of_MemAtomicOp (arg_ : MemAtomicOp) : Z :=
    end.
 
 Definition MemAtomicOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 10)*) : MemAtomicOp :=
-   let l__99 := arg_ in
-   if Z.eqb (l__99) (0) then MemAtomicOp_GCSSS1
-   else if Z.eqb (l__99) (1) then MemAtomicOp_ADD
-   else if Z.eqb (l__99) (2) then MemAtomicOp_BIC
-   else if Z.eqb (l__99) (3) then MemAtomicOp_EOR
-   else if Z.eqb (l__99) (4) then MemAtomicOp_ORR
-   else if Z.eqb (l__99) (5) then MemAtomicOp_SMAX
-   else if Z.eqb (l__99) (6) then MemAtomicOp_SMIN
-   else if Z.eqb (l__99) (7) then MemAtomicOp_UMAX
-   else if Z.eqb (l__99) (8) then MemAtomicOp_UMIN
-   else if Z.eqb (l__99) (9) then MemAtomicOp_SWP
+   let l__105 := arg_ in
+   if Z.eqb (l__105) (0) then MemAtomicOp_GCSSS1
+   else if Z.eqb (l__105) (1) then MemAtomicOp_ADD
+   else if Z.eqb (l__105) (2) then MemAtomicOp_BIC
+   else if Z.eqb (l__105) (3) then MemAtomicOp_EOR
+   else if Z.eqb (l__105) (4) then MemAtomicOp_ORR
+   else if Z.eqb (l__105) (5) then MemAtomicOp_SMAX
+   else if Z.eqb (l__105) (6) then MemAtomicOp_SMIN
+   else if Z.eqb (l__105) (7) then MemAtomicOp_UMAX
+   else if Z.eqb (l__105) (8) then MemAtomicOp_UMIN
+   else if Z.eqb (l__105) (9) then MemAtomicOp_SWP
    else MemAtomicOp_CAS.
 
 Lemma MemAtomicOp_num_of_roundtrip (x : MemAtomicOp) : MemAtomicOp_of_num (num_of_MemAtomicOp x) = x.
@@ -412,9 +412,9 @@ Definition num_of_CacheOp (arg_ : CacheOp) : Z :=
    match arg_ with | CacheOp_Clean => 0 | CacheOp_Invalidate => 1 | CacheOp_CleanInvalidate => 2 end.
 
 Definition CacheOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : CacheOp :=
-   let l__97 := arg_ in
-   if Z.eqb (l__97) (0) then CacheOp_Clean
-   else if Z.eqb (l__97) (1) then CacheOp_Invalidate
+   let l__103 := arg_ in
+   if Z.eqb (l__103) (0) then CacheOp_Clean
+   else if Z.eqb (l__103) (1) then CacheOp_Invalidate
    else CacheOp_CleanInvalidate.
 
 Lemma CacheOp_num_of_roundtrip (x : CacheOp) : CacheOp_of_num (num_of_CacheOp x) = x.
@@ -485,15 +485,15 @@ Definition num_of_CacheOpScope (arg_ : CacheOpScope) : Z :=
    end.
 
 Definition CacheOpScope_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 8)*) : CacheOpScope :=
-   let l__89 := arg_ in
-   if Z.eqb (l__89) (0) then CacheOpScope_SetWay
-   else if Z.eqb (l__89) (1) then CacheOpScope_PoU
-   else if Z.eqb (l__89) (2) then CacheOpScope_PoC
-   else if Z.eqb (l__89) (3) then CacheOpScope_PoE
-   else if Z.eqb (l__89) (4) then CacheOpScope_PoP
-   else if Z.eqb (l__89) (5) then CacheOpScope_PoDP
-   else if Z.eqb (l__89) (6) then CacheOpScope_PoPA
-   else if Z.eqb (l__89) (7) then CacheOpScope_ALLU
+   let l__95 := arg_ in
+   if Z.eqb (l__95) (0) then CacheOpScope_SetWay
+   else if Z.eqb (l__95) (1) then CacheOpScope_PoU
+   else if Z.eqb (l__95) (2) then CacheOpScope_PoC
+   else if Z.eqb (l__95) (3) then CacheOpScope_PoE
+   else if Z.eqb (l__95) (4) then CacheOpScope_PoP
+   else if Z.eqb (l__95) (5) then CacheOpScope_PoDP
+   else if Z.eqb (l__95) (6) then CacheOpScope_PoPA
+   else if Z.eqb (l__95) (7) then CacheOpScope_ALLU
    else CacheOpScope_ALLUIS.
 
 Lemma CacheOpScope_num_of_roundtrip (x : CacheOpScope) : CacheOpScope_of_num (num_of_CacheOpScope x) = x.
@@ -550,10 +550,10 @@ Definition num_of_CacheType (arg_ : CacheType) : Z :=
    end.
 
 Definition CacheType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : CacheType :=
-   let l__86 := arg_ in
-   if Z.eqb (l__86) (0) then CacheType_Data
-   else if Z.eqb (l__86) (1) then CacheType_Tag
-   else if Z.eqb (l__86) (2) then CacheType_Data_Tag
+   let l__92 := arg_ in
+   if Z.eqb (l__92) (0) then CacheType_Data
+   else if Z.eqb (l__92) (1) then CacheType_Tag
+   else if Z.eqb (l__92) (2) then CacheType_Data_Tag
    else CacheType_Instruction.
 
 Lemma CacheType_num_of_roundtrip (x : CacheType) : CacheType_of_num (num_of_CacheType x) = x.
@@ -620,13 +620,13 @@ Definition num_of_CachePASpace (arg_ : CachePASpace) : Z :=
    end.
 
 Definition CachePASpace_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 6)*) : CachePASpace :=
-   let l__80 := arg_ in
-   if Z.eqb (l__80) (0) then CPAS_NonSecure
-   else if Z.eqb (l__80) (1) then CPAS_Any
-   else if Z.eqb (l__80) (2) then CPAS_RealmNonSecure
-   else if Z.eqb (l__80) (3) then CPAS_Realm
-   else if Z.eqb (l__80) (4) then CPAS_Root
-   else if Z.eqb (l__80) (5) then CPAS_SecureNonSecure
+   let l__86 := arg_ in
+   if Z.eqb (l__86) (0) then CPAS_NonSecure
+   else if Z.eqb (l__86) (1) then CPAS_Any
+   else if Z.eqb (l__86) (2) then CPAS_RealmNonSecure
+   else if Z.eqb (l__86) (3) then CPAS_Realm
+   else if Z.eqb (l__86) (4) then CPAS_Root
+   else if Z.eqb (l__86) (5) then CPAS_SecureNonSecure
    else CPAS_Secure.
 
 Lemma CachePASpace_num_of_roundtrip (x : CachePASpace) : CachePASpace_of_num (num_of_CachePASpace x) = x.
@@ -806,8 +806,8 @@ Definition num_of_MemType (arg_ : MemType) : Z :=
    match arg_ with | MemType_Normal => 0 | MemType_Device => 1 end.
 
 Definition MemType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : MemType :=
-   let l__79 := arg_ in
-   if Z.eqb (l__79) (0) then MemType_Normal
+   let l__85 := arg_ in
+   if Z.eqb (l__85) (0) then MemType_Normal
    else MemType_Device.
 
 Lemma MemType_num_of_roundtrip (x : MemType) : MemType_of_num (num_of_MemType x) = x.
@@ -864,10 +864,10 @@ Definition num_of_DeviceType (arg_ : DeviceType) : Z :=
    end.
 
 Definition DeviceType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : DeviceType :=
-   let l__76 := arg_ in
-   if Z.eqb (l__76) (0) then DeviceType_GRE
-   else if Z.eqb (l__76) (1) then DeviceType_nGRE
-   else if Z.eqb (l__76) (2) then DeviceType_nGnRE
+   let l__82 := arg_ in
+   if Z.eqb (l__82) (0) then DeviceType_GRE
+   else if Z.eqb (l__82) (1) then DeviceType_nGRE
+   else if Z.eqb (l__82) (2) then DeviceType_nGnRE
    else DeviceType_nGnRnE.
 
 Lemma DeviceType_num_of_roundtrip (x : DeviceType) : DeviceType_of_num (num_of_DeviceType x) = x.
@@ -957,9 +957,9 @@ Definition num_of_Shareability (arg_ : Shareability) : Z :=
    match arg_ with | Shareability_NSH => 0 | Shareability_ISH => 1 | Shareability_OSH => 2 end.
 
 Definition Shareability_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : Shareability :=
-   let l__74 := arg_ in
-   if Z.eqb (l__74) (0) then Shareability_NSH
-   else if Z.eqb (l__74) (1) then Shareability_ISH
+   let l__80 := arg_ in
+   if Z.eqb (l__80) (0) then Shareability_NSH
+   else if Z.eqb (l__80) (1) then Shareability_ISH
    else Shareability_OSH.
 
 Lemma Shareability_num_of_roundtrip (x : Shareability) : Shareability_of_num (num_of_Shareability x) = x.
@@ -1015,9 +1015,9 @@ Definition num_of_MemTagType (arg_ : MemTagType) : Z :=
    end.
 
 Definition MemTagType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : MemTagType :=
-   let l__72 := arg_ in
-   if Z.eqb (l__72) (0) then MemTag_Untagged
-   else if Z.eqb (l__72) (1) then MemTag_AllocationTagged
+   let l__78 := arg_ in
+   if Z.eqb (l__78) (0) then MemTag_Untagged
+   else if Z.eqb (l__78) (1) then MemTag_AllocationTagged
    else MemTag_CanonicallyTagged.
 
 Lemma MemTagType_num_of_roundtrip (x : MemTagType) : MemTagType_of_num (num_of_MemTagType x) = x.
@@ -1122,10 +1122,10 @@ Definition num_of_PASpace (arg_ : PASpace) : Z :=
    match arg_ with | PAS_NonSecure => 0 | PAS_Secure => 1 | PAS_Root => 2 | PAS_Realm => 3 end.
 
 Definition PASpace_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : PASpace :=
-   let l__69 := arg_ in
-   if Z.eqb (l__69) (0) then PAS_NonSecure
-   else if Z.eqb (l__69) (1) then PAS_Secure
-   else if Z.eqb (l__69) (2) then PAS_Root
+   let l__75 := arg_ in
+   if Z.eqb (l__75) (0) then PAS_NonSecure
+   else if Z.eqb (l__75) (1) then PAS_Secure
+   else if Z.eqb (l__75) (2) then PAS_Root
    else PAS_Realm.
 
 Lemma PASpace_num_of_roundtrip (x : PASpace) : PASpace_of_num (num_of_PASpace x) = x.
@@ -1216,11 +1216,11 @@ Definition num_of_GPCF (arg_ : GPCF) : Z :=
    end.
 
 Definition GPCF_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 4)*) : GPCF :=
-   let l__65 := arg_ in
-   if Z.eqb (l__65) (0) then GPCF_None
-   else if Z.eqb (l__65) (1) then GPCF_AddressSize
-   else if Z.eqb (l__65) (2) then GPCF_Walk
-   else if Z.eqb (l__65) (3) then GPCF_EABT
+   let l__71 := arg_ in
+   if Z.eqb (l__71) (0) then GPCF_None
+   else if Z.eqb (l__71) (1) then GPCF_AddressSize
+   else if Z.eqb (l__71) (2) then GPCF_Walk
+   else if Z.eqb (l__71) (3) then GPCF_EABT
    else GPCF_Fail.
 
 Lemma GPCF_num_of_roundtrip (x : GPCF) : GPCF_of_num (num_of_GPCF x) = x.
@@ -1354,30 +1354,30 @@ Definition num_of_Fault (arg_ : Fault) : Z :=
    end.
 
 Definition Fault_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 23)*) : Fault :=
-   let l__42 := arg_ in
-   if Z.eqb (l__42) (0) then Fault_None
-   else if Z.eqb (l__42) (1) then Fault_AccessFlag
-   else if Z.eqb (l__42) (2) then Fault_Alignment
-   else if Z.eqb (l__42) (3) then Fault_Background
-   else if Z.eqb (l__42) (4) then Fault_Domain
-   else if Z.eqb (l__42) (5) then Fault_Permission
-   else if Z.eqb (l__42) (6) then Fault_Translation
-   else if Z.eqb (l__42) (7) then Fault_AddressSize
-   else if Z.eqb (l__42) (8) then Fault_SyncExternal
-   else if Z.eqb (l__42) (9) then Fault_SyncExternalOnWalk
-   else if Z.eqb (l__42) (10) then Fault_SyncParity
-   else if Z.eqb (l__42) (11) then Fault_SyncParityOnWalk
-   else if Z.eqb (l__42) (12) then Fault_GPCFOnWalk
-   else if Z.eqb (l__42) (13) then Fault_GPCFOnOutput
-   else if Z.eqb (l__42) (14) then Fault_AsyncParity
-   else if Z.eqb (l__42) (15) then Fault_AsyncExternal
-   else if Z.eqb (l__42) (16) then Fault_TagCheck
-   else if Z.eqb (l__42) (17) then Fault_Debug
-   else if Z.eqb (l__42) (18) then Fault_TLBConflict
-   else if Z.eqb (l__42) (19) then Fault_BranchTarget
-   else if Z.eqb (l__42) (20) then Fault_HWUpdateAccessFlag
-   else if Z.eqb (l__42) (21) then Fault_Lockdown
-   else if Z.eqb (l__42) (22) then Fault_Exclusive
+   let l__48 := arg_ in
+   if Z.eqb (l__48) (0) then Fault_None
+   else if Z.eqb (l__48) (1) then Fault_AccessFlag
+   else if Z.eqb (l__48) (2) then Fault_Alignment
+   else if Z.eqb (l__48) (3) then Fault_Background
+   else if Z.eqb (l__48) (4) then Fault_Domain
+   else if Z.eqb (l__48) (5) then Fault_Permission
+   else if Z.eqb (l__48) (6) then Fault_Translation
+   else if Z.eqb (l__48) (7) then Fault_AddressSize
+   else if Z.eqb (l__48) (8) then Fault_SyncExternal
+   else if Z.eqb (l__48) (9) then Fault_SyncExternalOnWalk
+   else if Z.eqb (l__48) (10) then Fault_SyncParity
+   else if Z.eqb (l__48) (11) then Fault_SyncParityOnWalk
+   else if Z.eqb (l__48) (12) then Fault_GPCFOnWalk
+   else if Z.eqb (l__48) (13) then Fault_GPCFOnOutput
+   else if Z.eqb (l__48) (14) then Fault_AsyncParity
+   else if Z.eqb (l__48) (15) then Fault_AsyncExternal
+   else if Z.eqb (l__48) (16) then Fault_TagCheck
+   else if Z.eqb (l__48) (17) then Fault_Debug
+   else if Z.eqb (l__48) (18) then Fault_TLBConflict
+   else if Z.eqb (l__48) (19) then Fault_BranchTarget
+   else if Z.eqb (l__48) (20) then Fault_HWUpdateAccessFlag
+   else if Z.eqb (l__48) (21) then Fault_Lockdown
+   else if Z.eqb (l__48) (22) then Fault_Exclusive
    else Fault_ICacheMaint.
 
 Lemma Fault_num_of_roundtrip (x : Fault) : Fault_of_num (num_of_Fault x) = x.
@@ -1444,13 +1444,13 @@ Definition num_of_ErrorState (arg_ : ErrorState) : Z :=
    end.
 
 Definition ErrorState_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 6)*) : ErrorState :=
-   let l__36 := arg_ in
-   if Z.eqb (l__36) (0) then ErrorState_UC
-   else if Z.eqb (l__36) (1) then ErrorState_UEU
-   else if Z.eqb (l__36) (2) then ErrorState_UEO
-   else if Z.eqb (l__36) (3) then ErrorState_UER
-   else if Z.eqb (l__36) (4) then ErrorState_CE
-   else if Z.eqb (l__36) (5) then ErrorState_Uncategorized
+   let l__42 := arg_ in
+   if Z.eqb (l__42) (0) then ErrorState_UC
+   else if Z.eqb (l__42) (1) then ErrorState_UEU
+   else if Z.eqb (l__42) (2) then ErrorState_UEO
+   else if Z.eqb (l__42) (3) then ErrorState_UER
+   else if Z.eqb (l__42) (4) then ErrorState_CE
+   else if Z.eqb (l__42) (5) then ErrorState_Uncategorized
    else ErrorState_IMPDEF.
 
 Lemma ErrorState_num_of_roundtrip (x : ErrorState) : ErrorState_of_num (num_of_ErrorState x) = x.
@@ -1600,10 +1600,10 @@ Definition num_of_MBReqDomain (arg_ : MBReqDomain) : Z :=
    end.
 
 Definition MBReqDomain_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 3)*) : MBReqDomain :=
-   let l__33 := arg_ in
-   if Z.eqb (l__33) (0) then MBReqDomain_Nonshareable
-   else if Z.eqb (l__33) (1) then MBReqDomain_InnerShareable
-   else if Z.eqb (l__33) (2) then MBReqDomain_OuterShareable
+   let l__39 := arg_ in
+   if Z.eqb (l__39) (0) then MBReqDomain_Nonshareable
+   else if Z.eqb (l__39) (1) then MBReqDomain_InnerShareable
+   else if Z.eqb (l__39) (2) then MBReqDomain_OuterShareable
    else MBReqDomain_FullSystem.
 
 Lemma MBReqDomain_num_of_roundtrip (x : MBReqDomain) : MBReqDomain_of_num (num_of_MBReqDomain x) = x.
@@ -1655,9 +1655,9 @@ Definition num_of_MBReqTypes (arg_ : MBReqTypes) : Z :=
    match arg_ with | MBReqTypes_Reads => 0 | MBReqTypes_Writes => 1 | MBReqTypes_All => 2 end.
 
 Definition MBReqTypes_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : MBReqTypes :=
-   let l__31 := arg_ in
-   if Z.eqb (l__31) (0) then MBReqTypes_Reads
-   else if Z.eqb (l__31) (1) then MBReqTypes_Writes
+   let l__37 := arg_ in
+   if Z.eqb (l__37) (0) then MBReqTypes_Reads
+   else if Z.eqb (l__37) (1) then MBReqTypes_Writes
    else MBReqTypes_All.
 
 Lemma MBReqTypes_num_of_roundtrip (x : MBReqTypes) : MBReqTypes_of_num (num_of_MBReqTypes x) = x.
@@ -1798,11 +1798,11 @@ Definition num_of_Regime (arg_ : Regime) : Z :=
    end.
 
 Definition Regime_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 4)*) : Regime :=
-   let l__27 := arg_ in
-   if Z.eqb (l__27) (0) then Regime_EL3
-   else if Z.eqb (l__27) (1) then Regime_EL30
-   else if Z.eqb (l__27) (2) then Regime_EL2
-   else if Z.eqb (l__27) (3) then Regime_EL20
+   let l__33 := arg_ in
+   if Z.eqb (l__33) (0) then Regime_EL3
+   else if Z.eqb (l__33) (1) then Regime_EL30
+   else if Z.eqb (l__33) (2) then Regime_EL2
+   else if Z.eqb (l__33) (3) then Regime_EL20
    else Regime_EL10.
 
 Lemma Regime_num_of_roundtrip (x : Regime) : Regime_of_num (num_of_Regime x) = x.
@@ -1854,9 +1854,9 @@ Definition num_of_TGx (arg_ : TGx) : Z :=
    match arg_ with | TGx_4KB => 0 | TGx_16KB => 1 | TGx_64KB => 2 end.
 
 Definition TGx_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : TGx :=
-   let l__25 := arg_ in
-   if Z.eqb (l__25) (0) then TGx_4KB
-   else if Z.eqb (l__25) (1) then TGx_16KB
+   let l__31 := arg_ in
+   if Z.eqb (l__31) (0) then TGx_4KB
+   else if Z.eqb (l__31) (1) then TGx_16KB
    else TGx_64KB.
 
 Lemma TGx_num_of_roundtrip (x : TGx) : TGx_of_num (num_of_TGx x) = x.
@@ -2088,8 +2088,8 @@ Definition num_of_TLBILevel (arg_ : TLBILevel) : Z :=
    match arg_ with | TLBILevel_Any => 0 | TLBILevel_Last => 1 end.
 
 Definition TLBILevel_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : TLBILevel :=
-   let l__24 := arg_ in
-   if Z.eqb (l__24) (0) then TLBILevel_Any
+   let l__30 := arg_ in
+   if Z.eqb (l__30) (0) then TLBILevel_Any
    else TLBILevel_Last.
 
 Lemma TLBILevel_num_of_roundtrip (x : TLBILevel) : TLBILevel_of_num (num_of_TLBILevel x) = x.
@@ -2190,30 +2190,30 @@ Definition num_of_TLBIOp (arg_ : TLBIOp) : Z :=
    end.
 
 Definition TLBIOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 23)*) : TLBIOp :=
-   let l__1 := arg_ in
-   if Z.eqb (l__1) (0) then TLBIOp_DALL
-   else if Z.eqb (l__1) (1) then TLBIOp_DASID
-   else if Z.eqb (l__1) (2) then TLBIOp_DVA
-   else if Z.eqb (l__1) (3) then TLBIOp_IALL
-   else if Z.eqb (l__1) (4) then TLBIOp_IASID
-   else if Z.eqb (l__1) (5) then TLBIOp_IVA
-   else if Z.eqb (l__1) (6) then TLBIOp_ALL
-   else if Z.eqb (l__1) (7) then TLBIOp_ASID
-   else if Z.eqb (l__1) (8) then TLBIOp_IPAS2
-   else if Z.eqb (l__1) (9) then TLBIPOp_IPAS2
-   else if Z.eqb (l__1) (10) then TLBIOp_VAA
-   else if Z.eqb (l__1) (11) then TLBIOp_VA
-   else if Z.eqb (l__1) (12) then TLBIPOp_VAA
-   else if Z.eqb (l__1) (13) then TLBIPOp_VA
-   else if Z.eqb (l__1) (14) then TLBIOp_VMALL
-   else if Z.eqb (l__1) (15) then TLBIOp_VMALLS12
-   else if Z.eqb (l__1) (16) then TLBIOp_RIPAS2
-   else if Z.eqb (l__1) (17) then TLBIPOp_RIPAS2
-   else if Z.eqb (l__1) (18) then TLBIOp_RVAA
-   else if Z.eqb (l__1) (19) then TLBIOp_RVA
-   else if Z.eqb (l__1) (20) then TLBIPOp_RVAA
-   else if Z.eqb (l__1) (21) then TLBIPOp_RVA
-   else if Z.eqb (l__1) (22) then TLBIOp_RPA
+   let l__7 := arg_ in
+   if Z.eqb (l__7) (0) then TLBIOp_DALL
+   else if Z.eqb (l__7) (1) then TLBIOp_DASID
+   else if Z.eqb (l__7) (2) then TLBIOp_DVA
+   else if Z.eqb (l__7) (3) then TLBIOp_IALL
+   else if Z.eqb (l__7) (4) then TLBIOp_IASID
+   else if Z.eqb (l__7) (5) then TLBIOp_IVA
+   else if Z.eqb (l__7) (6) then TLBIOp_ALL
+   else if Z.eqb (l__7) (7) then TLBIOp_ASID
+   else if Z.eqb (l__7) (8) then TLBIOp_IPAS2
+   else if Z.eqb (l__7) (9) then TLBIPOp_IPAS2
+   else if Z.eqb (l__7) (10) then TLBIOp_VAA
+   else if Z.eqb (l__7) (11) then TLBIOp_VA
+   else if Z.eqb (l__7) (12) then TLBIPOp_VAA
+   else if Z.eqb (l__7) (13) then TLBIPOp_VA
+   else if Z.eqb (l__7) (14) then TLBIOp_VMALL
+   else if Z.eqb (l__7) (15) then TLBIOp_VMALLS12
+   else if Z.eqb (l__7) (16) then TLBIOp_RIPAS2
+   else if Z.eqb (l__7) (17) then TLBIPOp_RIPAS2
+   else if Z.eqb (l__7) (18) then TLBIOp_RVAA
+   else if Z.eqb (l__7) (19) then TLBIOp_RVA
+   else if Z.eqb (l__7) (20) then TLBIPOp_RVAA
+   else if Z.eqb (l__7) (21) then TLBIPOp_RVA
+   else if Z.eqb (l__7) (22) then TLBIOp_RPA
    else TLBIOp_PAALL.
 
 Lemma TLBIOp_num_of_roundtrip (x : TLBIOp) : TLBIOp_of_num (num_of_TLBIOp x) = x.
@@ -2265,8 +2265,8 @@ Definition num_of_TLBIMemAttr (arg_ : TLBIMemAttr) : Z :=
    match arg_ with | TLBI_AllAttr => 0 | TLBI_ExcludeXS => 1 end.
 
 Definition TLBIMemAttr_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 1)*) : TLBIMemAttr :=
-   let l__0 := arg_ in
-   if Z.eqb (l__0) (0) then TLBI_AllAttr
+   let l__6 := arg_ in
+   if Z.eqb (l__6) (0) then TLBI_AllAttr
    else TLBI_ExcludeXS.
 
 Lemma TLBIMemAttr_num_of_roundtrip (x : TLBIMemAttr) : TLBIMemAttr_of_num (num_of_TLBIMemAttr x) = x.
@@ -2501,6 +2501,196 @@ Instance dummy_Barrier : Inhabited (Barrier) := { inhabitant := Barrier_DSB inha
 
 Definition reg_index : Type := Z.
 
+Record ProcState := {
+  ProcState_N : bits 1;
+  ProcState_Z : bits 1;
+  ProcState_C : bits 1;
+  ProcState_V : bits 1;
+  ProcState_D : bits 1;
+  ProcState_A : bits 1;
+  ProcState_I : bits 1;
+  ProcState_F : bits 1;
+  ProcState_EXLOCK : bits 1;
+  ProcState_PAN : bits 1;
+  ProcState_UAO : bits 1;
+  ProcState_DIT : bits 1;
+  ProcState_TCO : bits 1;
+  ProcState_PM : bits 1;
+  ProcState_PPEND : bits 1;
+  ProcState_BTYPE : bits 2;
+  ProcState_ZA : bits 1;
+  ProcState_SM : bits 1;
+  ProcState_ALLINT : bits 1;
+  ProcState_SS : bits 1;
+  ProcState_IL : bits 1;
+  ProcState_EL : bits 2;
+  ProcState_nRW : bits 1;
+  ProcState_SP : bits 1;
+  ProcState_Q : bits 1;
+  ProcState_GE : bits 4;
+  ProcState_SSBS : bits 1;
+  ProcState_IT : bits 8;
+  ProcState_J : bits 1;
+  ProcState_T : bits 1;
+  ProcState_E : bits 1;
+  ProcState_M : bits 5;
+}.
+Arguments ProcState : clear implicits.
+#[export]
+Instance Decidable_eq_ProcState : EqDecision ProcState.
+   intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31].
+   intros [y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 y15 y16 y17 y18 y19 y20 y21 y22 y23 y24 y25 y26 y27 y28 y29 y30 y31].
+  cmp_record_field x0 y0.
+  cmp_record_field x1 y1.
+  cmp_record_field x2 y2.
+  cmp_record_field x3 y3.
+  cmp_record_field x4 y4.
+  cmp_record_field x5 y5.
+  cmp_record_field x6 y6.
+  cmp_record_field x7 y7.
+  cmp_record_field x8 y8.
+  cmp_record_field x9 y9.
+  cmp_record_field x10 y10.
+  cmp_record_field x11 y11.
+  cmp_record_field x12 y12.
+  cmp_record_field x13 y13.
+  cmp_record_field x14 y14.
+  cmp_record_field x15 y15.
+  cmp_record_field x16 y16.
+  cmp_record_field x17 y17.
+  cmp_record_field x18 y18.
+  cmp_record_field x19 y19.
+  cmp_record_field x20 y20.
+  cmp_record_field x21 y21.
+  cmp_record_field x22 y22.
+  cmp_record_field x23 y23.
+  cmp_record_field x24 y24.
+  cmp_record_field x25 y25.
+  cmp_record_field x26 y26.
+  cmp_record_field x27 y27.
+  cmp_record_field x28 y28.
+  cmp_record_field x29 y29.
+  cmp_record_field x30 y30.
+  cmp_record_field x31 y31.
+left; subst; reflexivity.
+Defined.
+#[export]
+Instance Countable_ProcState : Countable ProcState.
+refine {|
+  encode x := encode (ProcState_N x, ProcState_Z x, ProcState_C x, ProcState_V x, ProcState_D x, ProcState_A x, ProcState_I x, ProcState_F x, ProcState_EXLOCK x, ProcState_PAN x, ProcState_UAO x, ProcState_DIT x, ProcState_TCO x, ProcState_PM x, ProcState_PPEND x, ProcState_BTYPE x, ProcState_ZA x, ProcState_SM x, ProcState_ALLINT x, ProcState_SS x, ProcState_IL x, ProcState_EL x, ProcState_nRW x, ProcState_SP x, ProcState_Q x, ProcState_GE x, ProcState_SSBS x, ProcState_IT x, ProcState_J x, ProcState_T x, ProcState_E x, ProcState_M x);
+  decode x := '(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, x31) ← decode x;
+              mret (Build_ProcState x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31)
+|}.
+abstract (
+  intros [x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31];
+  rewrite decode_encode;
+  reflexivity).
+Defined.
+
+#[export] Instance eta_ProcState : Settable _ := settable! Build_ProcState <ProcState_N; ProcState_Z; ProcState_C; ProcState_V; ProcState_D; ProcState_A; ProcState_I; ProcState_F; ProcState_EXLOCK; ProcState_PAN; ProcState_UAO; ProcState_DIT; ProcState_TCO; ProcState_PM; ProcState_PPEND; ProcState_BTYPE; ProcState_ZA; ProcState_SM; ProcState_ALLINT; ProcState_SS; ProcState_IL; ProcState_EL; ProcState_nRW; ProcState_SP; ProcState_Q; ProcState_GE; ProcState_SSBS; ProcState_IT; ProcState_J; ProcState_T; ProcState_E; ProcState_M>.
+#[export]
+Instance dummy_ProcState : Inhabited (ProcState) := {
+  inhabitant := {|
+    ProcState_N := inhabitant;
+    ProcState_Z := inhabitant;
+    ProcState_C := inhabitant;
+    ProcState_V := inhabitant;
+    ProcState_D := inhabitant;
+    ProcState_A := inhabitant;
+    ProcState_I := inhabitant;
+    ProcState_F := inhabitant;
+    ProcState_EXLOCK := inhabitant;
+    ProcState_PAN := inhabitant;
+    ProcState_UAO := inhabitant;
+    ProcState_DIT := inhabitant;
+    ProcState_TCO := inhabitant;
+    ProcState_PM := inhabitant;
+    ProcState_PPEND := inhabitant;
+    ProcState_BTYPE := inhabitant;
+    ProcState_ZA := inhabitant;
+    ProcState_SM := inhabitant;
+    ProcState_ALLINT := inhabitant;
+    ProcState_SS := inhabitant;
+    ProcState_IL := inhabitant;
+    ProcState_EL := inhabitant;
+    ProcState_nRW := inhabitant;
+    ProcState_SP := inhabitant;
+    ProcState_Q := inhabitant;
+    ProcState_GE := inhabitant;
+    ProcState_SSBS := inhabitant;
+    ProcState_IT := inhabitant;
+    ProcState_J := inhabitant;
+    ProcState_T := inhabitant;
+    ProcState_E := inhabitant;
+    ProcState_M := inhabitant
+|} }.
+
+
+Definition addr_size : Z := 56.
+#[export] Hint Unfold addr_size : sail.
+
+Inductive DescriptorType := DescriptorType_Table | DescriptorType_Leaf | DescriptorType_Invalid.
+Definition num_of_DescriptorType (arg_ : DescriptorType) : Z :=
+   match arg_ with
+   | DescriptorType_Table => 0
+   | DescriptorType_Leaf => 1
+   | DescriptorType_Invalid => 2
+   end.
+
+Definition DescriptorType_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : DescriptorType :=
+   let l__4 := arg_ in
+   if Z.eqb (l__4) (0) then DescriptorType_Table
+   else if Z.eqb (l__4) (1) then DescriptorType_Leaf
+   else DescriptorType_Invalid.
+
+Lemma DescriptorType_num_of_roundtrip (x : DescriptorType) : DescriptorType_of_num (num_of_DescriptorType x) = x.
+  destruct x; reflexivity.
+Qed.
+Lemma num_of_DescriptorType_injective (x y : DescriptorType) : num_of_DescriptorType x = num_of_DescriptorType y -> x = y.
+  intro.
+  rewrite <- (DescriptorType_num_of_roundtrip x).
+  rewrite <- (DescriptorType_num_of_roundtrip y).
+  congruence.
+Qed.
+Definition DescriptorType_eq_dec (x y : DescriptorType) : {x = y} + {x <> y}.
+  refine (match Z.eq_dec (num_of_DescriptorType x) (num_of_DescriptorType y) with
+  | left e => left (num_of_DescriptorType_injective x y e)
+  | right ne => right _
+  end).
+  congruence.
+Defined.
+Definition DescriptorType_beq (x y : DescriptorType) : bool :=
+  Z.eqb (num_of_DescriptorType x) (num_of_DescriptorType y).
+Lemma DescriptorType_beq_iff x y : DescriptorType_beq x y = true <-> x = y.
+  unfold DescriptorType_beq.
+  rewrite Z.eqb_eq.
+  split; [apply num_of_DescriptorType_injective | congruence].
+Qed.
+Lemma DescriptorType_beq_refl x : DescriptorType_beq x x = true.
+apply DescriptorType_beq_iff; reflexivity.
+Qed.
+#[export]
+Instance Decidable_eq_DescriptorType : EqDecision DescriptorType := DescriptorType_eq_dec.
+#[export]
+Instance Countable_DescriptorType : Countable DescriptorType.
+refine {|
+  encode x := encode (num_of_DescriptorType x);
+  decode x := z ← decode x; mret (DescriptorType_of_num z);
+|}.
+abstract (
+  intro s; rewrite decode_encode;
+  simpl;
+  rewrite DescriptorType_num_of_roundtrip;
+  reflexivity).
+Defined.
+#[export]
+Instance dummy_DescriptorType : Inhabited DescriptorType := { inhabitant := DescriptorType_Table }.
+
+
+Definition addr_space : Type := PASpace.
+
+Definition abort : Type := Fault.
+
 Inductive ast :=
 | LoadRegister : (reg_index * reg_index * reg_index) -> ast
 | StoreRegister : (reg_index * reg_index * reg_index) -> ast
@@ -2541,26 +2731,19 @@ Instance Countable_ast : Countable ast := {|
 #[export]
 Instance dummy_ast : Inhabited (ast) := { inhabitant := LoadRegister inhabitant }.
 
-Definition abort : Type := Fault.
-
-Definition addr_size : Z := 56.
-#[export] Hint Unfold addr_size : sail.
-
-Definition addr_space : Type := PASpace.
-
-Definition mem_acc_is_atomic_rmw (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_atomicop)).
-
-Definition mem_acc_is_exclusive (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_exclusive)).
-
 Definition mem_acc_is_explicit (acc : AccessDescriptor) : bool :=
    generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR).
 
 Definition mem_acc_is_ifetch (acc : AccessDescriptor) : bool :=
    generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_IFETCH).
+
+Definition mem_acc_is_ttw (acc : AccessDescriptor) : bool :=
+   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_TTW).
+
+Definition mem_acc_is_relaxed (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     ((andb ((negb (acc.(AccessDescriptor_acqpc))))
+         ((andb ((negb (acc.(AccessDescriptor_acqsc)))) ((negb (acc.(AccessDescriptor_relsc)))))))).
 
 Definition mem_acc_is_rel_acq_rcpc (acc : AccessDescriptor) : bool :=
    andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
@@ -2570,19 +2753,74 @@ Definition mem_acc_is_rel_acq_rcsc (acc : AccessDescriptor) : bool :=
    andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
      ((orb (acc.(AccessDescriptor_acqsc)) (acc.(AccessDescriptor_relsc)))).
 
-Definition mem_acc_is_relaxed (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     ((andb ((negb (acc.(AccessDescriptor_acqpc))))
-         ((andb ((negb (acc.(AccessDescriptor_acqsc)))) ((negb (acc.(AccessDescriptor_relsc)))))))).
-
 Definition mem_acc_is_standalone (acc : AccessDescriptor) : bool :=
    andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
      ((andb ((negb (acc.(AccessDescriptor_exclusive)))) ((negb (acc.(AccessDescriptor_atomicop)))))).
 
-Definition mem_acc_is_ttw (acc : AccessDescriptor) : bool :=
-   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_TTW).
+Definition mem_acc_is_exclusive (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_exclusive)).
+
+Definition mem_acc_is_atomic_rmw (acc : AccessDescriptor) : bool :=
+   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
+     (acc.(AccessDescriptor_atomicop)).
 
 
+
+Variant register_ProcState :=
+  | PSTATE
+.
+
+Definition num_of_register_ProcState (r : register_ProcState) : Z :=
+  match r with
+  | PSTATE => 0
+  end.
+Definition register_ProcState_of_num (i : Z) : register_ProcState :=
+  match i with
+  | 0 => PSTATE
+  | _ => PSTATE
+  end.
+Lemma register_ProcState_num_of_roundtrip (x : register_ProcState) : register_ProcState_of_num (num_of_register_ProcState x) = x.
+  destruct x; reflexivity.
+Qed.
+Lemma num_of_register_ProcState_injective (x y : register_ProcState) : num_of_register_ProcState x = num_of_register_ProcState y -> x = y.
+  intro.
+  rewrite <- (register_ProcState_num_of_roundtrip x).
+  rewrite <- (register_ProcState_num_of_roundtrip y).
+  congruence.
+Qed.
+Definition register_ProcState_eq_dec (x y : register_ProcState) : {x = y} + {x <> y}.
+  refine (match Z.eq_dec (num_of_register_ProcState x) (num_of_register_ProcState y) with
+  | left e => left (num_of_register_ProcState_injective x y e)
+  | right ne => right _
+  end).
+  congruence.
+Defined.
+Definition register_ProcState_beq (x y : register_ProcState) : bool :=
+  Z.eqb (num_of_register_ProcState x) (num_of_register_ProcState y).
+Lemma register_ProcState_beq_iff x y : register_ProcState_beq x y = true <-> x = y.
+  unfold register_ProcState_beq.
+  rewrite Z.eqb_eq.
+  split; [apply num_of_register_ProcState_injective | congruence].
+Qed.
+Lemma register_ProcState_beq_refl x : register_ProcState_beq x x = true.
+apply register_ProcState_beq_iff; reflexivity.
+Qed.
+Hint Rewrite register_ProcState_beq_iff : register_beq_iffs.
+Hint Rewrite register_ProcState_beq_refl : register_beq_refls.
+Definition register_ProcState_list : list (string * register_ProcState) := [
+  ("PSTATE", PSTATE)
+].
+
+Instance Decidable_eq_register_ProcState : EqDecision register_ProcState := register_ProcState_eq_dec.
+Instance Countable_register_ProcState : Countable register_ProcState. refine {|
+  encode x := encode (num_of_register_ProcState x);
+  decode x := register_ProcState_of_num <$> decode x
+|}.
+  intro s; rewrite decode_encode; simpl.
+  rewrite register_ProcState_num_of_roundtrip.
+  reflexivity.
+Defined.
 
 Variant register_bitvector_64 :=
   | _PC
@@ -2624,7 +2862,6 @@ Variant register_bitvector_64 :=
   | ELR_EL1
   | ELR_EL2
   | ELR_EL3
-  | PSTATE
   | ESR_EL1
   | ESR_EL2
   | ESR_EL3
@@ -2644,14 +2881,18 @@ Variant register_bitvector_64 :=
   | SPSR_EL1
   | SPSR_EL2
   | SPSR_EL3
-  | MMFR0_EL1
-  | MMFR1_EL1
-  | MMFR2_EL1
-  | MMFR3_EL1
+  | ID_AA64MMFR0_EL1
+  | ID_AA64MMFR1_EL1
+  | ID_AA64MMFR2_EL1
+  | ID_AA64MMFR3_EL1
+  | ID_AA64MMFR4_EL1
   | TCR_EL1
   | TCR_EL2
   | TCR_EL3
   | VTCR_EL2
+  | SCTLR_EL1
+  | SCTLR_EL2
+  | SCTLR_EL3
 .
 
 Definition num_of_register_bitvector_64 (r : register_bitvector_64) : Z :=
@@ -2695,34 +2936,37 @@ Definition num_of_register_bitvector_64 (r : register_bitvector_64) : Z :=
   | ELR_EL1 => 36
   | ELR_EL2 => 37
   | ELR_EL3 => 38
-  | PSTATE => 39
-  | ESR_EL1 => 40
-  | ESR_EL2 => 41
-  | ESR_EL3 => 42
-  | FAR_EL1 => 43
-  | FAR_EL2 => 44
-  | FAR_EL3 => 45
-  | PAR_EL1 => 46
-  | TTBR0_EL1 => 47
-  | TTBR1_EL1 => 48
-  | TTBR0_EL2 => 49
-  | TTBR1_EL2 => 50
-  | TTBR0_EL3 => 51
-  | VTTBR_EL2 => 52
-  | VBAR_EL1 => 53
-  | VBAR_EL2 => 54
-  | VBAR_EL3 => 55
-  | SPSR_EL1 => 56
-  | SPSR_EL2 => 57
-  | SPSR_EL3 => 58
-  | MMFR0_EL1 => 59
-  | MMFR1_EL1 => 60
-  | MMFR2_EL1 => 61
-  | MMFR3_EL1 => 62
+  | ESR_EL1 => 39
+  | ESR_EL2 => 40
+  | ESR_EL3 => 41
+  | FAR_EL1 => 42
+  | FAR_EL2 => 43
+  | FAR_EL3 => 44
+  | PAR_EL1 => 45
+  | TTBR0_EL1 => 46
+  | TTBR1_EL1 => 47
+  | TTBR0_EL2 => 48
+  | TTBR1_EL2 => 49
+  | TTBR0_EL3 => 50
+  | VTTBR_EL2 => 51
+  | VBAR_EL1 => 52
+  | VBAR_EL2 => 53
+  | VBAR_EL3 => 54
+  | SPSR_EL1 => 55
+  | SPSR_EL2 => 56
+  | SPSR_EL3 => 57
+  | ID_AA64MMFR0_EL1 => 58
+  | ID_AA64MMFR1_EL1 => 59
+  | ID_AA64MMFR2_EL1 => 60
+  | ID_AA64MMFR3_EL1 => 61
+  | ID_AA64MMFR4_EL1 => 62
   | TCR_EL1 => 63
   | TCR_EL2 => 64
   | TCR_EL3 => 65
   | VTCR_EL2 => 66
+  | SCTLR_EL1 => 67
+  | SCTLR_EL2 => 68
+  | SCTLR_EL3 => 69
   end.
 Definition register_bitvector_64_of_num (i : Z) : register_bitvector_64 :=
   match i with
@@ -2765,34 +3009,37 @@ Definition register_bitvector_64_of_num (i : Z) : register_bitvector_64 :=
   | 36 => ELR_EL1
   | 37 => ELR_EL2
   | 38 => ELR_EL3
-  | 39 => PSTATE
-  | 40 => ESR_EL1
-  | 41 => ESR_EL2
-  | 42 => ESR_EL3
-  | 43 => FAR_EL1
-  | 44 => FAR_EL2
-  | 45 => FAR_EL3
-  | 46 => PAR_EL1
-  | 47 => TTBR0_EL1
-  | 48 => TTBR1_EL1
-  | 49 => TTBR0_EL2
-  | 50 => TTBR1_EL2
-  | 51 => TTBR0_EL3
-  | 52 => VTTBR_EL2
-  | 53 => VBAR_EL1
-  | 54 => VBAR_EL2
-  | 55 => VBAR_EL3
-  | 56 => SPSR_EL1
-  | 57 => SPSR_EL2
-  | 58 => SPSR_EL3
-  | 59 => MMFR0_EL1
-  | 60 => MMFR1_EL1
-  | 61 => MMFR2_EL1
-  | 62 => MMFR3_EL1
+  | 39 => ESR_EL1
+  | 40 => ESR_EL2
+  | 41 => ESR_EL3
+  | 42 => FAR_EL1
+  | 43 => FAR_EL2
+  | 44 => FAR_EL3
+  | 45 => PAR_EL1
+  | 46 => TTBR0_EL1
+  | 47 => TTBR1_EL1
+  | 48 => TTBR0_EL2
+  | 49 => TTBR1_EL2
+  | 50 => TTBR0_EL3
+  | 51 => VTTBR_EL2
+  | 52 => VBAR_EL1
+  | 53 => VBAR_EL2
+  | 54 => VBAR_EL3
+  | 55 => SPSR_EL1
+  | 56 => SPSR_EL2
+  | 57 => SPSR_EL3
+  | 58 => ID_AA64MMFR0_EL1
+  | 59 => ID_AA64MMFR1_EL1
+  | 60 => ID_AA64MMFR2_EL1
+  | 61 => ID_AA64MMFR3_EL1
+  | 62 => ID_AA64MMFR4_EL1
   | 63 => TCR_EL1
   | 64 => TCR_EL2
   | 65 => TCR_EL3
   | 66 => VTCR_EL2
+  | 67 => SCTLR_EL1
+  | 68 => SCTLR_EL2
+  | 69 => SCTLR_EL3
   | _ => _PC
   end.
 Lemma register_bitvector_64_num_of_roundtrip (x : register_bitvector_64) : register_bitvector_64_of_num (num_of_register_bitvector_64 x) = x.
@@ -2863,7 +3110,6 @@ Definition register_bitvector_64_list : list (string * register_bitvector_64) :=
   ("ELR_EL1", ELR_EL1);
   ("ELR_EL2", ELR_EL2);
   ("ELR_EL3", ELR_EL3);
-  ("PSTATE", PSTATE);
   ("ESR_EL1", ESR_EL1);
   ("ESR_EL2", ESR_EL2);
   ("ESR_EL3", ESR_EL3);
@@ -2883,14 +3129,18 @@ Definition register_bitvector_64_list : list (string * register_bitvector_64) :=
   ("SPSR_EL1", SPSR_EL1);
   ("SPSR_EL2", SPSR_EL2);
   ("SPSR_EL3", SPSR_EL3);
-  ("MMFR0_EL1", MMFR0_EL1);
-  ("MMFR1_EL1", MMFR1_EL1);
-  ("MMFR2_EL1", MMFR2_EL1);
-  ("MMFR3_EL1", MMFR3_EL1);
+  ("ID_AA64MMFR0_EL1", ID_AA64MMFR0_EL1);
+  ("ID_AA64MMFR1_EL1", ID_AA64MMFR1_EL1);
+  ("ID_AA64MMFR2_EL1", ID_AA64MMFR2_EL1);
+  ("ID_AA64MMFR3_EL1", ID_AA64MMFR3_EL1);
+  ("ID_AA64MMFR4_EL1", ID_AA64MMFR4_EL1);
   ("TCR_EL1", TCR_EL1);
   ("TCR_EL2", TCR_EL2);
   ("TCR_EL3", TCR_EL3);
-  ("VTCR_EL2", VTCR_EL2)
+  ("VTCR_EL2", VTCR_EL2);
+  ("SCTLR_EL1", SCTLR_EL1);
+  ("SCTLR_EL2", SCTLR_EL2);
+  ("SCTLR_EL3", SCTLR_EL3)
 ].
 
 Instance Decidable_eq_register_bitvector_64 : EqDecision register_bitvector_64 := register_bitvector_64_eq_dec.
@@ -2905,6 +3155,7 @@ Defined.
 
 
 Variant register : Type -> Type :=
+  | R_ProcState :> register_ProcState -> register ProcState
   | R_bitvector_64 :> register_bitvector_64 -> register ((mword 64))
 .
 Add Keep Equalities register.
@@ -2925,15 +3176,18 @@ Module GRegister.
 
   Definition greg_encode (r : greg) : positive :=
     match r with
-    | GReg (R_bitvector_64 r) => encode (0, encode r)
+    | GReg (R_ProcState r) => encode (0, encode r)
+    | GReg (R_bitvector_64 r) => encode (1, encode r)
     end.
   Definition greg_type_encode (r : greg) : positive :=
     match r with
-    | GReg (R_bitvector_64 _r) => 1
+    | GReg (R_ProcState _r) => 1
+    | GReg (R_bitvector_64 _r) => 2
     end.
   Definition greg_decode (x : positive) : option greg :=
     match decode x with
-    | Some (0, y) => r ← decode y; mret (GReg (R_bitvector_64 r))
+    | Some (0, y) => r ← decode y; mret (GReg (R_ProcState r))
+    | Some (1, y) => r ← decode y; mret (GReg (R_bitvector_64 r))
     | _ => None
     end.
   Lemma greg_decode_encode r : greg_decode (greg_encode r) = Some r.
@@ -2979,11 +3233,15 @@ Defined.
 Definition register_transport {T T'} {P : Type -> Type} {r : register T} {r' : register T'} : GRegister.GReg r = GRegister.GReg r' -> P T -> P T'.
 refine (
   match r, r' with
+  | R_ProcState r, R_ProcState r' => fun _ x => x
   | R_bitvector_64 r, R_bitvector_64 r' => fun _ x => x
-
+  | _, _ => fun e _ => _
   end
 ).
-(* no wildcard case *)
+  all:
+  enough (H : GRegister.greg_type_encode (GRegister.GReg r0) = GRegister.greg_type_encode (GRegister.GReg r1));
+  [ simpl in H; congruence
+  | rewrite e; reflexivity].
 Defined.
 
 Lemma register_transport_sound {T P} {r r' : register T} (e : GRegister.GReg r = GRegister.GReg r') (p : P T) :
@@ -2996,8 +3254,9 @@ Qed.
 
 Definition register_beq {T T'} (r : register T) (r' : register T') : bool :=
   match r, r' with
+  | R_ProcState r, R_ProcState r' => register_ProcState_beq r r'
   | R_bitvector_64 r, R_bitvector_64 r' => register_bitvector_64_beq r r'
-
+  | _, _ => false
   end.
 
 Lemma register_beq_refl {T} (r : register T) : register_beq r r = true.
@@ -3006,11 +3265,13 @@ Qed.
 
 Definition register_eq_cast {T T'} (P : Type -> Type) (r : register T) (r' : register T') : P T -> option (P T') :=
   match r, r' with
+  | R_ProcState r, R_ProcState r' => fun p => if register_ProcState_beq r r' then Some p else None
   | R_bitvector_64 r, R_bitvector_64 r' => fun p => if register_bitvector_64_beq r r' then Some p else None
-
+  | _, _ => fun _ => None
   end.
 
 Definition register_list : list (string * GRegister.greg) := List.concat [
+  List.map (fun '(s, r) => (s, GRegister.GReg (R_ProcState r))) register_ProcState_list;
   List.map (fun '(s, r) => (s, GRegister.GReg (R_bitvector_64 r))) register_bitvector_64_list
 ].
 
@@ -3054,23 +3315,31 @@ Qed.
 #[export] Hint Extern 1 (register _) => assumption : typeclass_instances.
 #[export] Instance Decidable_eq_register_values {T : Type} `(r : register T) : EqDecision T | 100 :=
 match r with
+  | R_ProcState _ => _
   | R_bitvector_64 _ => _
 end.
 #[export] Instance Inhabited_register_values {T : Type} `(r : register T) : Inhabited T | 100 :=
   match r with
+  | R_ProcState _ => _
   | R_bitvector_64 _ => _
 end.
 #[export] Instance Countable_register_values {T : Type} `(r : register T) : Countable T | 100.
 refine {|
   encode := match r in register T return T -> _ with
+  | R_ProcState _ => encode
   | R_bitvector_64 _ => encode
   end;
   decode := match r in register T return _ -> option T with
+  | R_ProcState _ => decode
   | R_bitvector_64 _ => decode
   end;
 |}.
 abstract (destruct r; apply decode_encode).
 Defined.
+
+Definition PSTATE_ref : register_ref register _ :=
+  Build_register_ref register _ "PSTATE" PSTATE.
+Instance dummy_register_ProcState : Inhabited (register_ref register _) := populate PSTATE_ref.
 
 Definition _PC_ref : register_ref register _ :=
   Build_register_ref register _ "_PC" _PC.
@@ -3150,8 +3419,6 @@ Definition ELR_EL2_ref : register_ref register _ :=
   Build_register_ref register _ "ELR_EL2" ELR_EL2.
 Definition ELR_EL3_ref : register_ref register _ :=
   Build_register_ref register _ "ELR_EL3" ELR_EL3.
-Definition PSTATE_ref : register_ref register _ :=
-  Build_register_ref register _ "PSTATE" PSTATE.
 Definition ESR_EL1_ref : register_ref register _ :=
   Build_register_ref register _ "ESR_EL1" ESR_EL1.
 Definition ESR_EL2_ref : register_ref register _ :=
@@ -3190,14 +3457,16 @@ Definition SPSR_EL2_ref : register_ref register _ :=
   Build_register_ref register _ "SPSR_EL2" SPSR_EL2.
 Definition SPSR_EL3_ref : register_ref register _ :=
   Build_register_ref register _ "SPSR_EL3" SPSR_EL3.
-Definition MMFR0_EL1_ref : register_ref register _ :=
-  Build_register_ref register _ "MMFR0_EL1" MMFR0_EL1.
-Definition MMFR1_EL1_ref : register_ref register _ :=
-  Build_register_ref register _ "MMFR1_EL1" MMFR1_EL1.
-Definition MMFR2_EL1_ref : register_ref register _ :=
-  Build_register_ref register _ "MMFR2_EL1" MMFR2_EL1.
-Definition MMFR3_EL1_ref : register_ref register _ :=
-  Build_register_ref register _ "MMFR3_EL1" MMFR3_EL1.
+Definition ID_AA64MMFR0_EL1_ref : register_ref register _ :=
+  Build_register_ref register _ "ID_AA64MMFR0_EL1" ID_AA64MMFR0_EL1.
+Definition ID_AA64MMFR1_EL1_ref : register_ref register _ :=
+  Build_register_ref register _ "ID_AA64MMFR1_EL1" ID_AA64MMFR1_EL1.
+Definition ID_AA64MMFR2_EL1_ref : register_ref register _ :=
+  Build_register_ref register _ "ID_AA64MMFR2_EL1" ID_AA64MMFR2_EL1.
+Definition ID_AA64MMFR3_EL1_ref : register_ref register _ :=
+  Build_register_ref register _ "ID_AA64MMFR3_EL1" ID_AA64MMFR3_EL1.
+Definition ID_AA64MMFR4_EL1_ref : register_ref register _ :=
+  Build_register_ref register _ "ID_AA64MMFR4_EL1" ID_AA64MMFR4_EL1.
 Definition TCR_EL1_ref : register_ref register _ :=
   Build_register_ref register _ "TCR_EL1" TCR_EL1.
 Definition TCR_EL2_ref : register_ref register _ :=
@@ -3206,26 +3475,36 @@ Definition TCR_EL3_ref : register_ref register _ :=
   Build_register_ref register _ "TCR_EL3" TCR_EL3.
 Definition VTCR_EL2_ref : register_ref register _ :=
   Build_register_ref register _ "VTCR_EL2" VTCR_EL2.
+Definition SCTLR_EL1_ref : register_ref register _ :=
+  Build_register_ref register _ "SCTLR_EL1" SCTLR_EL1.
+Definition SCTLR_EL2_ref : register_ref register _ :=
+  Build_register_ref register _ "SCTLR_EL2" SCTLR_EL2.
+Definition SCTLR_EL3_ref : register_ref register _ :=
+  Build_register_ref register _ "SCTLR_EL3" SCTLR_EL3.
 Instance dummy_register_bitvector_64 : Inhabited (register_ref register _) := populate _PC_ref.
 
 
 (* Definitions to support the lifting to the sequential monad *)
 Record regstate := {
+  ProcState_s : register_ProcState -> ProcState;
   bitvector_64_s : register_bitvector_64 -> mword 64;
 }.
-#[export] Instance eta_regstate : Settable _ := settable! Build_regstate <bitvector_64_s>.
+#[export] Instance eta_regstate : Settable _ := settable! Build_regstate <ProcState_s; bitvector_64_s>.
 
 Definition init_regstate : regstate := Build_regstate
+  inhabitant
   inhabitant
 .
 
 Definition register_lookup {T : Type} (reg : register T) (rs : regstate) : T :=
   match reg with
+  | R_ProcState r => rs.(ProcState_s) r
   | R_bitvector_64 r => rs.(bitvector_64_s) r
   end.
 
 Definition register_set {T : Type} (reg : register T) : T -> regstate -> regstate :=
   match reg with
+  | R_ProcState r => fun v rs => rs <|ProcState_s := fun r' => if register_ProcState_beq r' r then v else rs.(ProcState_s) r'|>
   | R_bitvector_64 r => fun v rs => rs <|bitvector_64_s := fun r' => if register_bitvector_64_beq r' r then v else rs.(bitvector_64_s) r'|>
   end.
 
