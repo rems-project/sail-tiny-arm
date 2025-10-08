@@ -141,7 +141,11 @@ register ELR_EL1 : bits(64)
 register ELR_EL2 : bits(64)
 register ELR_EL3 : bits(64)
 
+$ifdef SYSTEM_TINY_ARM
 register PSTATE : ProcState
+$else
+register PSTATE : bits(64)
+$endif
 
 register ESR_EL1 : bits(64)
 register ESR_EL2 : bits(64)

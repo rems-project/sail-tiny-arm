@@ -47,16 +47,16 @@ function clause execute LoadRegister(t, n, m) = {
   let accdesc = create_readAccessDescriptor();
   /* Translate the virtual address into the physical address.
    * In the user mode, `translate_address` returns input address. */
-  var addr_trans : bits(addr_size) = sail_zeros(addr_size');
-  match translate_address(addr, accdesc) {
-    Some(addr) => addr_trans = addr,
-    None() => return () // A translation fault is handled in `translate_address`.
-  };
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return () // A translation fault is handled in `translate_address`.
+    };
   /* The instruction can't fault now (in a real model), so update the PC */
   _PC = _PC + 4;
   /* Ask for the eight-byte value in memory starting from location
   addr and record it in the local variable data */
-  let data = rMem(addr_trans, accdesc);
+  let data = rMem(addr, accdesc);
   /* Ask for the value of data to be written to register Xt */
   X(t) = data;
 }
@@ -74,14 +74,14 @@ function clause execute StoreRegister(t, n, m) = {
   let accdesc = create_writeAccessDescriptor();
   /* Translate the virtual address into the physical address.
    * In the user mode, `translate_address` returns input address. */
-  var addr_trans : bits(addr_size) = sail_zeros(addr_size');
-  match translate_address(addr, accdesc) {
-    Some(addr) => addr_trans = addr,
-    None() => return () // A translation fault is handled in `translate_address`.
-  };
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return () // A translation fault is handled in `translate_address`.
+    };
   /* Announce that a store into the eight bytes of memory starting
    * from location addr will be performed later */
-  wMem_Addr(addr_trans);
+  wMem_Addr(addr);
   /* The instruction can't fault now (in a real model), so update the PC */
   _PC = _PC + 4;
   /* Ask for the value of register Xt and record it in the local
@@ -89,7 +89,7 @@ function clause execute StoreRegister(t, n, m) = {
   let data = X(t);
   /* Ask for the value of data to be stored into the eight bytes of
   * memory starting from location addr */
-  wMem(addr_trans, data, accdesc);
+  wMem(addr, data, accdesc);
 }
 
 /* Exclusive OR: EOR */
@@ -194,12 +194,12 @@ function fetch_and_execute () = {
   let accdesc = create_iFetchAccessDescriptor();
   /* Translate the virtual address into the physical address.
    * In the user mode, `translate_address` returns input address. */
-  var addr_trans : bits(addr_size) = sail_zeros(addr_size');
-  match translate_address(_PC, accdesc) {
-    Some(addr) => addr_trans = addr,
-    None() => return () // A translation fault is handled in `translate_address`.
-  };
-  let machineCode = iFetch(addr_trans, accdesc);
+  let addr : bits(addr_size) =
+    match translate_address(_PC, accdesc) {
+      Some(addr) => addr,
+      None() => return () // A translation fault is handled in `translate_address`.
+    };
+  let machineCode = iFetch(addr, accdesc);
   let instr = decode(machineCode);
   match instr {
     Some (instr) => execute(instr),

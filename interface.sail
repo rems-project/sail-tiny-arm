@@ -41,12 +41,6 @@ function mem_acc_is_standalone   (acc : AccessDescriptor) -> bool = acc.acctype 
 function mem_acc_is_exclusive    (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_GPR & acc.exclusive
 function mem_acc_is_atomic_rmw   (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_GPR & acc.atomicop
 
-enum DescriptorType = {
-  DescriptorType_Table,
-  DescriptorType_Leaf,
-  DescriptorType_Invalid
-}
-
 function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = struct {
   acctype = acctype,
   el = sail_zeros(2),
@@ -92,7 +86,7 @@ function create_writeAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.write = true;
   accdesc.read = false;
-  accdesc.el = 0b01;
+  accdesc.el = PSTATE.EL;
   accdesc
 }
 
@@ -100,7 +94,7 @@ function create_readAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.read = true;
   accdesc.write = false;
-  accdesc.el = 0b01;
+  accdesc.el = PSTATE.EL;
   accdesc
 }
 
@@ -108,7 +102,7 @@ function create_iFetchAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_IFETCH);
   accdesc.read = true;
   accdesc.write = false;
-  accdesc.el = 0b01;
+  accdesc.el = PSTATE.EL;
   accdesc
 }
 $else
@@ -138,6 +132,12 @@ function create_iFetchAccessDescriptor() -> AccessDescriptor = {
 $endif
 
 $ifdef SYSTEM_TINY_ARM
+enum DescriptorType = {
+  DescriptorType_Table,
+  DescriptorType_Leaf,
+  DescriptorType_Invalid
+}
+
 function base_FullAddress () -> FullAddress = struct {
   paspace = PAS_NonSecure,
   address = sail_zeros(56)

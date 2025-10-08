@@ -1,7 +1,7 @@
 $ifdef SYSTEM_TINY_ARM
 function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> AccessDescriptor = {
   var accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_TTW);
-  accdesc.el = 0b01;
+  accdesc.el = PSTATE.EL;
   accdesc.read = true;
   accdesc.toplevel = toplevel;
   accdesc.varange = varange;
@@ -44,7 +44,7 @@ function get_TTEntryAddress (level : range(0, 3), ia : bits(64), baseaddress : b
   let 'stride = 9;
   let 'lsb = (3 - level) * stride + 12;
   let 'msb = lsb + stride - 1;
-  let index : bits(56) = sail_zero_extend(ia[msb .. lsb] @ sail_zeros(3), 56);
+  let index = sail_zero_extend(ia[msb .. lsb] @ sail_zeros(3), 56);
   let descaddress : bits(56) = baseaddress | index;
   return descaddress
 }
@@ -74,8 +74,8 @@ function decode_desc_type(descriptor : bits(64), level : int) -> DescriptorType 
 function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescriptor, bits(56)) = {
   let varange : VARange = get_VARange(va);
 
-  let baseaddress : bits(56) = get_translation_base_address(varange);
-  var descaddress : bits(56) = get_TTEntryAddress(0, va, baseaddress);
+  let baseaddress = get_translation_base_address(varange);
+  var descaddress = get_TTEntryAddress(0, va, baseaddress);
 
   foreach (level from 0 to 3) {
     let toplevel : bool = level == 0;
@@ -84,23 +84,17 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescript
     walkaddress.paddress.address = descaddress;
     walkaddress.vaddress = va;
 
-    let descriptor : bits(64) = read_memory(8, descaddress, walkaccess);
+    let descriptor = read_memory(8, descaddress, walkaccess);
     match decode_desc_type(descriptor, level) {
       DescriptorType_Table => {
-        let next_baseaddress : bits(56) = sail_zero_extend(descriptor[47 .. 12] @ sail_zeros(12), 56);
-        assert ((level + 1) <= 3, "Table entry at level 3");
+        let next_baseaddress = 0x00 @ descriptor[47..12] @ 0x000;
+        assert (level < 3, "Table entry at level 3");
         descaddress = get_TTEntryAddress(level + 1, va, next_baseaddress);
         ()
       },
       DescriptorType_Leaf => {
-        let 'offset_bits : int = 12 + (3 - level) * 9;
-        assert (0 < 'offset_bits & 'offset_bits <= 39);
-
-        let base_pa : bits(56) =
-          sail_zero_extend(descriptor[47..offset_bits] @ sail_zeros(offset_bits), 56);
-        let va_off : bits(56) =
-          sail_zero_extend(va[offset_bits - 1 .. 0], 56);
-        let out_pa : bits(56) = base_pa | va_off;
+        let offset = 12 + (3 - level) * 9;
+        let out_pa = 0x00 @ descriptor[47..offset] @ va[offset - 1 .. 0];
         return (walkaddress, out_pa)
       },
       DescriptorType_Invalid => {
@@ -114,11 +108,11 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescript
 
 function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   let fault : FaultRecord = addrdesc.fault;
-  let vaddress : bits(64) = addrdesc.vaddress;
-  let source_el : bits(2) = fault.access.el;
-  let target_el : bits(2) = 0b01; // We're handling at EL1
+  let vaddress = addrdesc.vaddress;
+  let source_el = fault.access.el;
+  let target_el = 0b01; // We're handling at EL1
 
-  let vect_offset : bits(12) =
+  let vect_offset =
     if source_el == target_el then {
       if PSTATE.SP == 0b0 then {
         0x000
@@ -132,15 +126,15 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   // Report the exception
   sail_take_exception(Some(fault));
 
-  var ec : bits(6) = 0b000000;
-  let il : bits(1) = 0b1;
+  var ec = 0b000000;
+  let il = 0b1;
   if fault.access.acctype == AccessType_IFETCH then {
     ec = 0b100000;
   } else if fault.access.acctype == AccessType_GPR then {
     ec = 0b100100;
   };
 
-  let wnr : bits(1) = if fault.write then 0b1 else 0b0;
+  let wnr = if fault.write then 0b1 else 0b0;
   let dfsc : bits(6) =
     match fault.level {
       0 => 0b000100,
@@ -149,7 +143,7 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
       3 => 0b000111,
       _ => 0b000000,
     };
-  let iss : bits(25) = sail_zero_extend(wnr @ dfsc, 25);
+  let iss = sail_zero_extend(wnr @ dfsc, 25);
   ESR_EL1 = sail_zero_extend((ec @ il) @ iss, 64);
   FAR_EL1 = vaddress;
   ELR_EL1 = _PC;
@@ -164,7 +158,7 @@ function translate_address(va, accdesc) = {
   };
 
   // Announce translation start
-  let cnp: bits(1) =
+  let cnp =
     if get_VARange(va) == VARange_LOWER then {
       slice(TTBR0_EL1, 0, 1)
     } else {
