@@ -2693,9 +2693,9 @@ Definition abort : Type := Fault.
 
 Record Permissions := {
   Permissions_allow_write : bool;
-  Permissions_allow_unpriviledged_data : bool;
-  Permissions_allow_unpriviledged_exec : bool;
-  Permissions_allow_priviledged_exec : bool;
+  Permissions_allow_unprivileged_data : bool;
+  Permissions_allow_unprivileged_exec : bool;
+  Permissions_allow_privileged_exec : bool;
 }.
 Arguments Permissions : clear implicits.
 #[export]
@@ -2711,7 +2711,7 @@ Defined.
 #[export]
 Instance Countable_Permissions : Countable Permissions.
 refine {|
-  encode x := encode (Permissions_allow_write x, Permissions_allow_unpriviledged_data x, Permissions_allow_unpriviledged_exec x, Permissions_allow_priviledged_exec x);
+  encode x := encode (Permissions_allow_write x, Permissions_allow_unprivileged_data x, Permissions_allow_unprivileged_exec x, Permissions_allow_privileged_exec x);
   decode x := '(x0, x1, x2, x3) ← decode x;
               mret (Build_Permissions x0 x1 x2 x3)
 |}.
@@ -2721,14 +2721,14 @@ abstract (
   reflexivity).
 Defined.
 
-#[export] Instance eta_Permissions : Settable _ := settable! Build_Permissions <Permissions_allow_write; Permissions_allow_unpriviledged_data; Permissions_allow_unpriviledged_exec; Permissions_allow_priviledged_exec>.
+#[export] Instance eta_Permissions : Settable _ := settable! Build_Permissions <Permissions_allow_write; Permissions_allow_unprivileged_data; Permissions_allow_unprivileged_exec; Permissions_allow_privileged_exec>.
 #[export]
 Instance dummy_Permissions : Inhabited (Permissions) := {
   inhabitant := {|
     Permissions_allow_write := inhabitant;
-    Permissions_allow_unpriviledged_data := inhabitant;
-    Permissions_allow_unpriviledged_exec := inhabitant;
-    Permissions_allow_priviledged_exec := inhabitant
+    Permissions_allow_unprivileged_data := inhabitant;
+    Permissions_allow_unprivileged_exec := inhabitant;
+    Permissions_allow_privileged_exec := inhabitant
 |} }.
 
 

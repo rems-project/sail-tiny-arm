@@ -2,14 +2,14 @@ $ifdef SYSTEM_TINY_ARM
 struct Permissions = {
   allow_write : bool,
   allow_unprivileged_data : bool,
-  allow_unprivileged_exec : bool, // uxn is xn
+  allow_unprivileged_exec : bool, // also just "allow_exec" in single EL translation regimes
   allow_privileged_exec : bool,
 }
 
 function base_Permissions() -> Permissions = struct {
   allow_write = false,
   allow_unprivileged_data = false,
-  allow_unprivileged_exec = false, // uxn is xn
+  allow_unprivileged_exec = false, // also just "allow_exec" in single EL translation regimes
   allow_privileged_exec = false,
 }
 
@@ -219,7 +219,7 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   } else if fault.access.acctype == AccessType_GPR then {
     ec = if source_el == target_el then 0b100101 else 0b100100;
   } else {
-    ec = if source_el == target_el then 0b100101 else 0b100100;
+    exit();
   };
 
   // Determine Fault Status Code (FSC) based on fault type and level

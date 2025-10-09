@@ -12,4 +12,3 @@ function eq_bits_int (x, y) = (unsigned(x) == y)
 overload operator == = {eq_any, eq_bits_int}
 
 overload operator ^ = {xor_vec}
-

@@ -930,15 +930,15 @@ Definition undefined_Permissions '(tt : unit) : M (Permissions) :=
    (undefined_bool (tt)) >>= fun (w__2 : bool) =>
    (undefined_bool (tt)) >>= fun (w__3 : bool) =>
    returnM (({| Permissions_allow_write := w__0;
-                Permissions_allow_unpriviledged_data := w__1;
-                Permissions_allow_unpriviledged_exec := w__2;
-                Permissions_allow_priviledged_exec := w__3 |})).
+                Permissions_allow_unprivileged_data := w__1;
+                Permissions_allow_unprivileged_exec := w__2;
+                Permissions_allow_privileged_exec := w__3 |})).
 
 Definition base_Permissions '(tt : unit) : Permissions :=
    {| Permissions_allow_write := false;
-      Permissions_allow_unpriviledged_data := false;
-      Permissions_allow_unpriviledged_exec := false;
-      Permissions_allow_priviledged_exec := false |}.
+      Permissions_allow_unprivileged_data := false;
+      Permissions_allow_unprivileged_exec := false;
+      Permissions_allow_privileged_exec := false |}.
 
 Definition extract_perms (descriptor : mword 64) (is_table : bool) : Permissions :=
    let perms : Permissions := base_Permissions (tt) in
@@ -950,14 +950,14 @@ Definition extract_perms (descriptor : mword 64) (is_table : bool) : Permissions
          eq_vec ((vec_of_bits [access_vec_dec (ap_table) (1)]  : mword 1)) ((('b"0")  : mword 1))|> in
      let perms : Permissions :=
        perms
-       <|Permissions_allow_unpriviledged_data :=
+       <|Permissions_allow_unprivileged_data :=
          eq_vec ((vec_of_bits [access_vec_dec (ap_table) (0)]  : mword 1)) ((('b"0")  : mword 1))|> in
      let perms : Permissions :=
        perms
-       <|Permissions_allow_unpriviledged_exec :=
+       <|Permissions_allow_unprivileged_exec :=
          eq_vec ((vec_of_bits [access_vec_dec (descriptor) (60)]  : mword 1)) ((('b"0")  : mword 1))|> in
      perms
-     <|Permissions_allow_priviledged_exec :=
+     <|Permissions_allow_privileged_exec :=
        eq_vec ((vec_of_bits [access_vec_dec (descriptor) (59)]  : mword 1)) ((('b"0")  : mword 1))|>
    else
      let ap := subrange_vec_dec (descriptor) (7) (6) in
@@ -967,14 +967,14 @@ Definition extract_perms (descriptor : mword 64) (is_table : bool) : Permissions
          eq_vec ((vec_of_bits [access_vec_dec (ap) (1)]  : mword 1)) ((('b"0")  : mword 1))|> in
      let perms : Permissions :=
        perms
-       <|Permissions_allow_unpriviledged_data :=
+       <|Permissions_allow_unprivileged_data :=
          eq_vec ((vec_of_bits [access_vec_dec (ap) (0)]  : mword 1)) ((('b"1")  : mword 1))|> in
      let perms : Permissions :=
        perms
-       <|Permissions_allow_unpriviledged_exec :=
+       <|Permissions_allow_unprivileged_exec :=
          eq_vec ((vec_of_bits [access_vec_dec (descriptor) (54)]  : mword 1)) ((('b"0")  : mword 1))|> in
      perms
-     <|Permissions_allow_priviledged_exec :=
+     <|Permissions_allow_privileged_exec :=
        eq_vec ((vec_of_bits [access_vec_dec (descriptor) (53)]  : mword 1)) ((('b"0")  : mword 1))|>.
 
 Definition create_AccessDescriptorTTW (toplevel : bool) (varange : VARange) : M (AccessDescriptor) :=
@@ -1025,11 +1025,11 @@ Definition is_fault (addrdesc : AddressDescriptor) : bool :=
 Definition check_permission (perms : Permissions) (accdesc : AccessDescriptor) : bool :=
    let at_el0 := eq_vec (accdesc.(AccessDescriptor_el)) ((('b"00")  : mword 2)) in
    if generic_eq (accdesc.(AccessDescriptor_acctype)) (AccessType_IFETCH) then
-     if at_el0 then perms.(Permissions_allow_unpriviledged_exec)
-     else perms.(Permissions_allow_priviledged_exec)
+     if at_el0 then perms.(Permissions_allow_unprivileged_exec)
+     else perms.(Permissions_allow_privileged_exec)
    else if andb (accdesc.(AccessDescriptor_write)) ((negb (perms.(Permissions_allow_write)))) then
      false
-   else if andb (at_el0) ((negb (perms.(Permissions_allow_unpriviledged_data)))) then false
+   else if andb (at_el0) ((negb (perms.(Permissions_allow_unprivileged_data)))) then false
    else true.
 
 Definition get_TTEntryAddress (level : Z) (ia : mword 64) (baseaddress : mword 56)
@@ -1159,16 +1159,17 @@ Definition handle_fault (addrdesc : AddressDescriptor) : M (unit) :=
    (sail_take_exception ((Some (fault)))) >>
    let ec := ('b"000000")  : mword 6 in
    let il := ('b"1")  : mword 1 in
-   let ec : mword 6 :=
-     if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_IFETCH) then
-       if eq_vec (source_el) (target_el) then ('b"100001")  : mword 6
-       else ('b"100000")  : mword 6
-     else if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_GPR)
-     then
-       if eq_vec (source_el) (target_el) then ('b"100101")  : mword 6
-       else ('b"100100")  : mword 6
-     else if eq_vec (source_el) (target_el) then ('b"100101")  : mword 6
-     else ('b"100100")  : mword 6 in
+   (if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_IFETCH) then
+      let ec : mword 6 :=
+        if eq_vec (source_el) (target_el) then ('b"100001")  : mword 6
+        else ('b"100000")  : mword 6 in
+      returnM (ec)
+    else if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_GPR) then
+      let ec : mword 6 :=
+        if eq_vec (source_el) (target_el) then ('b"100101")  : mword 6
+        else ('b"100100")  : mword 6 in
+      returnM (ec)
+    else exit tt >> returnM (ec)) >>= fun (ec : mword 6) =>
    let l__0 := fault.(FaultRecord_level) in
    (if Z.eqb (l__0) (0) then returnM ((('b"00")  : mword 2))
     else if Z.eqb (l__0) (1) then returnM ((('b"01")  : mword 2))
