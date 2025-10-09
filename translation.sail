@@ -17,7 +17,7 @@ function get_VARange (va : bits(64)) -> VARange = {
 }
 
 function va_out_of_range (va : bits(64)) -> bool = {
-  va[63..48] == 0x0000 | va[63..48] == 0xFFFF
+  not_bool(va[63..48] == 0x0000 | va[63..48] == 0xFFFF)
 }
 
 function get_translation_base_address (varange : VARange) -> bits(56) = {

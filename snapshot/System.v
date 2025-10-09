@@ -939,8 +939,9 @@ Definition get_VARange (va : mword 64) : VARange :=
    else VARange_UPPER.
 
 Definition va_out_of_range (va : mword 64) : bool :=
-   orb ((eq_vec ((subrange_vec_dec (va) (63) (48))) (((Ox"0000")  : mword 16))))
-     ((eq_vec ((subrange_vec_dec (va) (63) (48))) ((sail_ones (16))))).
+   negb
+     ((orb ((eq_vec ((subrange_vec_dec (va) (63) (48))) (((Ox"0000")  : mword 16))))
+         ((eq_vec ((subrange_vec_dec (va) (63) (48))) (((Ox"FFFF")  : mword 16)))))).
 
 Definition get_translation_base_address (varange : VARange) : M (mword 56) :=
    (match varange with
@@ -1116,6 +1117,16 @@ Definition translate_address (va : mword 64) (accdesc : AccessDescriptor) : M (o
            <|AddressDescriptor_fault :=
              addrdesc.(AddressDescriptor_fault)
              <|FaultRecord_statuscode := Fault_Translation|>|> in
+         let addrdesc : AddressDescriptor :=
+           addrdesc
+           <|AddressDescriptor_fault :=
+             addrdesc.(AddressDescriptor_fault)
+             <|FaultRecord_write := accdesc.(AccessDescriptor_write)|>|> in
+         let addrdesc : AddressDescriptor :=
+           addrdesc
+           <|AddressDescriptor_fault :=
+             addrdesc.(AddressDescriptor_fault)
+             <|FaultRecord_access := accdesc|>|> in
          returnM ((addrdesc, zeros (56)))
        else (pgt_walk (va) (accdesc))  : M ((AddressDescriptor * mword 56))) >>= fun '((addrdesc, paddress)) =>
       (sail_translation_end (addrdesc)) >>
