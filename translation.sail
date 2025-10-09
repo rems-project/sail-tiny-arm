@@ -1,16 +1,16 @@
 $ifdef SYSTEM_TINY_ARM
 struct Permissions = {
   allow_write : bool,
-  allow_unpriviledged_data : bool,
-  allow_unpriviledged_exec : bool, // uxn is xn
-  allow_priviledged_exec : bool,
+  allow_unprivileged_data : bool,
+  allow_unprivileged_exec : bool, // uxn is xn
+  allow_privileged_exec : bool,
 }
 
 function base_Permissions() -> Permissions = struct {
   allow_write = false,
-  allow_unpriviledged_data = false,
-  allow_unpriviledged_exec = false, // uxn is xn
-  allow_priviledged_exec = false,
+  allow_unprivileged_data = false,
+  allow_unprivileged_exec = false, // uxn is xn
+  allow_privileged_exec = false,
 }
 
 function extract_perms(descriptor : bits(64), is_table : bool) -> Permissions = {
@@ -19,15 +19,15 @@ function extract_perms(descriptor : bits(64), is_table : bool) -> Permissions = 
   if is_table then {
     let ap_table = descriptor[62..61];
     perms.allow_write = [ap_table[1]] == 0b0;
-    perms.allow_unpriviledged_data = [ap_table[0]] == 0b0;
-    perms.allow_unpriviledged_exec = [descriptor[60]] == 0b0;
-    perms.allow_priviledged_exec = [descriptor[59]] == 0b0;
+    perms.allow_unprivileged_data = [ap_table[0]] == 0b0;
+    perms.allow_unprivileged_exec = [descriptor[60]] == 0b0;
+    perms.allow_privileged_exec = [descriptor[59]] == 0b0;
   } else {
     let ap = descriptor[7..6];
     perms.allow_write = [ap[1]] == 0b0;
-    perms.allow_unpriviledged_data = [ap[0]] == 0b1;
-    perms.allow_unpriviledged_exec = [descriptor[54]] == 0b0;
-    perms.allow_priviledged_exec = [descriptor[53]] == 0b0;
+    perms.allow_unprivileged_data = [ap[0]] == 0b1;
+    perms.allow_unprivileged_exec = [descriptor[54]] == 0b0;
+    perms.allow_privileged_exec = [descriptor[53]] == 0b0;
   };
 
   return perms;
@@ -87,9 +87,9 @@ function check_permission (
 
   if accdesc.acctype == AccessType_IFETCH then {
     if at_el0 then {
-      return perms.allow_unpriviledged_exec;
+      return perms.allow_unprivileged_exec;
     } else {
-      return perms.allow_priviledged_exec;
+      return perms.allow_privileged_exec;
     }
   };
 
@@ -97,7 +97,7 @@ function check_permission (
     return false;
   };
 
-  if at_el0 & not_bool(perms.allow_unpriviledged_data) then {
+  if at_el0 & not_bool(perms.allow_unprivileged_data) then {
     return false;
   };
 
