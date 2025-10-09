@@ -938,13 +938,17 @@ Definition get_VARange (va : mword 64) : VARange :=
      VARange_LOWER
    else VARange_UPPER.
 
+Definition va_out_of_range (va : mword 64) : bool :=
+   orb ((eq_vec ((subrange_vec_dec (va) (63) (48))) (((Ox"0000")  : mword 16))))
+     ((eq_vec ((subrange_vec_dec (va) (63) (48))) ((sail_ones (16))))).
+
 Definition get_translation_base_address (varange : VARange) : M (mword 56) :=
    (match varange with
     | VARange_LOWER => ((read_reg TTBR0_EL1)  : M (mword 64))  : M (mword 64)
     | VARange_UPPER => ((read_reg TTBR1_EL1)  : M (mword 64))  : M (mword 64)
     end) >>= fun (ttbr : bits 64) =>
-   let baddr : bits 56 := zeros (56) in
-   let baddr : bits 56 :=
+   let baddr := zeros (56) in
+   let baddr : mword 56 :=
      update_subrange_vec_dec (baddr) (47) (5) ((subrange_vec_dec (ttbr) (47) (5))) in
    returnM (baddr).
 
@@ -1087,7 +1091,8 @@ Definition translate_address (va : mword 64) (accdesc : AccessDescriptor) : M (o
    (if eq_vec ((slice (w__0) (0) (1))) ((('b"0")  : mword 1)) then
       returnM ((Some ((vector_truncate (va) (addr_size')))))
     else
-      (if generic_eq ((get_VARange (va))) (VARange_LOWER) return M (mword 1) then
+      let varange := get_VARange (va) in
+      (if generic_eq (varange) (VARange_LOWER) return M (mword 1) then
          ((read_reg TTBR0_EL1)  : M (mword 64)) >>= fun (w__1 : mword 64) =>
          returnM ((slice (w__1) (0) (1)))
        else
@@ -1104,7 +1109,15 @@ Definition translate_address (va : mword 64) (accdesc : AccessDescriptor) : M (o
            TranslationStartInfo_accdesc := accdesc;
            TranslationStartInfo_size := 0 |} in
       (sail_translation_start (tsi)) >>
-      (pgt_walk (va) (accdesc)) >>= fun '((addrdesc, paddress)) =>
+      (if va_out_of_range (va) then
+         let addrdesc := base_AddressDescriptor (accdesc) (0) in
+         let addrdesc : AddressDescriptor :=
+           addrdesc
+           <|AddressDescriptor_fault :=
+             addrdesc.(AddressDescriptor_fault)
+             <|FaultRecord_statuscode := Fault_Translation|>|> in
+         returnM ((addrdesc, zeros (56)))
+       else (pgt_walk (va) (accdesc))  : M ((AddressDescriptor * mword 56))) >>= fun '((addrdesc, paddress)) =>
       (sail_translation_end (addrdesc)) >>
       (if is_fault (addrdesc) return M (option (mword 56)) then
          (handle_fault (addrdesc)) >> returnM (None)

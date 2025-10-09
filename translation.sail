@@ -16,12 +16,16 @@ function get_VARange (va : bits(64)) -> VARange = {
   }
 }
 
+function va_out_of_range (va : bits(64)) -> bool = {
+  va[63..48] == 0x0000 | va[63..48] == 0xFFFF
+}
+
 function get_translation_base_address (varange : VARange) -> bits(56) = {
   let ttbr : bits(64) = match varange {
     VARange_LOWER => TTBR0_EL1,
     VARange_UPPER => TTBR1_EL1
   };
-  var baddr : bits(56) = sail_zeros(56);
+  var baddr = sail_zeros(56);
   baddr[47 .. 5] = ttbr[47 .. 5];
   return baddr
 }
@@ -158,8 +162,9 @@ function translate_address(va, accdesc) = {
   };
 
   // Announce translation start
+  let varange = get_VARange(va);
   let cnp =
-    if get_VARange(va) == VARange_LOWER then {
+    if varange == VARange_LOWER then {
       slice(TTBR0_EL1, 0, 1)
     } else {
       slice(TTBR1_EL1, 0, 1)
@@ -177,8 +182,17 @@ function translate_address(va, accdesc) = {
   };
   sail_translation_start(tsi);
 
-  // Actual translation
-  let (addrdesc, paddress) = pgt_walk(va, accdesc);
+  let (addrdesc, paddress) =
+    if va_out_of_range(va) then {
+      var addrdesc = base_AddressDescriptor(accdesc, 0);
+      addrdesc.fault.statuscode = Fault_Translation;
+      addrdesc.fault.write = accdesc.write;
+      addrdesc.fault.access = accdesc;
+      (addrdesc, sail_zeros(56))
+    } else {
+      // Actual translation
+      pgt_walk(va, accdesc)
+    };
 
   // Announce result
   sail_translation_end(addrdesc);
