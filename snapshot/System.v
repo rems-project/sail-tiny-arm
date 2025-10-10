@@ -924,6 +924,59 @@ Definition dataMemoryBarrier (types : MBReqTypes) : M (unit) :=
                DxB_nXS := false |})))))
     : M (unit).
 
+Definition undefined_Permissions '(tt : unit) : M (Permissions) :=
+   (undefined_bool (tt)) >>= fun (w__0 : bool) =>
+   (undefined_bool (tt)) >>= fun (w__1 : bool) =>
+   (undefined_bool (tt)) >>= fun (w__2 : bool) =>
+   (undefined_bool (tt)) >>= fun (w__3 : bool) =>
+   returnM (({| Permissions_allow_write := w__0;
+                Permissions_allow_unprivileged_data := w__1;
+                Permissions_allow_unprivileged_exec := w__2;
+                Permissions_allow_privileged_exec := w__3 |})).
+
+Definition base_Permissions '(tt : unit) : Permissions :=
+   {| Permissions_allow_write := false;
+      Permissions_allow_unprivileged_data := false;
+      Permissions_allow_unprivileged_exec := false;
+      Permissions_allow_privileged_exec := false |}.
+
+Definition extract_perms (descriptor : mword 64) (is_table : bool) : Permissions :=
+   let perms : Permissions := base_Permissions (tt) in
+   if is_table then
+     let ap_table := subrange_vec_dec (descriptor) (62) (61) in
+     let perms : Permissions :=
+       perms
+       <|Permissions_allow_write :=
+         eq_vec ((vec_of_bits [access_vec_dec (ap_table) (1)]  : mword 1)) ((('b"0")  : mword 1))|> in
+     let perms : Permissions :=
+       perms
+       <|Permissions_allow_unprivileged_data :=
+         eq_vec ((vec_of_bits [access_vec_dec (ap_table) (0)]  : mword 1)) ((('b"0")  : mword 1))|> in
+     let perms : Permissions :=
+       perms
+       <|Permissions_allow_unprivileged_exec :=
+         eq_vec ((vec_of_bits [access_vec_dec (descriptor) (60)]  : mword 1)) ((('b"0")  : mword 1))|> in
+     perms
+     <|Permissions_allow_privileged_exec :=
+       eq_vec ((vec_of_bits [access_vec_dec (descriptor) (59)]  : mword 1)) ((('b"0")  : mword 1))|>
+   else
+     let ap := subrange_vec_dec (descriptor) (7) (6) in
+     let perms : Permissions :=
+       perms
+       <|Permissions_allow_write :=
+         eq_vec ((vec_of_bits [access_vec_dec (ap) (1)]  : mword 1)) ((('b"0")  : mword 1))|> in
+     let perms : Permissions :=
+       perms
+       <|Permissions_allow_unprivileged_data :=
+         eq_vec ((vec_of_bits [access_vec_dec (ap) (0)]  : mword 1)) ((('b"1")  : mword 1))|> in
+     let perms : Permissions :=
+       perms
+       <|Permissions_allow_unprivileged_exec :=
+         eq_vec ((vec_of_bits [access_vec_dec (descriptor) (54)]  : mword 1)) ((('b"0")  : mword 1))|> in
+     perms
+     <|Permissions_allow_privileged_exec :=
+       eq_vec ((vec_of_bits [access_vec_dec (descriptor) (53)]  : mword 1)) ((('b"0")  : mword 1))|>.
+
 Definition create_AccessDescriptorTTW (toplevel : bool) (varange : VARange) : M (AccessDescriptor) :=
    let accdesc : AccessDescriptor := base_AccessDescriptor (AccessType_TTW) in
    read_reg PSTATE >>= fun (w__0 : ProcState) =>
@@ -969,6 +1022,16 @@ Definition is_fault (addrdesc : AddressDescriptor) : bool :=
    | _ => true
    end.
 
+Definition check_permission (perms : Permissions) (accdesc : AccessDescriptor) : bool :=
+   let at_el0 := eq_vec (accdesc.(AccessDescriptor_el)) ((('b"00")  : mword 2)) in
+   if generic_eq (accdesc.(AccessDescriptor_acctype)) (AccessType_IFETCH) then
+     if at_el0 then perms.(Permissions_allow_unprivileged_exec)
+     else perms.(Permissions_allow_privileged_exec)
+   else if andb (accdesc.(AccessDescriptor_write)) ((negb (perms.(Permissions_allow_write)))) then
+     false
+   else if andb (at_el0) ((negb (perms.(Permissions_allow_unprivileged_data)))) then false
+   else true.
+
 Definition get_TTEntryAddress (level : Z) (ia : mword 64) (baseaddress : mword 56)
 (*(0 <=? level) && (level <=? 3)*)
 : mword 56 :=
@@ -997,49 +1060,84 @@ Definition decode_desc_type (descriptor : mword 64) (level : Z) : DescriptorType
 Definition pgt_walk (va : mword 64) (accdesc : AccessDescriptor)
 : M ((AddressDescriptor * mword 56)) :=
    catch_early_return
-     (let varange : VARange := get_VARange (va) in
+     (let varange := get_VARange (va) in
      liftR ((get_translation_base_address (varange))) >>= fun baseaddress =>
      let descaddress := get_TTEntryAddress (0) (va) (baseaddress) in
+     let accumulated_perms := base_Permissions (tt) in
      (let '(loop_level_lower) := 0 in
      let '(loop_level_upper) := 3 in
      (foreach_ZM_up loop_level_lower loop_level_upper 1 descaddress
        (fun level descaddress =>
-         let toplevel : bool := Z.eqb (level) (0) in
-         liftR ((create_AccessDescriptorTTW (toplevel) (varange))) >>= fun (walkaccess : AccessDescriptor) =>
-         let walkaddress := base_AddressDescriptor (walkaccess) (level) in
-         let walkaddress : AddressDescriptor :=
-           walkaddress
+         let addrdesc := base_AddressDescriptor (accdesc) (level) in
+         let addrdesc : AddressDescriptor :=
+           addrdesc
            <|AddressDescriptor_paddress :=
-             walkaddress.(AddressDescriptor_paddress)
+             addrdesc.(AddressDescriptor_paddress)
              <|FullAddress_address := descaddress|>|> in
-         let walkaddress : AddressDescriptor := walkaddress <|AddressDescriptor_vaddress := va|> in
+         let addrdesc : AddressDescriptor := addrdesc <|AddressDescriptor_vaddress := va|> in
+         liftR ((create_AccessDescriptorTTW ((Z.eqb (level) (0))) (varange))) >>= fun walkaccess =>
          liftR ((read_memory (8) (descaddress) (walkaccess))) >>= fun descriptor =>
          (match (decode_desc_type (descriptor) (level)) with
           | DescriptorType_Table =>
-             let next_baseaddress :=
-               concat_vec (((Ox"00")  : mword 8))
-                 ((concat_vec ((subrange_vec_dec (descriptor) (47) (12))) (((Ox"000")  : mword 12)))) in
-             liftR (assert_exp' (Z.ltb (level) (3)) "Table entry at level 3") >>= fun _ =>
-             let descaddress : mword 56 :=
-               get_TTEntryAddress ((Z.add (level) (1))) (va) (next_baseaddress) in
-             returnR ((AddressDescriptor * mword 56)) (descaddress)
+             let perms := extract_perms (descriptor) (true) in
+             (if negb ((check_permission (perms) (accdesc)))
+                return
+                MR ((AddressDescriptor * mword 56)) (mword 56) then
+                let addrdesc : AddressDescriptor :=
+                  addrdesc
+                  <|AddressDescriptor_fault :=
+                    addrdesc.(AddressDescriptor_fault)
+                    <|FaultRecord_statuscode := Fault_Permission|>|> in
+                let addrdesc : AddressDescriptor :=
+                  addrdesc
+                  <|AddressDescriptor_fault :=
+                    addrdesc.(AddressDescriptor_fault)
+                    <|FaultRecord_level := level|>|> in
+                let addrdesc : AddressDescriptor :=
+                  addrdesc
+                  <|AddressDescriptor_fault :=
+                    addrdesc.(AddressDescriptor_fault)
+                    <|FaultRecord_write := accdesc.(AccessDescriptor_write)|>|> in
+                let addrdesc : AddressDescriptor :=
+                  addrdesc
+                  <|AddressDescriptor_fault :=
+                    addrdesc.(AddressDescriptor_fault)
+                    <|FaultRecord_access := accdesc|>|> in
+                (early_return (addrdesc, zeros (56)) : MR (AddressDescriptor * mword 56) unit) >>
+                returnR ((AddressDescriptor * mword 56)) (descaddress)
+              else
+                let next_baseaddress :=
+                  concat_vec (((Ox"00")  : mword 8))
+                    ((concat_vec ((subrange_vec_dec (descriptor) (47) (12)))
+                        (((Ox"000")
+                         : mword 12)))) in
+                liftR (assert_exp' (Z.ltb (level) (3)) "Table entry at level 3") >>= fun _ =>
+                let descaddress : mword 56 :=
+                  get_TTEntryAddress ((Z.add (level) (1))) (va) (next_baseaddress) in
+                returnR ((AddressDescriptor * mword 56)) (descaddress))
+              : MR ((AddressDescriptor * mword 56)) (mword 56)
           | DescriptorType_Leaf =>
              let offset := Z.add (12) ((Z.mul ((Z.sub (3) (level))) (9))) in
              let out_pa :=
                concat_vec (((Ox"00")  : mword 8))
                  ((concat_vec ((subrange_vec_dec (descriptor) (47) (offset)))
                      ((subrange_vec_dec (va) ((Z.sub (offset) (1))) (0))))) in
-             (early_return (walkaddress, autocast (T := mword) 
+             (early_return (walkaddress, autocast (T := mword)
              out_pa) :
                MR (AddressDescriptor * mword 56) unit) >>
              returnR ((AddressDescriptor * mword 56)) (descaddress)
           | DescriptorType_Invalid =>
-             let walkaddress : AddressDescriptor :=
-               walkaddress
+             let addrdesc : AddressDescriptor :=
+               addrdesc
                <|AddressDescriptor_fault :=
-                 walkaddress.(AddressDescriptor_fault)
+                 addrdesc.(AddressDescriptor_fault)
                  <|FaultRecord_statuscode := Fault_Translation|>|> in
-             (early_return (walkaddress, zeros (56)) : MR (AddressDescriptor * mword 56) unit) >>
+             let addrdesc : AddressDescriptor :=
+               addrdesc
+               <|AddressDescriptor_fault :=
+                 addrdesc.(AddressDescriptor_fault)
+                 <|FaultRecord_level := level|>|> in
+             (early_return (addrdesc, zeros (56)) : MR (AddressDescriptor * mword 56) unit) >>
              returnR ((AddressDescriptor * mword 56)) (descaddress)
           end)
           : MR ((AddressDescriptor * mword 56)) (mword 56)))) >>= fun (descaddress : mword 56) =>
@@ -1061,30 +1159,37 @@ Definition handle_fault (addrdesc : AddressDescriptor) : M (unit) :=
    (sail_take_exception ((Some (fault)))) >>
    let ec := ('b"000000")  : mword 6 in
    let il := ('b"1")  : mword 1 in
-   let ec : mword 6 :=
-     if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_IFETCH) then
-       ('b"100000")
-        : mword 6
-     else if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_GPR)
-     then
-       ('b"100100")
-        : mword 6
-     else ec in
-   let wnr := if fault.(FaultRecord_write) then ('b"1")  : mword 1 else ('b"0")  : mword 1 in
+   (if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_IFETCH) then
+      let ec : mword 6 :=
+        if eq_vec (source_el) (target_el) then ('b"100001")  : mword 6
+        else ('b"100000")  : mword 6 in
+      returnM (ec)
+    else if generic_eq (fault.(FaultRecord_access).(AccessDescriptor_acctype)) (AccessType_GPR) then
+      let ec : mword 6 :=
+        if eq_vec (source_el) (target_el) then ('b"100101")  : mword 6
+        else ('b"100100")  : mword 6 in
+      returnM (ec)
+    else exit tt >> returnM (ec)) >>= fun (ec : mword 6) =>
    let l__0 := fault.(FaultRecord_level) in
+   (if Z.eqb (l__0) (0) then returnM ((('b"00")  : mword 2))
+    else if Z.eqb (l__0) (1) then returnM ((('b"01")  : mword 2))
+    else if Z.eqb (l__0) (2) then returnM ((('b"10")  : mword 2))
+    else if Z.eqb (l__0) (3) then returnM ((('b"11")  : mword 2))
+    else exit tt  : M (mword 2)) >>= fun (level_bit : bits 2) =>
    let dfsc : bits 6 :=
-     if Z.eqb (l__0) (0) then ('b"000100")  : mword 6
-     else if Z.eqb (l__0) (1) then ('b"000101")  : mword 6
-     else if Z.eqb (l__0) (2) then ('b"000110")  : mword 6
-     else if Z.eqb (l__0) (3) then ('b"000111")  : mword 6
+     if generic_eq (fault.(FaultRecord_statuscode)) (Fault_Translation) then
+       concat_vec (((Ox"1")  : mword 4)) (level_bit)
+     else if generic_eq (fault.(FaultRecord_statuscode)) (Fault_Permission) then
+       concat_vec (((Ox"3")  : mword 4)) (level_bit)
      else ('b"000000")  : mword 6 in
+   let wnr := if fault.(FaultRecord_write) then ('b"1")  : mword 1 else ('b"0")  : mword 1 in
    let iss := zero_extend ((concat_vec (wnr) (dfsc))) (25) in
    write_reg ESR_EL1 (zero_extend ((concat_vec ((concat_vec (ec) (il))) (iss))) (64)) >>
    write_reg FAR_EL1 vaddress >>
-   ((read_reg _PC)  : M (mword 64)) >>= fun (w__2 : mword 64) =>
-   write_reg ELR_EL1 w__2 >>
-   ((read_reg VBAR_EL1)  : M (mword 64)) >>= fun (w__3 : mword 64) =>
-   write_reg _PC (concat_vec ((slice (w__3) (12) (52))) (vect_offset))
+   ((read_reg _PC)  : M (mword 64)) >>= fun (w__6 : mword 64) =>
+   write_reg ELR_EL1 w__6 >>
+   ((read_reg VBAR_EL1)  : M (mword 64)) >>= fun (w__7 : mword 64) =>
+   write_reg _PC (concat_vec ((slice (w__7) (12) (52))) (vect_offset))
     : M (unit).
 
 Definition translate_address (va : mword 64) (accdesc : AccessDescriptor) : M (option (mword 56)) :=
@@ -1092,8 +1197,7 @@ Definition translate_address (va : mword 64) (accdesc : AccessDescriptor) : M (o
    (if eq_vec ((slice (w__0) (0) (1))) ((('b"0")  : mword 1)) then
       returnM ((Some ((vector_truncate (va) (addr_size')))))
     else
-      let varange := get_VARange (va) in
-      (if generic_eq (varange) (VARange_LOWER) return M (mword 1) then
+      (if generic_eq ((get_VARange (va))) (VARange_LOWER) return M (mword 1) then
          ((read_reg TTBR0_EL1)  : M (mword 64)) >>= fun (w__1 : mword 64) =>
          returnM ((slice (w__1) (0) (1)))
        else

@@ -2691,6 +2691,47 @@ Definition addr_space : Type := PASpace.
 
 Definition abort : Type := Fault.
 
+Record Permissions := {
+  Permissions_allow_write : bool;
+  Permissions_allow_unprivileged_data : bool;
+  Permissions_allow_unprivileged_exec : bool;
+  Permissions_allow_privileged_exec : bool;
+}.
+Arguments Permissions : clear implicits.
+#[export]
+Instance Decidable_eq_Permissions : EqDecision Permissions.
+   intros [x0 x1 x2 x3].
+   intros [y0 y1 y2 y3].
+  cmp_record_field x0 y0.
+  cmp_record_field x1 y1.
+  cmp_record_field x2 y2.
+  cmp_record_field x3 y3.
+left; subst; reflexivity.
+Defined.
+#[export]
+Instance Countable_Permissions : Countable Permissions.
+refine {|
+  encode x := encode (Permissions_allow_write x, Permissions_allow_unprivileged_data x, Permissions_allow_unprivileged_exec x, Permissions_allow_privileged_exec x);
+  decode x := '(x0, x1, x2, x3) ← decode x;
+              mret (Build_Permissions x0 x1 x2 x3)
+|}.
+abstract (
+  intros [x0 x1 x2 x3];
+  rewrite decode_encode;
+  reflexivity).
+Defined.
+
+#[export] Instance eta_Permissions : Settable _ := settable! Build_Permissions <Permissions_allow_write; Permissions_allow_unprivileged_data; Permissions_allow_unprivileged_exec; Permissions_allow_privileged_exec>.
+#[export]
+Instance dummy_Permissions : Inhabited (Permissions) := {
+  inhabitant := {|
+    Permissions_allow_write := inhabitant;
+    Permissions_allow_unprivileged_data := inhabitant;
+    Permissions_allow_unprivileged_exec := inhabitant;
+    Permissions_allow_privileged_exec := inhabitant
+|} }.
+
+
 Inductive ast :=
 | LoadRegister : (reg_index * reg_index * reg_index) -> ast
 | StoreRegister : (reg_index * reg_index * reg_index) -> ast

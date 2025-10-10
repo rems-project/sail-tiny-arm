@@ -1,4 +1,33 @@
 $ifdef SYSTEM_TINY_ARM
+struct Permissions = {
+  allow_write : bool,
+  allow_unprivileged_data : bool,
+  allow_unprivileged_exec : bool, // also just "allow_exec" in single EL translation regimes
+  allow_privileged_exec : bool,
+}
+
+function extract_perms_table(descriptor : bits(64)) -> Permissions = {
+  let ap_table = descriptor[62..61];
+
+  return struct {
+    allow_write = [ap_table[1]] == 0b0,
+    allow_unprivileged_data = [ap_table[0]] == 0b0,
+    allow_unprivileged_exec = [descriptor[60]] == 0b0,
+    allow_privileged_exec = [descriptor[59]] == 0b0,
+  }
+}
+
+function extract_perms_leaf(descriptor : bits(64)) -> Permissions = {
+  let ap = descriptor[7..6];
+
+  return struct {
+    allow_write = [ap[1]] == 0b0,
+    allow_unprivileged_data = [ap[0]] == 0b1,
+    allow_unprivileged_exec = [descriptor[54]] == 0b0,
+    allow_privileged_exec = [descriptor[53]] == 0b0,
+  }
+}
+
 function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> AccessDescriptor = {
   var accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_TTW);
   accdesc.el = PSTATE.EL;
@@ -44,6 +73,32 @@ function is_fault (addrdesc : AddressDescriptor) -> bool = {
   }
 }
 
+/* If it returns true, the access is allowed */
+function check_permission (
+  perms : Permissions,
+  accdesc : AccessDescriptor
+) -> bool = {
+  let at_el0 = accdesc.el == 0b00;
+
+  if accdesc.acctype == AccessType_IFETCH then {
+    if at_el0 then {
+      return perms.allow_unprivileged_exec;
+    } else {
+      return perms.allow_privileged_exec;
+    }
+  };
+
+  if accdesc.write & not_bool(perms.allow_write) then {
+    return false;
+  };
+
+  if at_el0 & not_bool(perms.allow_unprivileged_data) then {
+    return false;
+  };
+
+  return true;
+}
+
 function get_TTEntryAddress (level : range(0, 3), ia : bits(64), baseaddress : bits(56)) -> bits(56) = {
   let 'stride = 9;
   let 'lsb = (3 - level) * stride + 12;
@@ -75,35 +130,52 @@ function decode_desc_type(descriptor : bits(64), level : int) -> DescriptorType 
   }
 }
 
-function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> (AddressDescriptor, bits(56)) = {
-  let varange : VARange = get_VARange(va);
+function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> AddressDescriptor = {
+  let varange = get_VARange(va);
 
   let baseaddress = get_translation_base_address(varange);
   var descaddress = get_TTEntryAddress(0, va, baseaddress);
 
-  foreach (level from 0 to 3) {
-    let toplevel : bool = level == 0;
-    let walkaccess : AccessDescriptor = create_AccessDescriptorTTW(toplevel, varange);
-    var walkaddress = base_AddressDescriptor(walkaccess, level);
-    walkaddress.paddress.address = descaddress;
-    walkaddress.vaddress = va;
+  // Address descriptor to be returned from the page table walk
+  var addrdesc = base_AddressDescriptor(accdesc);
+  addrdesc.vaddress = va;
+  addrdesc.fault.write = accdesc.write;
+  addrdesc.fault.access = accdesc;
 
+  foreach (level from 0 to 3) {
+    addrdesc.fault.level = level;
+
+    let walkaccess = create_AccessDescriptorTTW(level == 0, varange);
     let descriptor = read_memory(8, descaddress, walkaccess);
+
     match decode_desc_type(descriptor, level) {
       DescriptorType_Table => {
+        let perms = extract_perms_table(descriptor);
+        if not_bool(check_permission(perms, accdesc)) then {
+          addrdesc.fault.statuscode = Fault_Permission;
+          return addrdesc
+        };
+
         let next_baseaddress = 0x00 @ descriptor[47..12] @ 0x000;
         assert (level < 3, "Table entry at level 3");
         descaddress = get_TTEntryAddress(level + 1, va, next_baseaddress);
         ()
       },
       DescriptorType_Leaf => {
+        let perms = extract_perms_leaf(descriptor);
+        if not_bool(check_permission(perms, accdesc)) then {
+          addrdesc.fault.statuscode = Fault_Permission;
+          return addrdesc
+        };
+
         let offset = 12 + (3 - level) * 9;
         let out_pa = 0x00 @ descriptor[47..offset] @ va[offset - 1 .. 0];
-        return (walkaddress, out_pa)
+        addrdesc.paddress.address = out_pa;
+        return addrdesc
       },
       DescriptorType_Invalid => {
-        walkaddress.fault.statuscode = Fault_Translation;
-        return (walkaddress, sail_zeros(56))
+        addrdesc.fault.statuscode = Fault_Translation;
+        return addrdesc
       }
     }
   };
@@ -130,23 +202,41 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   // Report the exception
   sail_take_exception(Some(fault));
 
+  // Determine Exception Class (EC)
   var ec = 0b000000;
   let il = 0b1;
+
   if fault.access.acctype == AccessType_IFETCH then {
-    ec = 0b100000;
+    ec = if source_el == target_el then 0b100001 else 0b100000;
   } else if fault.access.acctype == AccessType_GPR then {
-    ec = 0b100100;
+    ec = if source_el == target_el then 0b100101 else 0b100100;
+  } else {
+    exit();
   };
 
-  let wnr = if fault.write then 0b1 else 0b0;
-  let dfsc : bits(6) =
+  // Determine Fault Status Code (FSC) based on fault type and level
+  let level_bit : bits(2) =
     match fault.level {
-      0 => 0b000100,
-      1 => 0b000101,
-      2 => 0b000110,
-      3 => 0b000111,
-      _ => 0b000000,
+      0 => 0b00,
+      1 => 0b01,
+      2 => 0b10,
+      3 => 0b11,
+      _ => exit(),
     };
+  let dfsc : bits(6) =
+    if fault.statuscode == Fault_Translation then {
+      // Translation faults: 0b0001xx (where xx is level)
+      0b0001 @ level_bit
+    } else if fault.statuscode == Fault_Permission then {
+      // Permission faults: 0b0011xx (where xx is level)
+      0b0011 @ level_bit
+    } else {
+      // Default/unknown fault
+      0b000000
+    };
+
+  // Build ISS (Instruction Specific Syndrome)
+  let wnr = if fault.write then 0b1 else 0b0;
   let iss = sail_zero_extend(wnr @ dfsc, 25);
   ESR_EL1 = sail_zero_extend((ec @ il) @ iss, 64);
   FAR_EL1 = vaddress;
@@ -162,9 +252,8 @@ function translate_address(va, accdesc) = {
   };
 
   // Announce translation start
-  let varange = get_VARange(va);
   let cnp =
-    if varange == VARange_LOWER then {
+    if get_VARange(va) == VARange_LOWER then {
       slice(TTBR0_EL1, 0, 1)
     } else {
       slice(TTBR1_EL1, 0, 1)
@@ -182,13 +271,13 @@ function translate_address(va, accdesc) = {
   };
   sail_translation_start(tsi);
 
-  let (addrdesc, paddress) =
+  let addrdesc =
     if va_out_of_range(va) then {
-      var addrdesc = base_AddressDescriptor(accdesc, 0);
+      var addrdesc = base_AddressDescriptor(accdesc);
       addrdesc.fault.statuscode = Fault_Translation;
       addrdesc.fault.write = accdesc.write;
       addrdesc.fault.access = accdesc;
-      (addrdesc, sail_zeros(56))
+      addrdesc
     } else {
       // Actual translation
       pgt_walk(va, accdesc)
@@ -202,7 +291,7 @@ function translate_address(va, accdesc) = {
     return None()
   };
 
-  return Some(paddress)
+  return Some(addrdesc.paddress.address)
 }
 $else
 function translate_address(va, accdesc) = {
