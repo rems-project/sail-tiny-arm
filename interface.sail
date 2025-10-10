@@ -143,7 +143,7 @@ function base_FullAddress () -> FullAddress = struct {
   address = sail_zeros(56)
 }
 
-function base_FaultRecord (accdesc : AccessDescriptor, level : int) -> FaultRecord = struct {
+function base_FaultRecord (accdesc : AccessDescriptor) -> FaultRecord = struct {
   statuscode = Fault_None,
   access = accdesc,
   ipaddress = base_FullAddress(),
@@ -157,7 +157,7 @@ function base_FaultRecord (accdesc : AccessDescriptor, level : int) -> FaultReco
   write = not_bool(accdesc.read) & accdesc.write,
   s1tagnotdata = false,
   tagaccess = false,
-  level = level,
+  level = 0,
   extflag = sail_zeros(1),
   secondstage = false,
   assuredonly = false,
@@ -206,8 +206,8 @@ function base_TLBContext () -> TLBContext = struct {
   xs = sail_zeros(1),
 }
 
-function base_AddressDescriptor (accdesc: AccessDescriptor, level : int) -> AddressDescriptor = struct {
-  fault = base_FaultRecord(accdesc, level),
+function base_AddressDescriptor (accdesc: AccessDescriptor) -> AddressDescriptor = struct {
+  fault = base_FaultRecord(accdesc),
   memattrs = base_MemoryAttributes(),
   paddress = base_FullAddress(),
   tlbcontext = base_TLBContext(),
