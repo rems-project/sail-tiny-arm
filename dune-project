@@ -13,13 +13,13 @@
 )
 (maintainers "Sail Devs <cl-sail-dev@lists.cam.ac.uk>")
 ; Arm architecture version followed by a dash and a single incrementing number
-(version "9.4-3")
+(version "9.4-4")
 
 (package
  (name coq-sail-tiny-arm)
  (synopsis " A very simplified and cut down version of the Arm ISA sail specification, handwritten")
  (depends
-  (coq (>= 8.15))
+  (coq (>= 9.0))
   (sail (>= 0.19.1))
   sail_coq_backend
   sail_lem_backend
