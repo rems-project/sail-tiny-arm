@@ -286,7 +286,7 @@ val read_memory : forall 'N, 'N > 0.
   (int('N), bits(addr_size), AccessDescriptor) -> bits('N * 8)
 
 function read_memory(N, addr, accdesc) = {
-  let req : Mem_read_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
+  let req : Mem_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
     access_kind   = accdesc,
     address       = truncate(addr, addr_size'),
     address_space = addr_space_def,
@@ -307,16 +307,14 @@ function rMem(addr, accdesc) = read_memory(8, addr, accdesc)
 function wMem_Addr(addr) = sail_address_announce(64, sail_zero_extend(addr, 64))
 
 function wMem(addr, value, accdesc) = {
-  let req : Mem_write_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
+  let req : Mem_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
     access_kind = accdesc,
     address = truncate(addr, addr_size'),
     address_space = addr_space_def,
     size = 8,
-    num_tag = 0,
-    value = to_bytes_le(8, value),
-    tags = []
+    num_tag = 0
   };
-  match sail_mem_write(req) {
+  match sail_mem_write(req, to_bytes_le(8, value), []) {
     Ok(_) => (),
     Err(_) => exit(),
   }
