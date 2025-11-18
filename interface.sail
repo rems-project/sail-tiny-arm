@@ -280,6 +280,7 @@ val iFetch : (bits(addr_size), AccessDescriptor) -> bits(32)
 val rMem : (bits(addr_size), AccessDescriptor) -> bits(64)
 val wMem_Addr : bits(addr_size) -> unit
 val wMem : (bits(addr_size), bits(64), AccessDescriptor) -> unit
+val dataMemoryBarrier : MBReqTypes -> unit
 val translate_address : (bits(64), AccessDescriptor) -> option(bits(addr_size))
 
 val read_memory : forall 'N, 'N > 0.
@@ -328,3 +329,9 @@ function dataMemoryBarrier(types) = sail_barrier(
     domain = MBReqDomain_FullSystem,
     types = types,
     nXS = false}))
+
+$ifdef SYSTEM_TINY_ARM
+val invalidateTLB : (TLBIRecord, Shareability) -> unit
+
+function invalidateTLB(r, s) = sail_tlbi(struct { rec = r, shareability = s })
+$endif

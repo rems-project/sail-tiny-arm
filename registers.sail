@@ -188,5 +188,3 @@ register SCTLR_EL2 : bits(64)
 register SCTLR_EL3 : bits(64)
 
 $endif
-
-val dataMemoryBarrier : MBReqTypes -> unit
