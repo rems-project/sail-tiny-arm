@@ -1,3 +1,13 @@
+$ifdef SYSTEM_TINY_ARM
+union ast =  {
+  LoadRegister : (reg_index, reg_index, reg_index),
+  StoreRegister : (reg_index, reg_index, reg_index),
+  ExclusiveOr : (reg_index, reg_index, reg_index),
+  DataMemoryBarrier : MBReqTypes,
+  CompareAndBranch : (reg_index, bits(64)),
+  TLBIInstr : (TLBIOp, TLBILevel, TLBIMemAttr, Shareability, bool, bool, reg_index)
+}
+$else
 union ast =  {
   LoadRegister : (reg_index, reg_index, reg_index),
   StoreRegister : (reg_index, reg_index, reg_index),
@@ -5,6 +15,7 @@ union ast =  {
   DataMemoryBarrier : MBReqTypes,
   CompareAndBranch : (reg_index, bits(64)),
 }
+$endif
 
 val decode : bits(32) -> option(ast)
 
@@ -184,6 +195,316 @@ function clause execute CompareAndBranch(t, offset) = {
   else _PC = _PC + 4;
 }
 
+$ifdef SYSTEM_TINY_ARM
+
+/* TLB Invalidation: TLBI */
+val decodeTLBI : (bits(3), bits(4), bits(4), bits(3), bits(5)) -> option(ast)
+
+function clause decode (0b1101010100@0b0@0b01@(op1:bits(3))@(CRn:bits(4))
+                                       @(CRm:bits(4))@(op2:bits(3))
+                                       @(Rt:bits(5))) = {
+  decodeTLBI(op1, CRn, CRm, op2, Rt)
+}
+
+function decodeTLBI(op1, CRn, CRm, op2, Rt) = {
+  let t : reg_index = unsigned(Rt);
+
+  match (op1, CRn, CRm, op2) {
+    /* TLBI VMALLE1IS: Invalidate by VMID, All, EL1, Inner-Shareable */
+    (0b000, 0b1000, 0b0011, 0b000) => {
+      Some(TLBIInstr(
+        TLBIOp_VMALL,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_ISH,
+        false,
+        false,
+        t
+      ))
+    },
+
+    /* TLBI VMALLE1OS: Invalidate by VMID, All, EL1, Outer-Shareable */
+    (0b000, 0b1000, 0b0001, 0b000) => {
+      Some(TLBIInstr(
+        TLBIOp_VMALL,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_OSH,
+        false,
+        false,
+        t
+      ))
+    },
+
+    /* TLBI VAE1: Invalidate by VA, EL1 */
+    (0b000, 0b1000, 0b0111, 0b001) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_NSH,
+        false,
+        true,   /* Xt supplies VA */
+        t
+      ))
+    },
+
+    /* TLBI VAE1IS: Invalidate by VA, EL1, Inner-Shareable */
+    (0b000, 0b1000, 0b0011, 0b001) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_ISH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI VAE1OS: Invalidate by VA, EL1, Outer-Shareable */
+    (0b000, 0b1000, 0b0001, 0b001) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_OSH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI ASIDE1: Invalidate by ASID, EL1 (Xt supplies ASID) */
+    (0b000, 0b1000, 0b0111, 0b010) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,   /* generic “by parameter” op */
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_NSH,
+        false,
+        true,       /* Xt supplies ASID */
+        t
+      ))
+    },
+
+    /* TLBI ASIDE1IS: Inner-Shareable */
+    (0b000, 0b1000, 0b0011, 0b010) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_ISH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI ASIDE1OS: Outer-Shareable */
+    (0b000, 0b1000, 0b0001, 0b010) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_OSH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI VAAE1: Invalidate by VA, All ASID, EL1 */
+    (0b000, 0b1000, 0b0111, 0b011) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_NSH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI VAAE1IS: Inner-Shareable */
+    (0b000, 0b1000, 0b0011, 0b011) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_ISH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI VAAE1OS: Outer-Shareable */
+    (0b000, 0b1000, 0b0001, 0b011) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_OSH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI ALLE1: Invalidate All, EL1 */
+    (0b100, 0b1000, 0b0111, 0b100) => {
+      Some(TLBIInstr(
+        TLBIOp_VMALL,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_NSH,
+        false,
+        false,
+        t
+      ))
+    },
+
+    /* TLBI ALLE1IS: Inner-Shareable */
+    (0b100, 0b1000, 0b0011, 0b100) => {
+      Some(TLBIInstr(
+        TLBIOp_VMALL,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_ISH,
+        false,
+        false,
+        t
+      ))
+    },
+
+    /* TLBI ALLE1OS: Outer-Shareable */
+    (0b100, 0b1000, 0b0001, 0b100) => {
+      Some(TLBIInstr(
+        TLBIOp_VMALL,
+        TLBILevel_Any,
+        TLBI_AllAttr,
+        Shareability_OSH,
+        false,
+        false,
+        t
+      ))
+    },
+
+    /* TLBI VALE1: Invalidate by VA, Last-level, EL1 */
+    (0b000, 0b1000, 0b0111, 0b101) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Last,
+        TLBI_AllAttr,
+        Shareability_NSH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI VALE1IS: Inner-Shareable */
+    (0b000, 0b1000, 0b0011, 0b101) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Last,
+        TLBI_AllAttr,
+        Shareability_ISH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI VALE1OS: Outer-Shareable */
+    (0b000, 0b1000, 0b0001, 0b101) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Last,
+        TLBI_AllAttr,
+        Shareability_OSH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI VAALE1: Invalidate by VA, All ASID, Last-level, EL1 */
+    (0b000, 0b1000, 0b0111, 0b111) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Last,
+        TLBI_AllAttr,
+        Shareability_NSH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI VAALE1IS: Inner-Shareable */
+    (0b000, 0b1000, 0b0011, 0b111) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Last,
+        TLBI_AllAttr,
+        Shareability_ISH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TLBI VAALE1OS: Outer-Shareable */
+    (0b000, 0b1000, 0b0001, 0b111) => {
+      Some(TLBIInstr(
+        TLBIOp_VA,
+        TLBILevel_Last,
+        TLBI_AllAttr,
+        Shareability_OSH,
+        false,
+        true,
+        t
+      ))
+    },
+
+    /* TODO: TLBI by ranges? */
+    _ => None()
+  }
+}
+
+/* TLBI */
+function clause execute TLBIInstr(op, level, attr, shareability,
+                                  is_range, uses_addr, t) = {
+  _PC = _PC + 4;
+
+  let addr = if uses_addr then X(t) else 0x0000000000000000;
+
+  let r : TLBIRecord = struct {
+    op = op,
+    from_aarch64 = true,
+    security = SS_NonSecure,
+    regime = Regime_EL10,
+    vmid = 0x0000,
+    asid = ASID_read(),
+    level = level,
+    attr = attr,
+    ipaspace = PAS_NonSecure,
+    address = addr,
+    end_address_name = addr,
+    d64 = true,
+    d128 = false,
+    ttl = 0b0000,
+    tg = 0b00,
+  };
+
+  invalidateTLB(r, shareability);
+}
+
+$endif
+
 // This needs to be the last clause
 function clause decode(_) = { None() }
 
@@ -206,3 +527,4 @@ function fetch_and_execute () = {
     None () => assert (false, "Unsupported Encoding")
   }
 }
+
