@@ -275,12 +275,15 @@ instantiation sail_mem_address_announce with
   'CHERI = false,
   'cap_size_log = 0
 
-  /* See tiny-arm for descriptions, interface for definitions */
+/* See tiny-arm for descriptions, interface for definitions */
 val iFetch : (bits(addr_size), AccessDescriptor) -> bits(32)
 val rMem : (bits(addr_size), AccessDescriptor) -> bits(64)
 val wMem_Addr : bits(addr_size) -> unit
 val wMem : (bits(addr_size), bits(64), AccessDescriptor) -> unit
 val dataMemoryBarrier : MBReqTypes -> unit
+val dataSynchronizationBarrer : MBReqTypes -> unit
+val instructionSynchronizationBarrier : unit -> unit
+
 val translate_address : (bits(64), AccessDescriptor) -> option(bits(addr_size))
 
 val read_memory : forall 'N, 'N > 0.
@@ -326,12 +329,40 @@ instantiation sail_barrier with
 
 function dataMemoryBarrier(types) = sail_barrier(
   Barrier_DMB(struct{
-    domain = MBReqDomain_FullSystem,
+    domain = MBReqDomain_InnerShareable,
     types = types,
     nXS = false}))
 
-$ifdef SYSTEM_TINY_ARM
-val invalidateTLB : (TLBIRecord, Shareability) -> unit
+function dataSynchronizationBarrer(types) = sail_barrier(
+  Barrier_DSB(struct{
+    domain = MBReqDomain_InnerShareable,
+    types = types,
+    nXS = false}))
 
-function invalidateTLB(r, s) = sail_tlbi(struct { rec = r, shareability = s })
+function instructionSynchronizationBarrier() = sail_barrier(Barrier_ISB())
+
+$ifdef SYSTEM_TINY_ARM
+val reportTLBI : (TLBIOp, bits(64), bits(16)) -> unit
+
+function reportTLBI(op, addr, asid) = {
+  let r : TLBIRecord = struct {
+    op = op,
+    from_aarch64 = true,
+    security = SS_NonSecure,
+    regime = Regime_EL10,
+    vmid = 0x0000,
+    asid = asid,
+    level = TLBILevel_Any,
+    attr = TLBI_AllAttr,
+    ipaspace = PAS_NonSecure,
+    address = addr,
+    end_address_name = addr,
+    d64 = true,
+    d128 = false,
+    ttl = 0b0000,
+    tg = 0b00,
+  };
+
+  sail_tlbi(struct { rec = r, shareability = Shareability_ISH })
+}
 $endif

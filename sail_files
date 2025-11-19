@@ -4,3 +4,5 @@ registers.sail
 interface.sail
 translation.sail
 tiny-arm.sail
+instrs-sys.sail
+instrs-user.sail
