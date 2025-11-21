@@ -22,5 +22,8 @@ interactive:
 clean:
 	dune clean
 
-
 .PHONY: clean coq coq-snapshot check default interactive
+
+lean:
+	-mkdir lean-snapshot
+	sail --lean-output-dir lean-snapshot --lean $(MODEL)
