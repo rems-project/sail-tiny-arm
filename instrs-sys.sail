@@ -1,5 +1,7 @@
 $ifdef SYSTEM_TINY_ARM
 /* TLBI */
+union clause ast = TLBInvalidation : (TLBIOp, reg_index)
+
 val decodeTLBI : (bits(3), bits(4), bits(4), bits(3), bits(5)) -> option(ast)
 function clause decode (0b1101010100001@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4))@(op2:bits(3))@(Rt:bits(5))) = {
   decodeTLBI(op1, CRn, CRm, op2, Rt)

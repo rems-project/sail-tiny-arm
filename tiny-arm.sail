@@ -1,17 +1,5 @@
 scattered union ast
 
-union clause ast = LoadRegister : (reg_index, reg_index, reg_index)
-union clause ast = StoreRegister : (reg_index, reg_index, reg_index)
-union clause ast = ExclusiveOr : (reg_index, reg_index, reg_index)
-union clause ast = DataMemoryBarrier : MBReqTypes
-union clause ast = DataSynchronizationBarrier : MBReqTypes
-union clause ast = InstructionSynchronizationBarrier : unit
-union clause ast = CompareAndBranch : (reg_index, bits(64))
-
-$ifdef SYSTEM_TINY_ARM
-union clause ast = TLBInvalidation : (TLBIOp, reg_index)
-$endif
-
 val decode : bits(32) -> option(ast)
 scattered function decode
 

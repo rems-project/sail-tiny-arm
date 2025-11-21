@@ -1,4 +1,7 @@
 /* LoadStoreRegister: LDR and STR */
+union clause ast = LoadRegister : (reg_index, reg_index, reg_index)
+union clause ast = StoreRegister : (reg_index, reg_index, reg_index)
+
 val decodeLoadStoreRegister : (bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
 
 function clause decode (0b11@0b111@0b0@0b00@(opc:bits(2))@0b1@(Rm:bits(5))@(option_v:bits(3))@[S]@0b10@(Rn:bits(5))@(Rt:bits(5))) = {
@@ -77,6 +80,8 @@ function clause execute StoreRegister(t, n, m) = {
 }
 
 /* Exclusive OR: EOR */
+union clause ast = ExclusiveOr : (reg_index, reg_index, reg_index)
+
 val decodeExclusiveOr : (bit, bits(2), bit, bits(5), bits(6), bits(5), bits(5)) -> option(ast)
 
 function clause decode ([sf]@0b10@0b01010@(shift:bits(2))@[N]@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
@@ -109,6 +114,10 @@ function clause execute ExclusiveOr(d, n, m) = {
 }
 
 /* Data Barrier */
+union clause ast = DataMemoryBarrier : MBReqTypes
+union clause ast = DataSynchronizationBarrier : MBReqTypes
+union clause ast = InstructionSynchronizationBarrier : unit
+
 val decodeDataBarrier : (bits(4), bool) -> option(ast)
 
 function decodeDataBarrier(CRm, is_sync) = {
@@ -163,6 +172,8 @@ function clause execute InstructionSynchronizationBarrier() = {
 }
 
 /* CompareAndBranch: CBZ */
+union clause ast = CompareAndBranch : (reg_index, bits(64))
+
 val decodeCompareAndBranch : (bits(19), bits(5)) -> option(ast)
 
 function clause decode (0b1@0b011010@0b0@(imm19:bits(19))@(Rt:bits(5))) = {
