@@ -4,6 +4,17 @@ $include <concurrency_interface/exception.sail>
 $include <concurrency_interface/cache_op.sail>
 $include <concurrency_interface/translation.sail>
 
+scattered union ast
+
+val decode : bits(32) -> option(ast)
+scattered function decode
+
+val execute : ast -> unit
+scattered function execute
+
+// Simple top level fetch and execute loop.
+val fetch_and_execute : unit -> unit
+
 $ifdef SYSTEM_TINY_ARM
 type addr_size : Int = 56
 let addr_size' : int(56) = 56
@@ -299,8 +310,8 @@ val iFetch : (bits(addr_size), AccessDescriptor) -> bits(32)
 val rMem : (bits(addr_size), AccessDescriptor) -> bits(64)
 val wMem_Addr : bits(addr_size) -> unit
 val wMem : (bits(addr_size), bits(64), AccessDescriptor) -> unit
-val dataMemoryBarrier : MBReqTypes -> unit
-val dataSynchronizationBarrer : MBReqTypes -> unit
+val dataMemoryBarrier : (MBReqDomain, MBReqTypes) -> unit
+val dataSynchronizationBarrer : (MBReqDomain, MBReqTypes) -> unit
 val instructionSynchronizationBarrier : unit -> unit
 
 val translate_address : (bits(64), AccessDescriptor) -> option(bits(addr_size))
@@ -346,15 +357,15 @@ function wMem(addr, value, accdesc) = {
 instantiation sail_barrier with
   'barrier = Barrier
 
-function dataMemoryBarrier(types) = sail_barrier(
+function dataMemoryBarrier(domain, types) = sail_barrier(
   Barrier_DMB(struct{
-    domain = MBReqDomain_InnerShareable,
+    domain = domain,
     types = types,
     nXS = false}))
 
-function dataSynchronizationBarrer(types) = sail_barrier(
+function dataSynchronizationBarrer(domain, types) = sail_barrier(
   Barrier_DSB(struct{
-    domain = MBReqDomain_InnerShareable,
+    domain = domain,
     types = types,
     nXS = false}))
 

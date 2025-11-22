@@ -1,13 +1,6 @@
-scattered union ast
+// This catch-all clause MUST be the last clause for the `decode` function.
+function clause decode(_) = { None() }
 
-val decode : bits(32) -> option(ast)
-scattered function decode
-
-val execute : ast -> unit
-scattered function execute
-
-// Simple top level fetch and execute loop.
-val fetch_and_execute : unit -> unit
 
 function fetch_and_execute () = {
   let accdesc = create_iFetchAccessDescriptor();

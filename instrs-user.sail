@@ -114,13 +114,22 @@ function clause execute ExclusiveOr(d, n, m) = {
 }
 
 /* Data Barrier */
-union clause ast = DataMemoryBarrier : MBReqTypes
-union clause ast = DataSynchronizationBarrier : MBReqTypes
+union clause ast = DataMemoryBarrier : (MBReqDomain, MBReqTypes)
+union clause ast = DataSynchronizationBarrier : (MBReqDomain, MBReqTypes)
 union clause ast = InstructionSynchronizationBarrier : unit
 
 val decodeDataBarrier : (bits(4), bool) -> option(ast)
 
 function decodeDataBarrier(CRm, is_sync) = {
+  let domain : MBReqDomain =
+    match CRm[3..2] {
+      0b11 => MBReqDomain_FullSystem,
+      0b10 => MBReqDomain_InnerShareable,
+      0b01 => MBReqDomain_Nonshareable,
+      0b00 => MBReqDomain_OuterShareable,
+      _ => return None()
+    };
+
   let types : MBReqTypes =
     match CRm[1..0] {
       0b01 => MBReqTypes_Reads,
@@ -130,9 +139,9 @@ function decodeDataBarrier(CRm, is_sync) = {
     };
 
   if is_sync then
-    Some(DataSynchronizationBarrier(types))
+    Some(DataSynchronizationBarrier(domain, types))
   else
-    Some(DataMemoryBarrier(types))
+    Some(DataMemoryBarrier(domain, types))
 }
 
 /* DMB */
@@ -140,11 +149,11 @@ function clause decode (0b1101010100@0b0@0b00@0b011@0b0011@(CRm : bits(4))@0b1@0
   decodeDataBarrier(CRm, false)
 }
 
-function clause execute DataMemoryBarrier(types) = {
+function clause execute DataMemoryBarrier(domain, types) = {
   // Update the PC
   _PC = _PC + 4;
   // Then perform the barrier
-  dataMemoryBarrier(types);
+  dataMemoryBarrier(domain, types);
 }
 
 /* DSB */
@@ -152,11 +161,11 @@ function clause decode (0b11010101000000110011@(CRm:bits(4))@0b100@0b11111) = {
   decodeDataBarrier(CRm, true)
 }
 
-function clause execute DataSynchronizationBarrier(types) = {
+function clause execute DataSynchronizationBarrier(domain, types) = {
   // Update the PC
   _PC = _PC + 4;
   // Then perform the barrier
-  dataSynchronizationBarrer(types)
+  dataSynchronizationBarrer(domain, types)
 }
 
 /* ISB */
@@ -205,6 +214,3 @@ function clause execute CompareAndBranch(t, offset) = {
   }
   else _PC = _PC + 4;
 }
-
-// This catch-all clause MUST be the last clause for the `decode` function.
-function clause decode(_) = { None() }
