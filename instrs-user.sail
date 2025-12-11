@@ -113,6 +113,71 @@ function clause execute ExclusiveOr(d, n, m) = {
   X(d) = operand1 ^ operand2;
 }
 
+/* Move */
+union clause ast = Move : (reg_index, reg_index)
+
+/* MOV (register) - Alias of ORR (shifted register) */
+/* ORR (shifted register): sf 0 101010 shift 0 Rm imm6 Rn Rd */
+/* MOV Xd, Xm is ORR Xd, XZR, Xm */
+function clause decode (0b1@0b0@0b101010@0b00@0b0@(Rm:bits(5))@0b000000@0b11111@(Rd:bits(5))) = {
+  let d : reg_index = unsigned(Rd);
+  let m : reg_index = unsigned(Rm);
+  Some(Move((d,m)))
+}
+
+/* MOV Xd, Xm */
+function clause execute Move(d, m) = {
+  _PC = _PC + 4;
+  X(d) = X(m);
+}
+
+/* Arithmetic: ADD/SUB */
+union clause ast = Add : (reg_index, reg_index, reg_index)
+union clause ast = Sub : (reg_index, reg_index, reg_index)
+
+val decodeAddSub : (bit, bit, bit, bits(2), bits(12), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
+
+/* ADD (shifted register) */
+function clause decode (0b1@0b00@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeAddSub(bitone, bitzero, bitzero, shift, 0x000, imm6, Rm, Rn, Rd)
+}
+
+/* SUB (shifted register) */
+function clause decode (0b1@0b10@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeAddSub(bitone, bitone, bitzero, shift, 0x000, imm6, Rm, Rn, Rd)
+}
+
+function decodeAddSub (sf, op, is_imm, shift, imm12, imm6, Rm, Rn, Rd) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+  let m : reg_index = unsigned(Rm);
+
+  if is_imm == bitzero then {
+    /* Register form */
+    if imm6 != 0b000000 then None () /* We only support unshifted for now */
+    else if op == bitzero then Some(Add((d,n,m)))
+    else Some(Sub((d,n,m)))
+  } else {
+    None ()
+  }
+}
+
+/* ADD Xd, Xn, Xm */
+function clause execute Add(d, n, m) = {
+  _PC = _PC + 4;
+  let op1 = X(n);
+  let op2 = X(m);
+  X(d) = op1 + op2;
+}
+
+/* SUB Xd, Xn, Xm */
+function clause execute Sub(d, n, m) = {
+  _PC = _PC + 4;
+  let op1 = X(n);
+  let op2 = X(m);
+  X(d) = op1 + (not_vec(op2) + 1);
+}
+
 /* Data Barrier */
 union clause ast = DataMemoryBarrier : (MBReqDomain, MBReqTypes)
 union clause ast = DataSynchronizationBarrier : (MBReqDomain, MBReqTypes)
