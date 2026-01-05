@@ -195,6 +195,8 @@ function clause execute Move(d, m) = {
 /* Arithmetic: ADD/SUB */
 union clause ast = Add : (reg_index, reg_index, reg_index)
 union clause ast = Sub : (reg_index, reg_index, reg_index)
+union clause ast = AddImmediate : (reg_index, reg_index, bits(12))
+union clause ast = SubImmediate : (reg_index, reg_index, bits(12))
 
 val decodeAddSub : (bit, bit, bit, bits(2), bits(12), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
 
@@ -208,6 +210,17 @@ function clause decode (0b1@0b10@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:
   decodeAddSub(bitone, bitone, bitzero, shift, 0x000, imm6, Rm, Rn, Rd)
 }
 
+/* ADD (immediate) */
+function clause decode (0b1@0b00@0b10001@(shift:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
+  /* Rm and imm6 are irrelevant for immediate, passing 0s */
+  decodeAddSub(bitone, bitzero, bitone, shift, imm12, 0b000000, 0b00000, Rn, Rd)
+}
+
+/* SUB (immediate) */
+function clause decode (0b1@0b10@0b10001@(shift:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeAddSub(bitone, bitone, bitone, shift, imm12, 0b000000, 0b00000, Rn, Rd)
+}
+
 function decodeAddSub (sf, op, is_imm, shift, imm12, imm6, Rm, Rn, Rd) = {
   let d : reg_index = unsigned(Rd);
   let n : reg_index = unsigned(Rn);
@@ -219,7 +232,14 @@ function decodeAddSub (sf, op, is_imm, shift, imm12, imm6, Rm, Rn, Rd) = {
     else if op == bitzero then Some(Add((d,n,m)))
     else Some(Sub((d,n,m)))
   } else {
-    None ()
+    /* Immediate form */
+    let imm : bits(12) = imm12;
+    /* Ideally we would store shift too, but sticking to existing pattern of simplicity */
+    /* If shift is 00 (LSL 0) or 01 (LSL 12). */
+    if shift == 0b00 then {
+       if op == bitzero then Some(AddImmediate((d,n,imm)))
+       else Some(SubImmediate((d,n,imm)))
+    } else None()
   }
 }
 
@@ -236,6 +256,22 @@ function clause execute Sub(d, n, m) = {
   _PC = _PC + 4;
   let op1 = X(n);
   let op2 = X(m);
+  X(d) = op1 + (not_vec(op2) + 1);
+}
+
+/* ADD Xd, Xn, #imm */
+function clause execute AddImmediate(d, n, imm12) = {
+  _PC = _PC + 4;
+  let op1 = X(n);
+  let op2 : bits(64) = sail_zero_extend(imm12, 64);
+  X(d) = op1 + op2;
+}
+
+/* SUB Xd, Xn, #imm */
+function clause execute SubImmediate(d, n, imm12) = {
+  _PC = _PC + 4;
+  let op1 = X(n);
+  let op2 : bits(64) = sail_zero_extend(imm12, 64);
   X(d) = op1 + (not_vec(op2) + 1);
 }
 
