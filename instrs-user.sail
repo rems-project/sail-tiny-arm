@@ -116,8 +116,6 @@ function clause execute ExclusiveOr(d, n, m) = {
 /* Move */
 union clause ast = Move : (reg_index, reg_index)
 
-val decodeMove : (bit, bits(2), bits(16), bits(5), bits(6), bits(5), bits(2), bits(5)) -> option(ast)
-
 /* MOV (register) - Alias of ORR (shifted register) */
 /* ORR (shifted register): sf 0 101010 shift 0 Rm imm6 Rn Rd */
 /* MOV Xd, Xm is ORR Xd, XZR, Xm */
