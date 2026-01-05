@@ -79,6 +79,67 @@ function clause execute StoreRegister(t, n, m) = {
   wMem(addr, data, accdesc);
 }
 
+/* LoadStoreImmediate: LDR and STR (unsigned immediate) */
+union clause ast = LoadImmediate : (reg_index, reg_index, bits(12))
+union clause ast = StoreImmediate : (reg_index, reg_index, bits(12))
+
+val decodeLoadStoreImmediate : (bits(2), bits(12), bits(5), bits(5)) -> option(ast)
+
+/* Load/Store Register (Unsigned Immediate) */
+function clause decode (0b11@0b111@0b0@0b01@(opc:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rt:bits(5))) = {
+  decodeLoadStoreImmediate(opc, imm12, Rn, Rt)
+}
+
+function decodeLoadStoreImmediate (opc, imm12, Rn, Rt) = {
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+  if opc == 0b01
+  then Some(LoadImmediate((t,n,imm12)))
+  else if opc == 0b00
+  then Some(StoreImmediate((t,n,imm12)))
+  else None()
+}
+
+/* LDR Xt, [Xn, #pimm] */
+function clause execute LoadImmediate(t, n, imm12) = {
+  let base_addr = X(n);
+  /* The immediate is scaled by the instruction size 8 */
+  let offset : bits(64) = sail_zero_extend(imm12 @ 0b000, 64);
+  let addr = base_addr + offset;
+  let accdesc = create_readAccessDescriptor();
+  /* Translate the virtual address into the physical address.
+   * In the user mode, `translate_address` returns input address. */
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return () // A translation fault is handled in `translate_address`.
+    };
+  /* The instruction can't fault now (in a real model), so update the PC */
+  _PC = _PC + 4;
+  let data = rMem(addr, accdesc);
+  X(t) = data;
+}
+
+/* STR Xt, [Xn, #pimm] */
+function clause execute StoreImmediate(t, n, imm12) = {
+  let base_addr = X(n);
+  let offset : bits(64) = sail_zero_extend(imm12 @ 0b000, 64);
+  let addr = base_addr + offset;
+  let accdesc = create_writeAccessDescriptor();
+  /* Translate the virtual address into the physical address.
+   * In the user mode, `translate_address` returns input address. */
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return () // A translation fault is handled in `translate_address`.
+    };
+  wMem_Addr(addr);
+  /* The instruction can't fault now (in a real model), so update the PC */
+  _PC = _PC + 4;
+  let data = X(t);
+  wMem(addr, data, accdesc);
+}
+
 /* Exclusive OR: EOR */
 union clause ast = ExclusiveOr : (reg_index, reg_index, reg_index)
 
