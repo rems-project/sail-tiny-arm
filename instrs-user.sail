@@ -192,6 +192,27 @@ function clause execute Move(d, m) = {
   X(d) = X(m);
 }
 
+/* Move Wide (Immediate) */
+union clause ast = MoveWide : (reg_index, bits(16), bits(2))
+
+/* MOVZ: 1 10 100101 hw imm16 Rd */
+function clause decode (0b1@0b10@0b100101@(hw:bits(2))@(imm16:bits(16))@(Rd:bits(5))) = {
+  let d : reg_index = unsigned(Rd);
+  Some(MoveWide(d, imm16, hw))
+}
+
+/* MOVZ Xd, #imm, LSL #shift */
+function clause execute MoveWide(d, imm, hw) = {
+  _PC = _PC + 4;
+  let res : bits(64) = match hw {
+    0b00 => sail_zero_extend(imm, 64),
+    0b01 => sail_zero_extend(imm, 48) @ 0x0000,
+    0b10 => sail_zero_extend(imm, 32) @ 0x00000000,
+    0b11 => imm @ 0x000000000000
+  };
+  X(d) = res;
+}
+
 /* Arithmetic: ADD/SUB */
 union clause ast = Add : (reg_index, reg_index, reg_index)
 union clause ast = Sub : (reg_index, reg_index, reg_index)
