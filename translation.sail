@@ -240,6 +240,22 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   let iss = sail_zero_extend(wnr @ dfsc, 25);
   ESR_EL1 = sail_zero_extend((ec @ il) @ iss, 64);
   FAR_EL1 = vaddress;
+
+  /* Save PSTATE to SPSR_EL1 for restoration by ERET */
+  SPSR_EL1 = sail_zero_extend(
+    PSTATE.N @ PSTATE.Z @ PSTATE.C @ PSTATE.V @    /* bits 31-28 */
+    0b0000000000000000000 @                         /* bits 27-9 (reserved/other) */
+    PSTATE.D @                                      /* bit 9 */
+    PSTATE.A @                                      /* bit 8 */
+    PSTATE.I @                                      /* bit 7 */
+    PSTATE.F @                                      /* bit 6 */
+    0b00 @                                          /* bits 5-4 (reserved) */
+    PSTATE.EL @                                     /* bits 3-2 */
+    0b0 @                                           /* bit 1 (reserved) */
+    PSTATE.SP,                                      /* bit 0 */
+    64
+  );
+
   ELR_EL1 = _PC;
 
   _PC = slice(VBAR_EL1, 12, 52) @ vect_offset;
