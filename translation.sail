@@ -258,6 +258,16 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
 
   ELR_EL1 = _PC;
 
+  /* Transition to EL1 and use SP_EL1 */
+  PSTATE.EL = 0b01;
+  PSTATE.SP = 0b1;
+
+  /* Mask interrupts on exception entry */
+  PSTATE.D = 0b1;
+  PSTATE.A = 0b1;
+  PSTATE.I = 0b1;
+  PSTATE.F = 0b1;
+
   _PC = slice(VBAR_EL1, 12, 52) @ vect_offset;
 }
 
