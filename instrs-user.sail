@@ -363,29 +363,42 @@ function clause execute InstructionSynchronizationBarrier() = {
   instructionSynchronizationBarrier()
 }
 
-/* CompareAndBranch: CBZ */
-union clause ast = CompareAndBranch : (reg_index, bits(64))
+/* CompareAndBranch: CBZ and CBNZ */
+/* The boolean flag indicates whether to branch on non-zero (true = CBNZ, false = CBZ) */
+union clause ast = CompareAndBranch : (reg_index, bits(64), bool)
 
-val decodeCompareAndBranch : (bits(19), bits(5)) -> option(ast)
+val decodeCompareAndBranch : (bit, bits(19), bits(5)) -> option(ast)
 
+/* CBZ: sf 011010 0 imm19 Rt */
 function clause decode (0b1@0b011010@0b0@(imm19:bits(19))@(Rt:bits(5))) = {
-  decodeCompareAndBranch(imm19, Rt)
+  decodeCompareAndBranch(bitzero, imm19, Rt)
 }
 
-function decodeCompareAndBranch(imm19, Rt) = {
+/* CBNZ: sf 011010 1 imm19 Rt */
+function clause decode (0b1@0b011010@0b1@(imm19:bits(19))@(Rt:bits(5))) = {
+  decodeCompareAndBranch(bitone, imm19, Rt)
+}
+
+function decodeCompareAndBranch(op, imm19, Rt) = {
   let t : reg_index = unsigned(Rt);
   let offset : bits(64) = sail_sign_extend(imm19@0b00,64);
+  let branch_on_nonzero : bool = (op == bitone);
 
-  Some(CompareAndBranch(t,offset));
+  Some(CompareAndBranch(t, offset, branch_on_nonzero));
 }
 
-/* CBZ Xt, <offset> */
-function clause execute CompareAndBranch(t, offset) = {
+/* CBZ/CBNZ Xt, <offset> */
+function clause execute CompareAndBranch(t, offset, branch_on_nonzero) = {
   /* Ask for the value of register Xt and record it in the local
    * variable operand */
   let operand = X(t);
-  /* Check if operand is 0 */
-  if operand == 0x0000000000000000 then {
+  /* Determine if we should branch:
+   * - CBZ: branch if operand == 0
+   * - CBNZ: branch if operand != 0 */
+  let is_zero = (operand == 0x0000000000000000);
+  let should_branch = if branch_on_nonzero then not_bool(is_zero) else is_zero;
+
+  if should_branch then {
     /* Ask for the value of the program counter register and record it
      * in the local variable base */
     let base = PC();
