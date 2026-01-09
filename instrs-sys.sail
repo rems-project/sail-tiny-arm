@@ -55,19 +55,13 @@ val decodeSystemRegisterMove : (bool, bits(3), bits(4), bits(4), bits(3), bits(5
 /* MRS: 1 1 0 1 0 1 0 1 0 0 1 1 op1CRnCRmop2 Rt */
 /* MSR: 1 1 0 1 0 1 0 1 0 0 0 1 op1CRnCRmop2 Rt */
 /* Combined: 1101010100 L 1 ... */
-function clause decode (0b1101010100@(L:bits(1))@0b1@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4))@(op2:bits(3))@(Rt:bits(5))) = {
+function clause decode (0b1101010100@(L:bits(1))@0b11@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4))@(op2:bits(3))@(Rt:bits(5))) = {
   decodeSystemRegisterMove(L == 0b1, op1, CRn, CRm, op2, Rt)
 }
 
 function decodeSystemRegisterMove(is_read, op1, CRn, CRm, op2, Rt) = {
    Some(SystemRegisterMove(is_read, op1, CRn, CRm, op2, unsigned(Rt)))
-   /* Note: We defer validation to execution time or we could check lookup here.
-      Sail's decode generally allows returning Some(ast) for valid encodings even if the specific system register is potentially unsupported,
-      but checking here is also valid.
-      For now, we return Some(ast) for all encodings matching the MSR/MRS pattern to keep decoders simple. */
 }
-
-
 
 val lookup_sys_reg : (bits(3), bits(4), bits(4), bits(3)) -> option(register(bits(64)))
 function lookup_sys_reg(op1, CRn, CRm, op2) = {

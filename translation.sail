@@ -243,7 +243,7 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
 
   /* Save PSTATE to SPSR_EL1 for restoration by ERET */
   SPSR_EL1 = sail_zero_extend(
-    PSTATE.N @ PSTATE.Z @ PSTATE.C @ PSTATE.V @    /* bits 31-28 */
+    PSTATE.N @ PSTATE.Z @ PSTATE.C @ PSTATE.V @     /* bits 31-28 */
     0b0000000000000000000 @                         /* bits 27-9 (reserved/other) */
     PSTATE.D @                                      /* bit 9 */
     PSTATE.A @                                      /* bit 8 */
