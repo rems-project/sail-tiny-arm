@@ -401,12 +401,12 @@ function clause execute CompareAndBranch(t, offset, branch_on_nonzero) = {
   if should_branch then {
     /* Ask for the value of the program counter register and record it
      * in the local variable base */
-    let base = PC();
+    let base = _PC;
     /* Compute the address */
     let addr = base + offset;
     /* Ask for the value of result to be written to the program counter
      * register */
-    PC() = addr;
+    _PC = addr;
   }
   else _PC = _PC + 4;
 }
