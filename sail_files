@@ -5,4 +5,5 @@ interface.sail
 translation.sail
 instrs-user.sail
 instrs-sys.sail
+instrs-word.sail
 tiny-arm.sail

@@ -334,25 +334,36 @@ function read_memory(N, addr, accdesc) = {
   }
 }
 
+val write_memory : forall 'N, 'N > 0.
+  (int('N), bits(addr_size), bits('N * 8), AccessDescriptor) -> unit
+
+function write_memory(N, addr, value, accdesc) = {
+  let req : Mem_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
+    access_kind = accdesc,
+    address = truncate(addr, addr_size'),
+    address_space = addr_space_def,
+    size = N,
+    num_tag = 0
+  };
+  match sail_mem_write(req, to_bytes_le(N, value), []) {
+    Ok(_) => (),
+    Err(_) => exit(),
+  }
+}
+
+val wMem32 : (bits(addr_size), bits(32), AccessDescriptor) -> unit
+function wMem32(addr, value, accdesc) = write_memory(4, addr, value, accdesc)
+
+val rMem32 : (bits(addr_size), AccessDescriptor) -> bits(32)
+function rMem32(addr, accdesc) = read_memory(4, addr, accdesc)
+
 function iFetch(addr, accdesc) = read_memory(4, addr, accdesc)
 
 function rMem(addr, accdesc) = read_memory(8, addr, accdesc)
 
 function wMem_Addr(addr) = sail_address_announce(64, sail_zero_extend(addr, 64))
 
-function wMem(addr, value, accdesc) = {
-  let req : Mem_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
-    access_kind = accdesc,
-    address = truncate(addr, addr_size'),
-    address_space = addr_space_def,
-    size = 8,
-    num_tag = 0
-  };
-  match sail_mem_write(req, to_bytes_le(8, value), []) {
-    Ok(_) => (),
-    Err(_) => exit(),
-  }
-}
+function wMem(addr, value, accdesc) = write_memory(8, addr, value, accdesc)
 
 instantiation sail_barrier with
   'barrier = Barrier
