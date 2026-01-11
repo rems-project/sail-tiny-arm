@@ -381,6 +381,20 @@ function clause execute Branch(offset) = {
   _PC = target;
 }
 
+/* NOP: No Operation */
+union clause ast = Nop : unit
+
+/* NOP: 1101 0101 0000 0011 0010 0000 0001 1111 = 0xD503201F */
+/* This is HINT #0 (NOP) */
+function clause decode (0b11010101000000110010000000011111) = {
+  Some(Nop())
+}
+
+function clause execute Nop() = {
+  /* Just advance the PC */
+  _PC = _PC + 4;
+}
+
 /* CompareAndBranch: CBZ and CBNZ */
 /* The boolean flag indicates whether to branch on non-zero (true = CBNZ, false = CBZ) */
 union clause ast = CompareAndBranch : (reg_index, bits(64), bool)
