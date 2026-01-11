@@ -363,6 +363,24 @@ function clause execute InstructionSynchronizationBarrier() = {
   instructionSynchronizationBarrier()
 }
 
+/* Branch: B (unconditional) */
+union clause ast = Branch : bits(64)
+
+/* B: 0 00101 imm26 */
+function clause decode (0b0@0b00101@(imm26:bits(26))) = {
+  /* Sign-extend the 26-bit immediate shifted left by 2 to get byte offset */
+  let offset : bits(64) = sail_sign_extend(imm26 @ 0b00, 64);
+  Some(Branch(offset))
+}
+
+/* B <offset> */
+function clause execute Branch(offset) = {
+  /* Compute target address: PC + offset */
+  let target = _PC + offset;
+  /* Update PC to target address */
+  _PC = target;
+}
+
 /* CompareAndBranch: CBZ and CBNZ */
 /* The boolean flag indicates whether to branch on non-zero (true = CBNZ, false = CBZ) */
 union clause ast = CompareAndBranch : (reg_index, bits(64), bool)
