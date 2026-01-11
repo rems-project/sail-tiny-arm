@@ -15,6 +15,6 @@ function fetch_and_execute () = {
   let instr = decode(machineCode);
   match instr {
     Some (instr) => execute(instr),
-    None () => assert (false, "Unsupported Encoding")
+    None () => assert (false, concat_str("Unsupported Encoding: ", bits_str(machineCode)))
   }
 }

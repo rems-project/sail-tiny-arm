@@ -43,7 +43,7 @@ function clause execute TLBInvalidation(op1, CRn, CRm, op2, t) = {
       _PC = _PC + 4;
       reportTLBI(op, va, asid);
     },
-    None() => assert(false, "Unsupported TLBI Operation")
+    None() => assert(false, concat_str("Unsupported TLBI Operation: op1=", concat_str(bits_str(op1), concat_str(" CRn=", concat_str(bits_str(CRn), concat_str(" CRm=", concat_str(bits_str(CRm), concat_str(" op2=", concat_str(bits_str(op2), concat_str(" Rt=", dec_str(t)))))))))))
   }
 }
 
@@ -93,7 +93,7 @@ function clause execute SystemRegisterMove(is_read, op1, CRn, CRm, op2, t) = {
         *reg_ref = X(t)
       }
     },
-    None() => assert(false, "Unsupported System Register")
+    None() => assert(false, concat_str("Unsupported System Register: ", concat_str((if is_read then "MRS" else "MSR"), concat_str(" op1=", concat_str(bits_str(op1), concat_str(" CRn=", concat_str(bits_str(CRn), concat_str(" CRm=", concat_str(bits_str(CRm), concat_str(" op2=", concat_str(bits_str(op2), concat_str(" Rt=", dec_str(t)))))))))))))
   }
 }
 
