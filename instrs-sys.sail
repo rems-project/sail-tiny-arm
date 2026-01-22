@@ -26,16 +26,19 @@ function decodeTLBI(op1, CRn, CRm, op2, Rt) = {
 }
 
 function clause execute TLBInvalidation(op, t) = {
+  _PC = _PC + 4;
+
+  let asid = X(t)[63..48];
+  let va : bits(64) = sail_zero_extend(X(t)[43..0] @ 0x000, 64);
+
   let (va, asid) : (option(bits(64)), option(bits(16))) =
     match op {
       TLBIOp_ALL => (None(), None()),
-      TLBIOp_VA => (Some(X(t)), None()),
-      TLBIOp_ASID => (None(), Some(X(t)[63..48])),
-      TLBIOp_VAA => (Some(X(t)), None()),
+      TLBIOp_VA => (Some(va), Some(asid)),
+      TLBIOp_ASID => (None(), Some(asid)),
+      TLBIOp_VAA => (Some(va), None()),
       _ => return ()
     };
-
-  _PC = _PC + 4;
   reportTLBI(op, va, asid);
 }
 $endif
