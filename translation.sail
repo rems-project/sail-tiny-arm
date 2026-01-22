@@ -241,28 +241,28 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   ESR_EL1 = sail_zero_extend((ec @ il) @ iss, 64);
   FAR_EL1 = vaddress;
 
-  /* Save PSTATE to SPSR_EL1 for restoration by ERET */
+  // Save PSTATE to SPSR_EL1 for restoration by ERET
   SPSR_EL1 = sail_zero_extend(
-    PSTATE.N @ PSTATE.Z @ PSTATE.C @ PSTATE.V @     /* bits 31-28 */
-    0b0000000000000000000 @                         /* bits 27-9 (reserved/other) */
-    PSTATE.D @                                      /* bit 9 */
-    PSTATE.A @                                      /* bit 8 */
-    PSTATE.I @                                      /* bit 7 */
-    PSTATE.F @                                      /* bit 6 */
-    0b00 @                                          /* bits 5-4 (reserved) */
-    PSTATE.EL @                                     /* bits 3-2 */
-    0b0 @                                           /* bit 1 (reserved) */
-    PSTATE.SP,                                      /* bit 0 */
+    PSTATE.N @ PSTATE.Z @ PSTATE.C @ PSTATE.V @     // bits 31-28
+    0b0000000000000000000 @                         // bits 27-9 (reserved/other)
+    PSTATE.D @                                      // bit 9
+    PSTATE.A @                                      // bit 8
+    PSTATE.I @                                      // bit 7
+    PSTATE.F @                                      // bit 6
+    0b00 @                                          // bits 5-4 (reserved)
+    PSTATE.EL @                                     // bits 3-2
+    0b0 @                                           // bit 1 (reserved)
+    PSTATE.SP,                                      // bit 0
     64
   );
 
   ELR_EL1 = _PC;
 
-  /* Transition to EL1 and use SP_EL1 */
+  // Transition to EL1 and use SP_EL1
   PSTATE.EL = 0b01;
   PSTATE.SP = 0b1;
 
-  /* Mask interrupts on exception entry */
+  // Mask interrupts on exception entry
   PSTATE.D = 0b1;
   PSTATE.A = 0b1;
   PSTATE.I = 0b1;
