@@ -78,17 +78,6 @@ function clause execute SubImmediate32(d, n, imm12) = {
   X(d) = sail_zero_extend(result, 64);
 }
 
-/* ========================================================================
- * Logical Instructions: EOR with 32-bit support
- * ========================================================================
- *
- * Encoding (shifted register):
- *   sf 10 01010 shift N Rm imm6 Rn Rd
- *
- * When sf=0: 32-bit operation, imm6[5] must be 0
- * When sf=1: 64-bit operation
- */
-
 union clause ast = ExclusiveOr32 : (reg_index, reg_index, reg_index)
 
 /* EOR (shifted register) - 32-bit: 0 10 01010 shift N Rm imm6 Rn Rd */
@@ -111,17 +100,6 @@ function clause execute ExclusiveOr32(d, n, m) = {
   X(d) = sail_zero_extend(result, 64);
 }
 
-/* ========================================================================
- * Move Instructions: MOV with 32-bit support
- * ========================================================================
- *
- * MOV (register) is alias of ORR (shifted register):
- *   sf 0 101010 00 0 Rm 000000 11111 Rd
- *
- * When sf=0: MOV Wd, Wm (zero-extends to 64 bits)
- * When sf=1: MOV Xd, Xm
- */
-
 union clause ast = Move32 : (reg_index, reg_index)
 
 /* MOV Wd, Wm - 32-bit: 0 0 101010 00 0 Rm 000000 11111 Rd */
@@ -137,17 +115,6 @@ function clause execute Move32(d, m) = {
   let value : bits(32) = X(m)[31..0];
   X(d) = sail_zero_extend(value, 64);
 }
-
-/* ========================================================================
- * Move Wide Instructions: MOVZ with 32-bit support
- * ========================================================================
- *
- * Encoding:
- *   sf 10 100101 hw imm16 Rd
- *
- * When sf=0: 32-bit, hw must be 0x or 1x (pos 0 or 16)
- * When sf=1: 64-bit, hw can be 00, 01, 10, or 11
- */
 
 union clause ast = MoveWide32 : (reg_index, bits(16), bits(2))
 
@@ -169,17 +136,6 @@ function clause execute MoveWide32(d, imm, hw) = {
   };
   X(d) = sail_zero_extend(res, 64);
 }
-
-/* ========================================================================
- * Compare and Branch: CBZ/CBNZ with 32-bit support
- * ========================================================================
- *
- * Encoding:
- *   sf 011010 op imm19 Rt
- *
- * When sf=0: Compare lower 32 bits of Wt
- * When sf=1: Compare full 64 bits of Xt
- */
 
 union clause ast = CompareAndBranch32 : (reg_index, bits(64), bool)
 
@@ -212,29 +168,6 @@ function clause execute CompareAndBranch32(t, offset, branch_on_nonzero) = {
   else _PC = _PC + 4;
 }
 
-/* ========================================================================
- * Load/Store Instructions: 32-bit (word) variants
- * ========================================================================
- *
- * Load/Store use size field (bits [31:30]) instead of sf:
- *   00 = byte (8-bit)
- *   01 = halfword (16-bit)
- *   10 = word (32-bit)      <-- This file implements these
- *   11 = doubleword (64-bit)
- *
- * For word (32-bit) loads:
- *   - LDR Wt, [Xn, ...] loads 32 bits and zero-extends to 64
- *   - STR Wt, [Xn, ...] stores lower 32 bits
- *
- * Encoding (unsigned immediate):
- *   size 111 0 01 opc imm12 Rn Rt
- *   size=10 for 32-bit word operations
- *
- * Encoding (register offset):
- *   size 111 0 00 opc 1 Rm option S 10 Rn Rt
- *   size=10 for 32-bit word operations
- */
-
 union clause ast = LoadRegister32 : (reg_index, reg_index, reg_index)
 union clause ast = StoreRegister32 : (reg_index, reg_index, reg_index)
 union clause ast = LoadImmediate32 : (reg_index, reg_index, bits(12))
@@ -255,10 +188,8 @@ function decodeLoadStoreRegister32 (opc, Rm, option_v, S, Rn, Rt) = {
   /* option_v == 0b011 and S == 0 means offset used as-is (no shift/extend) */
   /* For 32-bit with S==1, offset would be shifted by 2 (scale for 4-byte access) */
   if option_v != 0b011 then None ()
-  else if opc == 0b01
-  then Some(LoadRegister32((t,n,m)))
-  else if opc == 0b00
-  then Some(StoreRegister32((t,n,m)))
+  else if opc == 0b01 then Some(LoadRegister32((t,n,m)))
+  else if opc == 0b00 then Some(StoreRegister32((t,n,m)))
   else None ();
 }
 
@@ -328,6 +259,7 @@ function clause execute LoadImmediate32(t, n, imm12) = {
       Some(addr) => addr,
       None() => return ()
     };
+
   _PC = _PC + 4;
   let data : bits(32) = rMem32(addr, accdesc);
   X(t) = sail_zero_extend(data, 64);
@@ -345,53 +277,9 @@ function clause execute StoreImmediate32(t, n, imm12) = {
       Some(addr) => addr,
       None() => return ()
     };
+
   wMem_Addr(addr);
   _PC = _PC + 4;
   let data : bits(32) = X(t)[31..0];
   wMem32(addr, data, accdesc);
 }
-
-/* ========================================================================
- * Required Helper Functions (to be added to memory interface)
- * ========================================================================
- *
- * The following functions are needed for 32-bit memory operations:
- *
- * val rMem32 : (bits(addr_size), AccessDescriptor) -> bits(32)
- * val wMem32 : (bits(addr_size), bits(32), AccessDescriptor) -> unit
- *
- * These should read/write 4 bytes from/to memory at the given address.
- */
-
-/* ========================================================================
- * Future Extensions
- * ========================================================================
- *
- * Additional instructions that could support 32-bit variants:
- *
- * Logical operations:
- *   - AND, ORR, BIC, EON, ORN (shifted register)
- *   - AND, ORR, EOR (immediate) - uses different bitmask encoding
- *
- * Arithmetic with flags:
- *   - ADDS, SUBS (set flags based on 32-bit result)
- *   - CMP, CMN (compare using 32-bit operands)
- *
- * Shift/rotate:
- *   - LSL, LSR, ASR, ROR (shift amount mod 32 for W registers)
- *
- * Bit manipulation:
- *   - CLZ, CLS, RBIT, REV (operate on 32 bits)
- *
- * Multiply:
- *   - MUL, MADD, MSUB (32-bit multiply)
- *   - SMULL, UMULL (32x32->64 widening multiply)
- *
- * Division:
- *   - SDIV, UDIV (32-bit division)
- *
- * Load/Store additional sizes:
- *   - LDRB/STRB (8-bit byte)
- *   - LDRH/STRH (16-bit halfword)
- *   - LDRSB/LDRSH/LDRSW (sign-extending loads)
- */
