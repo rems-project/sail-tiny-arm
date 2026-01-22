@@ -31,7 +31,7 @@ function clause execute LoadRegister(t, n, m) = {
   let offset = X(m);
   /* Compute the address */
   let addr = base_addr + offset;
-  let accdesc = create_readAccessDescriptor();
+  let accdesc = create_readAccessDescriptor(false, false, false);
   /* Translate the virtual address into the physical address.
    * In the user mode, `translate_address` returns input address. */
   let addr : bits(addr_size) =
@@ -58,7 +58,7 @@ function clause execute StoreRegister(t, n, m) = {
   let offset = X(m);
   /* Compute the address */
   let addr = base_addr + offset;
-  let accdesc = create_writeAccessDescriptor();
+  let accdesc = create_writeAccessDescriptor(false, false);
   /* Translate the virtual address into the physical address.
    * In the user mode, `translate_address` returns input address. */
   let addr : bits(addr_size) =
@@ -106,7 +106,7 @@ function clause execute LoadImmediate(t, n, imm12) = {
   /* The immediate is scaled by the instruction size 8 */
   let offset : bits(64) = sail_zero_extend(imm12 @ 0b000, 64);
   let addr = base_addr + offset;
-  let accdesc = create_readAccessDescriptor();
+  let accdesc = create_readAccessDescriptor(false, false, false);
   /* Translate the virtual address into the physical address.
    * In the user mode, `translate_address` returns input address. */
   let addr : bits(addr_size) =
@@ -125,7 +125,7 @@ function clause execute StoreImmediate(t, n, imm12) = {
   let base_addr = X(n);
   let offset : bits(64) = sail_zero_extend(imm12 @ 0b000, 64);
   let addr = base_addr + offset;
-  let accdesc = create_writeAccessDescriptor();
+  let accdesc = create_writeAccessDescriptor(false, false);
   /* Translate the virtual address into the physical address.
    * In the user mode, `translate_address` returns input address. */
   let addr : bits(addr_size) =

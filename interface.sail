@@ -93,18 +93,23 @@ function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = stru
 }
 
 $ifdef SYSTEM_TINY_ARM
-function create_writeAccessDescriptor() -> AccessDescriptor = {
+function create_writeAccessDescriptor(exclusive: bool, relsc: bool) -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.write = true;
   accdesc.read = false;
+  accdesc.exclusive = exclusive;
+  accdesc.relsc = relsc;
   accdesc.el = PSTATE.EL;
   accdesc
 }
 
-function create_readAccessDescriptor() -> AccessDescriptor = {
+function create_readAccessDescriptor(exclusive: bool, acqsc: bool, acqpc: bool) -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.read = true;
   accdesc.write = false;
+  accdesc.exclusive = exclusive;
+  accdesc.acqsc = acqsc;
+  accdesc.acqpc = acqpc;
   accdesc.el = PSTATE.EL;
   accdesc
 }
@@ -117,18 +122,23 @@ function create_iFetchAccessDescriptor() -> AccessDescriptor = {
   accdesc
 }
 $else
-function create_writeAccessDescriptor() -> AccessDescriptor = {
+function create_writeAccessDescriptor(exclusive: bool, relsc: bool) -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.write = true;
   accdesc.read = false;
+  accdesc.exclusive = exclusive;
+  accdesc.relsc = relsc;
   accdesc.el = 0b00;
   accdesc
 }
 
-function create_readAccessDescriptor() -> AccessDescriptor = {
+function create_readAccessDescriptor(exclusive: bool, acqsc: bool, acqpc: bool) -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.read = true;
   accdesc.write = false;
+  accdesc.exclusive = exclusive;
+  accdesc.acqsc = acqsc;
+  accdesc.acqpc = acqpc;
   accdesc.el = 0b00;
   accdesc
 }
@@ -364,6 +374,30 @@ function rMem(addr, accdesc) = read_memory(8, addr, accdesc)
 function wMem_Addr(addr) = sail_address_announce(64, sail_zero_extend(addr, 64))
 
 function wMem(addr, value, accdesc) = write_memory(8, addr, value, accdesc)
+
+/* Exclusive write helpers - return 0 on success, 1 on failure */
+val write_memory_exclusive : forall 'N, 'N > 0.
+  (int('N), bits(addr_size), bits('N * 8), AccessDescriptor) -> bits(1)
+
+function write_memory_exclusive(N, addr, value, accdesc) = {
+  let req : Mem_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
+    access_kind = accdesc,
+    address = truncate(addr, addr_size'),
+    address_space = addr_space_def,
+    size = N,
+    num_tag = 0
+  };
+  match sail_mem_write(req, to_bytes_le(N, value), []) {
+    Ok(_) => 0b0,  /* Success */
+    Err(_) => 0b1, /* Failure - exclusive monitor cleared */
+  }
+}
+
+val wMemExclusive : (bits(addr_size), bits(64), AccessDescriptor) -> bits(1)
+function wMemExclusive(addr, value, accdesc) = write_memory_exclusive(8, addr, value, accdesc)
+
+val wMemExclusive32 : (bits(addr_size), bits(32), AccessDescriptor) -> bits(1)
+function wMemExclusive32(addr, value, accdesc) = write_memory_exclusive(4, addr, value, accdesc)
 
 instantiation sail_barrier with
   'barrier = Barrier

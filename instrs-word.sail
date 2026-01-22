@@ -267,7 +267,7 @@ function clause execute LoadRegister32(t, n, m) = {
   let base_addr = X(n);
   let offset = X(m);
   let addr = base_addr + offset;
-  let accdesc = create_readAccessDescriptor();
+  let accdesc = create_readAccessDescriptor(false, false, false);
   let addr : bits(addr_size) =
     match translate_address(addr, accdesc) {
       Some(addr) => addr,
@@ -285,7 +285,7 @@ function clause execute StoreRegister32(t, n, m) = {
   let base_addr = X(n);
   let offset = X(m);
   let addr = base_addr + offset;
-  let accdesc = create_writeAccessDescriptor();
+  let accdesc = create_writeAccessDescriptor(false, false);
   let addr : bits(addr_size) =
     match translate_address(addr, accdesc) {
       Some(addr) => addr,
@@ -322,7 +322,7 @@ function clause execute LoadImmediate32(t, n, imm12) = {
   /* The immediate is scaled by 4 (word size) */
   let offset : bits(64) = sail_zero_extend(imm12 @ 0b00, 64);
   let addr = base_addr + offset;
-  let accdesc = create_readAccessDescriptor();
+  let accdesc = create_readAccessDescriptor(false, false, false);
   let addr : bits(addr_size) =
     match translate_address(addr, accdesc) {
       Some(addr) => addr,
@@ -339,7 +339,7 @@ function clause execute StoreImmediate32(t, n, imm12) = {
   /* The immediate is scaled by 4 (word size) */
   let offset : bits(64) = sail_zero_extend(imm12 @ 0b00, 64);
   let addr = base_addr + offset;
-  let accdesc = create_writeAccessDescriptor();
+  let accdesc = create_writeAccessDescriptor(false, false);
   let addr : bits(addr_size) =
     match translate_address(addr, accdesc) {
       Some(addr) => addr,
@@ -395,3 +395,192 @@ function clause execute StoreImmediate32(t, n, imm12) = {
  *   - LDRH/STRH (16-bit halfword)
  *   - LDRSB/LDRSH/LDRSW (sign-extending loads)
  */
+
+/* ========================================================================
+ * Exclusive and Acquire/Release Load/Store Instructions (32-bit)
+ * ========================================================================
+ *
+ * 32-bit variants of exclusive and acquire/release memory access.
+ * See instrs-atomic.sail for 64-bit variants and detailed documentation.
+ */
+
+/* ========================================================================
+ * Load Exclusive Register (LDXR) - 32-bit
+ * ========================================================================
+ */
+
+union clause ast = LoadExclusive32 : (reg_index, reg_index)
+
+/* LDXR Wt, [Xn]
+ * Encoding: 10 001000 0 1 0 11111 0 11111 Rn Rt */
+function clause decode (0b10@0b001000@0b0@0b1@0b0@0b11111@0b0@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  Some(LoadExclusive32(unsigned(Rt), unsigned(Rn)))
+}
+
+/* LDXR Wt, [Xn] - 32-bit */
+function clause execute LoadExclusive32(t, n) = {
+  let addr = X(n);
+  let accdesc = create_readAccessDescriptor(true, false, false);
+
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return ()
+    };
+
+  _PC = _PC + 4;
+  let data : bits(32) = rMem32(addr, accdesc);
+  X(t) = sail_zero_extend(data, 64);
+}
+
+/* ========================================================================
+ * Store Exclusive Register (STXR) - 32-bit
+ * ========================================================================
+ */
+
+union clause ast = StoreExclusive32 : (reg_index, reg_index, reg_index)
+
+/* STXR Ws, Wt, [Xn]
+ * Encoding: 10 001000 0 0 0 Rs 0 11111 Rn Rt */
+function clause decode (0b10@0b001000@0b0@0b0@0b0@(Rs:bits(5))@0b0@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  Some(StoreExclusive32(unsigned(Rs), unsigned(Rt), unsigned(Rn)))
+}
+
+/* STXR Ws, Wt, [Xn] - 32-bit */
+function clause execute StoreExclusive32(s, t, n) = {
+  let addr = X(n);
+  let accdesc = create_writeAccessDescriptor(true, false);
+
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return ()
+    };
+
+  wMem_Addr(addr);
+  _PC = _PC + 4;
+  let data : bits(32) = X(t)[31..0];
+
+  let status = wMemExclusive32(addr, data, accdesc);
+  X(s) = sail_zero_extend(status, 64);
+}
+
+/* ========================================================================
+ * Load-Acquire Exclusive Register (LDAXR) - 32-bit
+ * ========================================================================
+ */
+
+union clause ast = LoadAcquireExclusive32 : (reg_index, reg_index)
+
+/* LDAXR Wt, [Xn]
+ * Encoding: 10 001000 0 1 0 11111 1 11111 Rn Rt */
+function clause decode (0b10@0b001000@0b0@0b1@0b0@0b11111@0b1@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  Some(LoadAcquireExclusive32(unsigned(Rt), unsigned(Rn)))
+}
+
+/* LDAXR Wt, [Xn] - 32-bit */
+function clause execute LoadAcquireExclusive32(t, n) = {
+  let addr = X(n);
+  let accdesc = create_readAccessDescriptor(true, true, false);
+
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return ()
+    };
+
+  _PC = _PC + 4;
+  let data : bits(32) = rMem32(addr, accdesc);
+  X(t) = sail_zero_extend(data, 64);
+}
+
+/* ========================================================================
+ * Store-Release Exclusive Register (STLXR) - 32-bit
+ * ========================================================================
+ */
+
+union clause ast = StoreReleaseExclusive32 : (reg_index, reg_index, reg_index)
+
+/* STLXR Ws, Wt, [Xn]
+ * Encoding: 10 001000 0 0 0 Rs 1 11111 Rn Rt */
+function clause decode (0b10@0b001000@0b0@0b0@0b0@(Rs:bits(5))@0b1@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  Some(StoreReleaseExclusive32(unsigned(Rs), unsigned(Rt), unsigned(Rn)))
+}
+
+/* STLXR Ws, Wt, [Xn] - 32-bit */
+function clause execute StoreReleaseExclusive32(s, t, n) = {
+  let addr = X(n);
+  let accdesc = create_writeAccessDescriptor(true, true);
+
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return ()
+    };
+
+  wMem_Addr(addr);
+  _PC = _PC + 4;
+  let data : bits(32) = X(t)[31..0];
+
+  let status = wMemExclusive32(addr, data, accdesc);
+  X(s) = sail_zero_extend(status, 64);
+}
+
+/* ========================================================================
+ * Load-Acquire Register (LDAR) - 32-bit
+ * ========================================================================
+ */
+
+union clause ast = LoadAcquire32 : (reg_index, reg_index)
+
+/* LDAR Wt, [Xn]
+ * Encoding: 10 001000 1 1 0 11111 1 11111 Rn Rt */
+function clause decode (0b10@0b001000@0b1@0b1@0b0@0b11111@0b1@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  Some(LoadAcquire32(unsigned(Rt), unsigned(Rn)))
+}
+
+/* LDAR Wt, [Xn] - 32-bit */
+function clause execute LoadAcquire32(t, n) = {
+  let addr = X(n);
+  let accdesc = create_readAccessDescriptor(false, true, false);
+
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return ()
+    };
+
+  _PC = _PC + 4;
+  let data : bits(32) = rMem32(addr, accdesc);
+  X(t) = sail_zero_extend(data, 64);
+}
+
+/* ========================================================================
+ * Store-Release Register (STLR) - 32-bit
+ * ========================================================================
+ */
+
+union clause ast = StoreRelease32 : (reg_index, reg_index)
+
+/* STLR Wt, [Xn]
+ * Encoding: 10 001000 1 0 0 11111 1 11111 Rn Rt */
+function clause decode (0b10@0b001000@0b1@0b0@0b0@0b11111@0b1@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  Some(StoreRelease32(unsigned(Rt), unsigned(Rn)))
+}
+
+/* STLR Wt, [Xn] - 32-bit */
+function clause execute StoreRelease32(t, n) = {
+  let addr = X(n);
+  let accdesc = create_writeAccessDescriptor(false, true);
+
+  let addr : bits(addr_size) =
+    match translate_address(addr, accdesc) {
+      Some(addr) => addr,
+      None() => return ()
+    };
+
+  wMem_Addr(addr);
+  _PC = _PC + 4;
+  let data : bits(32) = X(t)[31..0];
+  wMem32(addr, data, accdesc);
+}
