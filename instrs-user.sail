@@ -1,6 +1,5 @@
 /* Helper functions for Load/Store operations */
-val execute_load : (reg_index, bits(64)) -> unit
-function execute_load(t, vaddr) = {
+function execute_load(t : reg_index, vaddr : bits(64)) -> unit = {
   let accdesc = create_readAccessDescriptor();
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns input address. */
@@ -16,8 +15,7 @@ function execute_load(t, vaddr) = {
   X(t) = data;
 }
 
-val execute_store : (reg_index, bits(64)) -> unit
-function execute_store(t, vaddr) = {
+function execute_store(t : reg_index, vaddr : bits(64)) -> unit = {
   let accdesc = create_writeAccessDescriptor();
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns input address. */
@@ -35,9 +33,9 @@ function execute_store(t, vaddr) = {
   wMem(addr, data, accdesc);
 }
 
-/* LoadStoreRegister: LDR and STR */
-union clause ast = LoadRegister : (reg_index, reg_index, reg_index)
-union clause ast = StoreRegister : (reg_index, reg_index, reg_index)
+/* LoadStore: LDR and STR (register and immediate forms) */
+union clause ast = Load : (reg_index, reg_index, operand)
+union clause ast = Store : (reg_index, reg_index, operand)
 
 val decodeLoadStoreRegister : (bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
 
@@ -50,26 +48,10 @@ function decodeLoadStoreRegister (opc, Rm, option_v, S, Rn, Rt) = {
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
   if option_v != 0b011 | S == bitone then None ()
-  else if opc == 0b01 then Some(LoadRegister((t,n,m)))
-  else if opc == 0b00 then Some(StoreRegister((t,n,m)))
+  else if opc == 0b01 then Some(Load((t, n, OperandReg(m))))
+  else if opc == 0b00 then Some(Store((t, n, OperandReg(m))))
   else None ();
 }
-
-/* LDR Xt, [Xn, Xm] */
-function clause execute LoadRegister(t, n, m) = {
-  let addr = X(n) + X(m);
-  execute_load(t, addr);
-}
-
-/* STR Xt, [Xn, Xm] */
-function clause execute StoreRegister(t, n, m) = {
-  let addr = X(n) + X(m);
-  execute_store(t, addr);
-}
-
-/* LoadStoreImmediate: LDR and STR (unsigned immediate) */
-union clause ast = LoadImmediate : (reg_index, reg_index, bits(12))
-union clause ast = StoreImmediate : (reg_index, reg_index, bits(12))
 
 val decodeLoadStoreImmediate : (bits(2), bits(12), bits(5), bits(5)) -> option(ast)
 
@@ -81,20 +63,26 @@ function clause decode (0b11@0b111@0b0@0b01@(opc:bits(2))@(imm12:bits(12))@(Rn:b
 function decodeLoadStoreImmediate (opc, imm12, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
-  if opc == 0b01 then Some(LoadImmediate((t,n,imm12)))
-  else if opc == 0b00 then Some(StoreImmediate((t,n,imm12)))
+  if opc == 0b01 then Some(Load((t, n, OperandImm(imm12))))
+  else if opc == 0b00 then Some(Store((t, n, OperandImm(imm12))))
   else None()
 }
 
-/* LDR Xt, [Xn, #pimm] - immediate scaled by 8 */
-function clause execute LoadImmediate(t, n, imm12) = {
-  let addr = X(n) + sail_zero_extend(imm12 @ 0b000, 64);
+/* LDR Xt, [Xn, Xm] or LDR Xt, [Xn, #pimm] */
+function clause execute Load(t, n, op) = {
+  let addr : bits(64) = match op {
+    OperandReg(m) => X(n) + X(m),
+    OperandImm(imm12) => X(n) + sail_zero_extend(imm12 @ 0b000, 64)
+  };
   execute_load(t, addr);
 }
 
-/* STR Xt, [Xn, #pimm] - immediate scaled by 8 */
-function clause execute StoreImmediate(t, n, imm12) = {
-  let addr = X(n) + sail_zero_extend(imm12 @ 0b000, 64);
+/* STR Xt, [Xn, Xm] or STR Xt, [Xn, #pimm] */
+function clause execute Store(t, n, op) = {
+  let addr : bits(64) = match op {
+    OperandReg(m) => X(n) + X(m),
+    OperandImm(imm12) => X(n) + sail_zero_extend(imm12 @ 0b000, 64)
+  };
   execute_store(t, addr);
 }
 
@@ -132,8 +120,8 @@ function clause execute ExclusiveOr(d, n, m) = {
   X(d) = operand1 ^ operand2;
 }
 
-/* Move */
-union clause ast = Move : (reg_index, reg_index)
+/* Move (register and immediate forms) */
+union clause ast = Move : (reg_index, move_operand)
 
 /* MOV (register) - Alias of ORR (shifted register) */
 /* ORR (shifted register): sf 0 101010 shift 0 Rm imm6 Rn Rd */
@@ -141,41 +129,33 @@ union clause ast = Move : (reg_index, reg_index)
 function clause decode (0b1@0b0@0b101010@0b00@0b0@(Rm:bits(5))@0b000000@0b11111@(Rd:bits(5))) = {
   let d : reg_index = unsigned(Rd);
   let m : reg_index = unsigned(Rm);
-  Some(Move((d,m)))
+  Some(Move((d, MoveReg(m))))
 }
-
-/* MOV Xd, Xm */
-function clause execute Move(d, m) = {
-  _PC = _PC + 4;
-  X(d) = X(m);
-}
-
-/* Move Wide (Immediate) */
-union clause ast = MoveWide : (reg_index, bits(16), bits(2))
 
 /* MOVZ: 1 10 100101 hw imm16 Rd */
 function clause decode (0b1@0b10@0b100101@(hw:bits(2))@(imm16:bits(16))@(Rd:bits(5))) = {
   let d : reg_index = unsigned(Rd);
-  Some(MoveWide(d, imm16, hw))
+  Some(Move((d, MoveImm(struct { imm = imm16, hw = hw }))))
 }
 
-/* MOVZ Xd, #imm, LSL #shift */
-function clause execute MoveWide(d, imm, hw) = {
+/* MOV Xd, Xm or MOVZ Xd, #imm, LSL #shift */
+function clause execute Move(d, op) = {
   _PC = _PC + 4;
-  let res : bits(64) = match hw {
-    0b00 => sail_zero_extend(imm, 64),                /* imm at bits [15:0] */
-    0b01 => sail_zero_extend(imm, 48) @ 0x0000,       /* imm at bits [31:16] */
-    0b10 => sail_zero_extend(imm, 32) @ 0x00000000,   /* imm at bits [47:32] */
-    0b11 => imm @ 0x000000000000                      /* imm at bits [63:48] */
+  let res : bits(64) = match op {
+    MoveReg(m) => X(m),
+    MoveImm(data) => match data.hw {
+      0b00 => sail_zero_extend(data.imm, 64),                /* imm at bits [15:0] */
+      0b01 => sail_zero_extend(data.imm, 48) @ 0x0000,       /* imm at bits [31:16] */
+      0b10 => sail_zero_extend(data.imm, 32) @ 0x00000000,   /* imm at bits [47:32] */
+      0b11 => data.imm @ 0x000000000000                      /* imm at bits [63:48] */
+    }
   };
   X(d) = res;
 }
 
-/* Arithmetic: ADD/SUB (register and immediate) */
-union clause ast = Add : (reg_index, reg_index, reg_index)
-union clause ast = Sub : (reg_index, reg_index, reg_index)
-union clause ast = AddImmediate : (reg_index, reg_index, bits(12))
-union clause ast = SubImmediate : (reg_index, reg_index, bits(12))
+/* Arithmetic: ADD/SUB (register and immediate forms) */
+union clause ast = Add : (reg_index, reg_index, operand)
+union clause ast = Sub : (reg_index, reg_index, operand)
 
 val decodeAddSub : (bit, bit, bit, bits(2), bits(12), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
 
@@ -207,46 +187,36 @@ function decodeAddSub (sf, op, is_imm, shift, imm12, imm6, Rm, Rn, Rd) = {
   if is_imm == bitzero then {
     /* Register form */
     if imm6 != 0b000000 then None () /* We only support unshifted for now */
-    else if op == bitzero then Some(Add((d,n,m)))
-    else Some(Sub((d,n,m)))
+    else if op == bitzero then Some(Add((d, n, OperandReg(m))))
+    else Some(Sub((d, n, OperandReg(m))))
   } else {
     /* Immediate form - only support shift == 0b00 (no shift) for now */
     if shift == 0b00 then {
-      if op == bitzero then Some(AddImmediate((d,n,imm12)))
-      else Some(SubImmediate((d,n,imm12)))
+      if op == bitzero then Some(Add((d, n, OperandImm(imm12))))
+      else Some(Sub((d, n, OperandImm(imm12))))
     } else None()
   }
 }
 
-/* ADD Xd, Xn, Xm */
-function clause execute Add(d, n, m) = {
+/* ADD Xd, Xn, Xm or ADD Xd, Xn, #imm */
+function clause execute Add(d, n, op) = {
   _PC = _PC + 4;
   let op1 = X(n);
-  let op2 = X(m);
+  let op2 : bits(64) = match op {
+    OperandReg(m) => X(m),
+    OperandImm(imm12) => sail_zero_extend(imm12, 64)
+  };
   X(d) = op1 + op2;
 }
 
-/* SUB Xd, Xn, Xm */
-function clause execute Sub(d, n, m) = {
+/* SUB Xd, Xn, Xm or SUB Xd, Xn, #imm */
+function clause execute Sub(d, n, op) = {
   _PC = _PC + 4;
   let op1 = X(n);
-  let op2 = X(m);
-  X(d) = op1 + (not_vec(op2) + 1);
-}
-
-/* ADD Xd, Xn, #imm */
-function clause execute AddImmediate(d, n, imm12) = {
-  _PC = _PC + 4;
-  let op1 = X(n);
-  let op2 : bits(64) = sail_zero_extend(imm12, 64);
-  X(d) = op1 + op2;
-}
-
-/* SUB Xd, Xn, #imm */
-function clause execute SubImmediate(d, n, imm12) = {
-  _PC = _PC + 4;
-  let op1 = X(n);
-  let op2 : bits(64) = sail_zero_extend(imm12, 64);
+  let op2 : bits(64) = match op {
+    OperandReg(m) => X(m),
+    OperandImm(imm12) => sail_zero_extend(imm12, 64)
+  };
   X(d) = op1 + (not_vec(op2) + 1);
 }
 

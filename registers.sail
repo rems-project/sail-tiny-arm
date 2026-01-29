@@ -1,5 +1,23 @@
 type reg_index = range(0, 31)
 
+/* Operand type: either a register or a 12-bit immediate */
+union operand = {
+  OperandReg : reg_index,
+  OperandImm : bits(12)
+}
+
+/* Move immediate data: 16-bit immediate with 2-bit shift */
+struct move_imm_data = {
+  imm : bits(16),
+  hw : bits(2)
+}
+
+/* Move operand type: either a register or a 16-bit immediate with shift */
+union move_operand = {
+  MoveReg : reg_index,
+  MoveImm : move_imm_data
+}
+
 register _PC : bits(64)
 
 /* General purpose registers */
