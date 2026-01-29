@@ -25,18 +25,23 @@ function decodeTLBI(op1, CRn, CRm, op2, Rt) = {
   Some(TLBInvalidation(tlbi_op, t))
 }
 
+function decodeASID(v: bits(64)) -> bits(16) = v[63..48]
+
+function decodeVA(v: bits(64)) -> bits(64) =
+  sail_zero_extend(v[43..0] @ 0x000, 64)
+
 function clause execute TLBInvalidation(op, t) = {
   _PC = _PC + 4;
-
-  let asid = X(t)[63..48];
-  let va : bits(64) = sail_zero_extend(X(t)[43..0] @ 0x000, 64);
 
   let (va, asid) : (option(bits(64)), option(bits(16))) =
     match op {
       TLBIOp_ALL => (None(), None()),
-      TLBIOp_VA => (Some(va), Some(asid)),
-      TLBIOp_ASID => (None(), Some(asid)),
-      TLBIOp_VAA => (Some(va), None()),
+      TLBIOp_VA => {
+        let v = X(t);
+        (Some(decodeVA(v)), Some(decodeASID(v)))
+      },
+      TLBIOp_ASID => (None(), Some(decodeASID(X(t)))),
+      TLBIOp_VAA => (Some(decodeVA(X(t))), None()),
       _ => return ()
     };
   reportTLBI(op, va, asid);
