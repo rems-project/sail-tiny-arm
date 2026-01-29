@@ -396,3 +396,23 @@ function clause execute CompareAndBranch(sf, t, offset, iszero) = {
   }
   else _PC = _PC + 4;
 }
+
+/* Unconditional Branch: B */
+union clause ast = Branch : bits(64)
+
+/* B <label> - Encoding: 0 00101 imm26 */
+function clause decode (0b0@0b00101@(imm26:bits(26))) = {
+  /* Sign-extend imm26 shifted left by 2 to get byte offset */
+  let offset : bits(64) = sail_sign_extend(imm26 @ 0b00, 64);
+  Some(Branch(offset))
+}
+
+/* B <offset> */
+function clause execute Branch(offset) = {
+  /* Get the current program counter */
+  let base = PC();
+  /* Compute the target address (PC-relative) */
+  let target = base + offset;
+  /* Branch to the target address */
+  PC() = target;
+}
