@@ -307,9 +307,9 @@ instantiation sail_mem_address_announce with
 
 /* See tiny-arm for descriptions, interface for definitions */
 val iFetch : (bits(addr_size), AccessDescriptor) -> bits(32)
-val rMem : (bits(addr_size), AccessDescriptor) -> bits(64)
+val rMem : forall 'N, 'N > 0. (int('N), bits(addr_size), AccessDescriptor) -> bits('N * 8)
 val wMem_Addr : bits(addr_size) -> unit
-val wMem : (bits(addr_size), bits(64), AccessDescriptor) -> unit
+val wMem : forall 'N, 'N > 0. (int('N), bits(addr_size), bits('N * 8), AccessDescriptor) -> unit
 val dataMemoryBarrier : (MBReqDomain, MBReqTypes) -> unit
 val dataSynchronizationBarrer : (MBReqDomain, MBReqTypes) -> unit
 val instructionSynchronizationBarrier : unit -> unit
@@ -336,19 +336,19 @@ function read_memory(N, addr, accdesc) = {
 
 function iFetch(addr, accdesc) = read_memory(4, addr, accdesc)
 
-function rMem(addr, accdesc) = read_memory(8, addr, accdesc)
+function rMem(N, addr, accdesc) = read_memory(N, addr, accdesc)
 
 function wMem_Addr(addr) = sail_address_announce(64, sail_zero_extend(addr, 64))
 
-function wMem(addr, value, accdesc) = {
-  let req : Mem_request(8, 0, addr_size, addr_space, AccessDescriptor) = struct {
+function wMem(N, addr, value, accdesc) = {
+  let req : Mem_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
     access_kind = accdesc,
     address = truncate(addr, addr_size'),
     address_space = addr_space_def,
-    size = 8,
+    size = N,
     num_tag = 0
   };
-  match sail_mem_write(req, to_bytes_le(8, value), []) {
+  match sail_mem_write(req, to_bytes_le(N, value), []) {
     Ok(_) => (),
     Err(_) => exit(),
   }
