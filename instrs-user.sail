@@ -356,6 +356,19 @@ function clause execute InstructionSynchronizationBarrier() = {
   instructionSynchronizationBarrier()
 }
 
+/* NOP: No Operation */
+union clause ast = Nop : unit
+
+/* NOP: 1101 0101 0000 0011 0010 0000 0001 1111 = 0xD503201F */
+function clause decode (0b11010101000000110010000000011111) = {
+  Some(Nop())
+}
+
+function clause execute Nop() = {
+  /* Just advance the PC */
+  _PC = _PC + 4;
+}
+
 /* CompareAndBranch: CBZ / CBNZ
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
 union clause ast = CompareAndBranch : (datasize, reg_index, bits(64), bool)
