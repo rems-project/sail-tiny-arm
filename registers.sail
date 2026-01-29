@@ -106,6 +106,28 @@ function rX(n) = {
 
 overload X = {rX, wX}
 
+/* Datasize: 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
+type datasize = bit
+
+/* W register access (32-bit, zero-extended on write) */
+val wW : (reg_index, bits(32)) -> unit
+
+function wW(n, value) = {
+  if n != 31 then
+    *GPRs[n] = sail_zero_extend(value, 64);
+}
+
+val rW : reg_index -> bits(32)
+
+function rW(n) = {
+  if n != 31 then
+    (*GPRs[n])[31..0]
+  else
+    0x00000000;
+}
+
+overload W = {rW, wW}
+
 function rPC() -> bits(64) = _PC
 function wPC(pc : bits(64)) -> unit = _PC = pc
 
