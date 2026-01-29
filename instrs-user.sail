@@ -1,6 +1,6 @@
-/* LoadStoreRegister: LDR and STR */
-union clause ast = LoadRegister : (reg_index, reg_index, reg_index)
-union clause ast = StoreRegister : (reg_index, reg_index, reg_index)
+/* LoadStore: LDR and STR (register and immediate forms) */
+union clause ast = Load : (reg_index, reg_index, operand)
+union clause ast = Store : (reg_index, reg_index, operand)
 
 val decodeLoadStoreRegister : (bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
 
@@ -14,68 +14,80 @@ function decodeLoadStoreRegister (opc, Rm, option_v, S, Rn, Rt) = {
   let m : reg_index = unsigned(Rm);
   /* option_v == 0b011 and S == 1 means that the offset in Rm is used as is and not shifted or extended */
   if option_v != 0b011 | S == bitone then None ()
-  else if opc == 0b01
-  then Some(LoadRegister((t,n,m)))
-  else if opc == 0b00
-  then Some(StoreRegister((t,n,m)))
+  else if opc == 0b01 then Some(Load((t, n, OperandReg(m))))
+  else if opc == 0b00 then Some(Store((t, n, OperandReg(m))))
   else None ();
 }
 
-/* LDR Xt, [Xn, Xm] */
-function clause execute LoadRegister(t, n, m) = {
-  /* Ask for the value of register Xn and record it in the local
-   * variable base_addr */
-  let base_addr = X(n);
-  /* Ask for the value of register Xm and record it in the local
-   * variable offset */
-  let offset = X(m);
-  /* Compute the address */
-  let addr = base_addr + offset;
+val decodeLoadStoreImmediate : (bits(2), bits(12), bits(5), bits(5)) -> option(ast)
+
+/* 11 111 0 01 opc imm12 Rn Rt */
+function clause decode (0b11@0b111@0b0@0b01@(opc:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rt:bits(5))) = {
+  decodeLoadStoreImmediate(opc, imm12, Rn, Rt)
+}
+
+function decodeLoadStoreImmediate (opc, imm12, Rn, Rt) = {
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+  if opc == 0b01 then Some(Load((t, n, OperandImm(imm12))))
+  else if opc == 0b00 then Some(Store((t, n, OperandImm(imm12))))
+  else None()
+}
+
+/* LDR Xt, [Xn, Xm] or LDR Xt, [Xn, #pimm] */
+function clause execute Load(t, n, op) = {
+  /* Create an access descriptor (pure operation) */
   let accdesc = create_readAccessDescriptor();
+
+  /* Compute the (virtual) address of the access */
+  let vaddr : bits(64) = match op {
+    OperandReg(m) => X(n) + X(m),
+    OperandImm(imm12) => X(n) + sail_zero_extend(imm12 @ 0b000, 64)
+  };
+
   /* Translate the virtual address into the physical address.
-   * In the user mode, `translate_address` returns input address. */
+   * In user mode, `translate_address` returns the input address. */
   let addr : bits(addr_size) =
-    match translate_address(addr, accdesc) {
+    match translate_address(vaddr, accdesc) {
       Some(addr) => addr,
       None() => return () // A translation fault is handled in `translate_address`.
     };
-  /* The instruction can't fault now (in a real model), so update the PC */
+
+  /* The instruction can't fault now, so update the PC */
   _PC = _PC + 4;
-  /* Ask for the eight-byte value in memory starting from location
-  addr and record it in the local variable data */
+
+  /* Read value from memory and write to register Xt */
   let data = rMem(addr, accdesc);
-  /* Ask for the value of data to be written to register Xt */
   X(t) = data;
 }
 
-/* STR Xt, [Xn, Xm] */
-function clause execute StoreRegister(t, n, m) = {
-  /* Ask for the value of register Xn and record it in the local
-   * variable base_addr */
-  let base_addr = X(n);
-  /* Ask for the value of register Xm and record it in the local
-   * variable offset */
-  let offset = X(m);
-  /* Compute the address */
-  let addr = base_addr + offset;
+/* STR Xt, [Xn, Xm] or STR Xt, [Xn, #pimm] */
+function clause execute Store(t, n, op) = {
+  /* Create an access descriptor (pure operation) */
   let accdesc = create_writeAccessDescriptor();
+
+  /* Compute the (virtual) address of the access */
+  let vaddr : bits(64) = match op {
+    OperandReg(m) => X(n) + X(m),
+    OperandImm(imm12) => X(n) + sail_zero_extend(imm12 @ 0b000, 64)
+  };
+
   /* Translate the virtual address into the physical address.
-   * In the user mode, `translate_address` returns input address. */
+   * In user mode, `translate_address` returns the input address. */
   let addr : bits(addr_size) =
-    match translate_address(addr, accdesc) {
+    match translate_address(vaddr, accdesc) {
       Some(addr) => addr,
       None() => return () // A translation fault is handled in `translate_address`.
     };
-  /* Announce that a store into the eight bytes of memory starting
-   * from location addr will be performed later */
+
+  /* Announce that a store will be performed to this address */
   wMem_Addr(addr);
-  /* The instruction can't fault now (in a real model), so update the PC */
+
+  /* The instruction can't fault now, so update the PC */
   _PC = _PC + 4;
-  /* Ask for the value of register Xt and record it in the local
-  * variable data */
+
+  /* Read value from register Xt and write to memory */
   let data = X(t);
-  /* Ask for the value of data to be stored into the eight bytes of
-  * memory starting from location addr */
   wMem(addr, data, accdesc);
 }
 
@@ -113,8 +125,8 @@ function clause execute ExclusiveOr(d, n, m) = {
   X(d) = operand1 ^ operand2;
 }
 
-/* Move */
-union clause ast = Move : (reg_index, reg_index)
+/* Move (register and immediate forms) */
+union clause ast = Move : (reg_index, move_operand)
 
 /* MOV (register) - Alias of ORR (shifted register) */
 /* ORR (shifted register): sf 0 101010 shift 0 Rm imm6 Rn Rd */
@@ -122,18 +134,33 @@ union clause ast = Move : (reg_index, reg_index)
 function clause decode (0b1@0b0@0b101010@0b00@0b0@(Rm:bits(5))@0b000000@0b11111@(Rd:bits(5))) = {
   let d : reg_index = unsigned(Rd);
   let m : reg_index = unsigned(Rm);
-  Some(Move((d,m)))
+  Some(Move((d, MoveReg(m))))
 }
 
-/* MOV Xd, Xm */
-function clause execute Move(d, m) = {
+/* MOVZ: 1 10 100101 hw imm16 Rd */
+function clause decode (0b1@0b10@0b100101@(hw:bits(2))@(imm16:bits(16))@(Rd:bits(5))) = {
+  let d : reg_index = unsigned(Rd);
+  Some(Move((d, MoveImm(struct { imm = imm16, hw = hw }))))
+}
+
+/* MOV Xd, Xm or MOVZ Xd, #imm, LSL #shift */
+function clause execute Move(d, op) = {
   _PC = _PC + 4;
-  X(d) = X(m);
+  let res : bits(64) = match op {
+    MoveReg(m) => X(m),
+    MoveImm(data) => match data.hw {
+      0b00 => sail_zero_extend(data.imm, 64),                /* imm at bits [15:0] */
+      0b01 => sail_zero_extend(data.imm, 48) @ 0x0000,       /* imm at bits [31:16] */
+      0b10 => sail_zero_extend(data.imm, 32) @ 0x00000000,   /* imm at bits [47:32] */
+      0b11 => data.imm @ 0x000000000000                      /* imm at bits [63:48] */
+    }
+  };
+  X(d) = res;
 }
 
-/* Arithmetic: ADD/SUB */
-union clause ast = Add : (reg_index, reg_index, reg_index)
-union clause ast = Sub : (reg_index, reg_index, reg_index)
+/* Arithmetic: ADD/SUB (register and immediate forms) */
+union clause ast = Add : (reg_index, reg_index, operand)
+union clause ast = Sub : (reg_index, reg_index, operand)
 
 val decodeAddSub : (bit, bit, bit, bits(2), bits(12), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
 
@@ -147,6 +174,16 @@ function clause decode (0b1@0b10@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:
   decodeAddSub(bitone, bitone, bitzero, shift, 0x000, imm6, Rm, Rn, Rd)
 }
 
+/* ADD (immediate) */
+function clause decode (0b1@0b00@0b10001@(shift:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeAddSub(bitone, bitzero, bitone, shift, imm12, 0b000000, 0b00000, Rn, Rd)
+}
+
+/* SUB (immediate) */
+function clause decode (0b1@0b10@0b10001@(shift:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeAddSub(bitone, bitone, bitone, shift, imm12, 0b000000, 0b00000, Rn, Rd)
+}
+
 function decodeAddSub (sf, op, is_imm, shift, imm12, imm6, Rm, Rn, Rd) = {
   let d : reg_index = unsigned(Rd);
   let n : reg_index = unsigned(Rn);
@@ -155,26 +192,36 @@ function decodeAddSub (sf, op, is_imm, shift, imm12, imm6, Rm, Rn, Rd) = {
   if is_imm == bitzero then {
     /* Register form */
     if imm6 != 0b000000 then None () /* We only support unshifted for now */
-    else if op == bitzero then Some(Add((d,n,m)))
-    else Some(Sub((d,n,m)))
+    else if op == bitzero then Some(Add((d, n, OperandReg(m))))
+    else Some(Sub((d, n, OperandReg(m))))
   } else {
-    None ()
+    /* Immediate form - only support shift == 0b00 (no shift) for now */
+    if shift == 0b00 then {
+      if op == bitzero then Some(Add((d, n, OperandImm(imm12))))
+      else Some(Sub((d, n, OperandImm(imm12))))
+    } else None()
   }
 }
 
-/* ADD Xd, Xn, Xm */
-function clause execute Add(d, n, m) = {
+/* ADD Xd, Xn, Xm or ADD Xd, Xn, #imm */
+function clause execute Add(d, n, op) = {
   _PC = _PC + 4;
   let op1 = X(n);
-  let op2 = X(m);
+  let op2 : bits(64) = match op {
+    OperandReg(m) => X(m),
+    OperandImm(imm12) => sail_zero_extend(imm12, 64)
+  };
   X(d) = op1 + op2;
 }
 
-/* SUB Xd, Xn, Xm */
-function clause execute Sub(d, n, m) = {
+/* SUB Xd, Xn, Xm or SUB Xd, Xn, #imm */
+function clause execute Sub(d, n, op) = {
   _PC = _PC + 4;
   let op1 = X(n);
-  let op2 = X(m);
+  let op2 : bits(64) = match op {
+    OperandReg(m) => X(m),
+    OperandImm(imm12) => sail_zero_extend(imm12, 64)
+  };
   X(d) = op1 + (not_vec(op2) + 1);
 }
 
