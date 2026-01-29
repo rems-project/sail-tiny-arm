@@ -182,25 +182,56 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> AddressDescripto
   exit()
 }
 
+// Assumes ELR and ESR already written
+function take_exception(target_el : bits(2), fault : option(FaultRecord)) -> unit = {
+
+  /* Declare the exception to the concurrent model (no-op otherwise) */
+  sail_take_exception(fault);
+
+  let source_el = PSTATE.EL;
+
+  /* Determine vector offset based on source EL */
+  let vect_offset : bits(12) =
+    if source_el == target_el then {
+      if PSTATE.SP == 0b0 then 0x000 else 0x200
+    } else {
+      0x400
+    };
+
+  /* Jump to vector exception handler */
+  _PC = VBAR_EL1[63..12] @ vect_offset;
+ 
+  /* Save PSTATE to SPSR_EL1 */
+  SPSR_EL1 = sail_zero_extend(
+    PSTATE.N @ PSTATE.Z @ PSTATE.C @ PSTATE.V @
+    0b0000000000000000000 @
+    PSTATE.D @
+    PSTATE.A @
+    PSTATE.I @
+    PSTATE.F @
+    0b00 @
+    PSTATE.EL @
+    0b0 @
+    PSTATE.SP,
+    64
+  );
+
+  /* Transition to EL1 and use SP_EL1 and mask interrupts*/
+  PSTATE = {PSTATE with
+    EL = 0b01,
+    SP = 0b1,
+    D = 0b1,
+    A = 0b1,
+    I = 0b1,
+    F = 0b1
+  };
+}
+
 function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   let fault : FaultRecord = addrdesc.fault;
   let vaddress = addrdesc.vaddress;
   let source_el = fault.access.el;
   let target_el = 0b01; // We're handling at EL1
-
-  let vect_offset =
-    if source_el == target_el then {
-      if PSTATE.SP == 0b0 then {
-        0x000
-      } else {
-        0x200
-      }
-    } else {
-      0x400
-    };
-
-  // Report the exception
-  sail_take_exception(Some(fault));
 
   // Determine Exception Class (EC)
   var ec = 0b000000;
@@ -242,7 +273,7 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   FAR_EL1 = vaddress;
   ELR_EL1 = _PC;
 
-  _PC = slice(VBAR_EL1, 12, 52) @ vect_offset;
+  take_exception(target_el, Some(fault))
 }
 
 function translate_address(va, accdesc) = {

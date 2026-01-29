@@ -46,4 +46,28 @@ function clause execute TLBInvalidation(op, t) = {
     };
   reportTLBI(op, va, asid);
 }
+
+/* Supervisor Call (SVC) */
+union clause ast = SupervisorCall : bits(16)
+
+/* SVC #imm16: 1101 0100 000 imm16 000 01 */
+function clause decode (0b11010100000@(imm16:bits(16))@0b00001) = {
+  Some(SupervisorCall(imm16))
+}
+
+function clause execute SupervisorCall(imm16) = {
+  let target_el = 0b01; /* SVC always targets EL1 */
+
+  /* Save return address (next instruction after SVC) - must be done before _PC is modified */
+  ELR_EL1 = _PC + 4;
+
+  /* Build ESR_EL1: EC=0b010101 (SVC from AArch64), IL=1, ISS=imm16 */
+  let ec : bits(6) = 0b010101;
+  let il : bits(1) = 0b1;
+  let iss : bits(25) = sail_zero_extend(imm16, 25);
+  ESR_EL1 = sail_zero_extend((ec @ il) @ iss, 64);
+
+  take_exception(target_el, None())
+}
+
 $endif
