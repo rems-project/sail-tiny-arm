@@ -12,7 +12,6 @@ function decodeLoadStoreRegister (opc, Rm, option_v, S, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
-  /* option_v == 0b011 and S == 1 means that the offset in Rm is used as is and not shifted or extended */
   if option_v != 0b011 | S == bitone then None ()
   else if opc == 0b01 then Some(Load((t, n, OperandReg(m))))
   else if opc == 0b00 then Some(Store((t, n, OperandReg(m))))
@@ -222,6 +221,22 @@ function clause execute Sub(d, n, op) = {
     OperandReg(m) => X(m),
     OperandImm(imm12) => sail_zero_extend(imm12, 64)
   };
+  X(d) = op1 + (not_vec(op2) + 1);
+}
+
+/* ADD Xd, Xn, #imm */
+function clause execute AddImmediate(d, n, imm12) = {
+  _PC = _PC + 4;
+  let op1 = X(n);
+  let op2 : bits(64) = sail_zero_extend(imm12, 64);
+  X(d) = op1 + op2;
+}
+
+/* SUB Xd, Xn, #imm */
+function clause execute SubImmediate(d, n, imm12) = {
+  _PC = _PC + 4;
+  let op1 = X(n);
+  let op2 : bits(64) = sail_zero_extend(imm12, 64);
   X(d) = op1 + (not_vec(op2) + 1);
 }
 
