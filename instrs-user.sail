@@ -110,11 +110,13 @@ function clause execute Store(sf, t, n, op) = {
   execute_store(sf, t, addr);
 }
 
-/* Exclusive OR: EOR */
-union clause ast = ExclusiveOr : (reg_index, reg_index, reg_index)
+/* Exclusive OR: EOR
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
+union clause ast = ExclusiveOr : (datasize, reg_index, reg_index, reg_index)
 
 val decodeExclusiveOr : (bit, bits(2), bit, bits(5), bits(6), bits(5), bits(5)) -> option(ast)
 
+/* EOR (shifted register): sf 10 01010 shift N Rm imm6 Rn Rd */
 function clause decode ([sf]@0b10@0b01010@(shift:bits(2))@[N]@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
   decodeExclusiveOr(sf, shift, N, Rm, imm6, Rn, Rd)
 }
@@ -124,24 +126,26 @@ function decodeExclusiveOr (sf, shift, N, Rm, imm6, Rn, Rd) = {
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
 
+  /* For 32-bit (sf=0), imm6[5] must be 0 */
   if sf == bitzero & imm6[5] == bitone then None ()
-  else if imm6 != 0b000000 then None ()
-  else Some(ExclusiveOr((d,n,m)));
+  else if imm6 != 0b000000 then None () /* We only support unshifted for now */
+  else Some(ExclusiveOr((sf, d, n, m)));
 }
 
-/* EOR Xd, Xn, Xm */
-function clause execute ExclusiveOr(d, n, m) = {
-  /* Increment the program counter, at the start, since no branching out possible */
+/* EOR Xd/Wd, Xn/Wn, Xm/Wm */
+function clause execute ExclusiveOr(sf, d, n, m) = {
   _PC = _PC + 4;
-  /* Ask for the value of register Xn and record it in the local
-   * variable operand1 */
-  let operand1 = X(n);
-  /* Ask for the value of register Xm and record it in the local
-   * variable operand2 */
-  let operand2 = X(m);
-  /* Compute the bitwise exclusive OR, and ask for the value of
-   * the result to be written to register Xd */
-  X(d) = operand1 ^ operand2;
+  if sf == bitone then {
+    /* 64-bit */
+    let operand1 = X(n);
+    let operand2 = X(m);
+    X(d) = operand1 ^ operand2;
+  } else {
+    /* 32-bit */
+    let operand1 = W(n);
+    let operand2 = W(m);
+    W(d) = operand1 ^ operand2;
+  }
 }
 
 /* Move (register and immediate forms)
