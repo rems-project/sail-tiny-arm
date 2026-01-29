@@ -356,29 +356,40 @@ function clause execute InstructionSynchronizationBarrier() = {
   instructionSynchronizationBarrier()
 }
 
-/* CompareAndBranch: CBZ
+/* CompareAndBranch: CBZ / CBNZ
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
-union clause ast = CompareAndBranch : (datasize, reg_index, bits(64))
+union clause ast = CompareAndBranch : (datasize, reg_index, bits(64), bool)
 
-val decodeCompareAndBranch : (bit, bits(19), bits(5)) -> option(ast)
+val decodeCompareAndBranch : (bit, bit, bits(19), bits(5)) -> option(ast)
 
 /* CBZ: sf 011010 0 imm19 Rt */
 function clause decode ([sf]@0b011010@0b0@(imm19:bits(19))@(Rt:bits(5))) = {
-  decodeCompareAndBranch(sf, imm19, Rt)
+  decodeCompareAndBranch(sf, bitzero, imm19, Rt)
 }
 
-function decodeCompareAndBranch(sf, imm19, Rt) = {
+/* CBNZ: sf 011010 1 imm19 Rt */
+function clause decode ([sf]@0b011010@0b1@(imm19:bits(19))@(Rt:bits(5))) = {
+  decodeCompareAndBranch(sf, bitone, imm19, Rt)
+}
+
+function decodeCompareAndBranch(sf, op, imm19, Rt) = {
   let t : reg_index = unsigned(Rt);
   let offset : bits(64) = sail_sign_extend(imm19@0b00,64);
+  /* iszero: true for CBZ (op=0), false for CBNZ (op=1) */
+  let iszero : bool = (op == bitzero);
 
-  Some(CompareAndBranch(sf, t, offset));
+  Some(CompareAndBranch(sf, t, offset, iszero));
 }
 
-/* CBZ Xt/Wt, <offset> */
-function clause execute CompareAndBranch(sf, t, offset) = {
+/* CBZ/CBNZ Xt/Wt, <offset> */
+function clause execute CompareAndBranch(sf, t, offset, iszero) = {
   /* Get operand value - 64-bit or 32-bit (zero-extended for comparison) */
   let operand : bits(64) = if sf == bitone then X(t) else sail_zero_extend(W(t), 64);
-  if operand == 0x0000000000000000 then {
+  /* Check condition: CBZ branches if zero, CBNZ branches if not zero */
+  let condition_met = if iszero
+    then operand == 0x0000000000000000
+    else operand != 0x0000000000000000;
+  if condition_met then {
     let base = PC();
     let addr = base + offset;
     PC() = addr;
