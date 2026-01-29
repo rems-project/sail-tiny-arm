@@ -107,4 +107,32 @@ function clause execute SupervisorCall(imm16) = {
   PSTATE.I = 0b1;
   PSTATE.F = 0b1;
 }
+
+/* Exception Return (ERET) - EL1 only */
+union clause ast = ExceptionReturn : unit
+
+/* ERET: 1101 0110 1001 1111 0000 0011 1110 0000 */
+function clause decode (0b11010110100111110000001111100000) = {
+  Some(ExceptionReturn())
+}
+
+function clause execute ExceptionReturn() = {
+  /* Set PC to the exception link register (no +4 increment) */
+  _PC = ELR_EL1;
+
+  /* Read saved program status register */
+  let spsr = SPSR_EL1;
+
+  /* Restore PSTATE fields from SPSR */
+  PSTATE.N = spsr[31..31];
+  PSTATE.Z = spsr[30..30];
+  PSTATE.C = spsr[29..29];
+  PSTATE.V = spsr[28..28];
+  PSTATE.D = spsr[9..9];
+  PSTATE.A = spsr[8..8];
+  PSTATE.I = spsr[7..7];
+  PSTATE.F = spsr[6..6];
+  PSTATE.EL = spsr[3..2];
+  PSTATE.SP = spsr[0..0];
+}
 $endif
