@@ -94,34 +94,70 @@ function clause execute Store(size, t, n, op) = {
   wMem(2^size, addr, X(t)[(8*2^size-1)..0], accdesc)
 }
 
+
 /* EOR/ORR/AND
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
-union clause ast = BitwiseLogic : (datasize, bitwise_op, reg_index, reg_index, reg_index)
+union clause ast = BitwiseLogic : (datasize, bitwise_op, reg_index, reg_index, operand)
 
-/* EOR/ORR/AND (shifted register): sf opc 01010 shift 0 Rm 000000 Rn Rd */
-function clause decode ([sf]@(opc : bits(2))@0b01010@(shift:bits(2))@0b0@(Rm:bits(5))@0b000000@(Rn:bits(5))@(Rd:bits(5))) = {
-  if opc == 0b11 then return None(); // ANDS unsupported
-  let op : bitwise_op = match opc {
+function decode_bitwise_op(opc : bits(2)) -> bitwise_op =
+  match opc {
     0b00 => And,
     0b10 => Eor,
     0b01 => Or,
     0b11 => fail("ANDS unsupported")
-    };
-  Some(BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), unsigned(Rm)))
+  }
+
+/* EOR/ORR/AND (shifted register): sf opc 01010 shift 0 Rm 000000 Rn Rd */
+function clause decode ([sf]@(opc : bits(2))@0b01010@(shift:bits(2))@0b0@(Rm:bits(5))@0b000000@(Rn:bits(5))@(Rd:bits(5))) = {
+  if opc == 0b11 then return None(); // ANDS unsupported
+  let op = decode_bitwise_op(opc);
+  Some(BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), OperandReg(unsigned(Rm))))
 }
 
-/* EOR/ORR/AND Xd/Wd, Xn/Wn, Xm/Wm */
-function clause execute BitwiseLogic(sf, op, d, n, m) = {
+// Computes first return value of DecodeBitMasks in official spec
+function decode_bitmask(N : bit, imms : bits(6), immr : bits(6)) -> bits(64) = {
+  // Determine the size of the element repetition
+  let 'len = if N == bitone then 6 else (5-count_leading_zeros(not_vec(imms)));
+  assert(constraint('len > 0), "Invalid immediate encoding for bitwise operation");
+
+  // The mask will have size 2^len and will have (s + 1) ones
+  let s = unsigned(imms[len-1..0]);
+  assert(s + 1 < 2^len, "All-ones mask is not allowed in bitwise operations");
+  let elem = sail_zero_extend(sail_ones(s + 1), 2^len);
+
+  // ROR by r. Bits above len will rotate by a multiple of 2^len, so are ignored
+  let r = unsigned(immr[len-1..0]);
+  let relem = if r == 0 then elem else elem[r-1..0]@elem[2^len-1..r];
+
+  replicate_bits(relem, 2^(6-len))
+}
+
+/* EOR/ORR/AND (immediate): sf opc 100100 N immr imms Rn Rd */
+function clause decode ([sf]@(opc : bits(2))@0b100100@[N]@(immr:bits(6))@(imms:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  if opc == 0b11 then return None(); // ANDS unsupported
+  let op = decode_bitwise_op(opc);
+  if N == bitone & sf == bitzero then return None();
+  let mask = decode_bitmask(N, imms, immr); //
+
+  Some(BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), OperandImm(mask)))
+}
+
+/* EOR/ORR/AND Xd/Wd, Xn/Wn, Xm/Wm and EOR/ORR/AND Xd/Wd, Xn/Wn, #imm */
+function clause execute BitwiseLogic(sf, op, d, n, op2) = {
   _PC = _PC + 4;
-  let size = if sf == bitone then 64 else 32;
+  let 'size = if sf == bitone then 64 else 32;
   let operand1 = XS(n, size);
-  let operand2 = XS(m, size);
+  let operand2 : bits('size) = match op2 {
+      OperandReg(m) => XS(m, size),
+      OperandImm(mask) => mask[size-1..0]
+    };
   match op {
     Eor => XS(d, size) = operand1 ^ operand2,
     Or => XS(d, size) = operand1 | operand2,
     And => XS(d, size) = operand1 & operand2,
   }
 }
+
 
 /* MOVZ
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
