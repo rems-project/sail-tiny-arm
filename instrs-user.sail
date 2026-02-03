@@ -109,6 +109,89 @@ function clause execute Store(size, t, n, op) = {
   execute_store(size, t, addr);
 }
 
+/* Bitwise AND: AND
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
+union clause ast = BitwiseAnd : (datasize, reg_index, reg_index, operand)
+
+val decodeBitwiseAndRegister : (bit, bits(2), bit, bits(5), bits(6), bits(5), bits(5)) -> option(ast)
+
+/* AND (shifted register): sf 00 01010 shift N Rm imm6 Rn Rd */
+function clause decode ([sf]@0b00@0b01010@(shift:bits(2))@[N]@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeBitwiseAndRegister(sf, shift, N, Rm, imm6, Rn, Rd)
+}
+
+function decodeBitwiseAndRegister (sf, shift, N, Rm, imm6, Rn, Rd) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+  let m : reg_index = unsigned(Rm);
+
+  /* For 32-bit (sf=0), imm6[5] must be 0 */
+  if sf == bitzero & imm6[5] == bitone then None ()
+  else if imm6 != 0b000000 then None () /* We only support unshifted for now */
+  else Some(BitwiseAnd((sf, d, n, OperandReg(m))));
+}
+
+/* Helper: Decode bitmask immediate for AND/ORR/EOR immediate forms
+ * Returns the 64-bit mask value, or None if invalid encoding */
+val decode_bitmask_immediate : (bit, bits(6), bits(6)) -> option(bits(64))
+function decode_bitmask_immediate(N, imms, immr) = {
+  /* Simplified implementation for common patterns:
+   * N=1, immr=0: imms encodes (ones-1) consecutive 1s at bit 0 */
+  if N == bitone & immr == 0b000000 then {
+    let ones : int = unsigned(imms) + 1;
+    if ones >= 1 & ones <= 63 then {
+      /* Create mask with 'ones' consecutive 1s at bit 0 */
+      let mask : bits(64) = sail_mask(64, sail_ones(ones));
+      Some(mask)
+    } else None()
+  } else None() /* Other patterns not yet supported */
+}
+
+val decodeBitwiseAndImmediate : (bit, bit, bits(6), bits(6), bits(5), bits(5)) -> option(ast)
+
+/* AND (immediate): sf 00 100100 N immr imms Rn Rd */
+function clause decode ([sf]@0b00@0b100100@[N]@(immr:bits(6))@(imms:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeBitwiseAndImmediate(sf, N, immr, imms, Rn, Rd)
+}
+
+function decodeBitwiseAndImmediate (sf, N, immr, imms, Rn, Rd) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+
+  /* For 32-bit (sf=0), N must be 0 */
+  if sf == bitzero & N == bitone then None ()
+  else match decode_bitmask_immediate(N, imms, immr) {
+    Some(mask) => {
+      /* Extract the appropriate immediate based on size */
+      let imm12 : bits(12) = mask[11..0];
+      Some(BitwiseAnd((sf, d, n, OperandImm(imm12))))
+    },
+    None() => None()
+  }
+}
+
+/* AND Xd/Wd, Xn/Wn, Xm/Wm or AND Xd/Wd, Xn/Wn, #imm */
+function clause execute BitwiseAnd(sf, d, n, op) = {
+  _PC = _PC + 4;
+  if sf == bitone then {
+    /* 64-bit */
+    let operand1 = X(n);
+    let operand2 : bits(64) = match op {
+      OperandReg(m) => X(m),
+      OperandImm(imm12) => sail_zero_extend(imm12, 64)
+    };
+    X(d) = operand1 & operand2;
+  } else {
+    /* 32-bit */
+    let operand1 = W(n);
+    let operand2 : bits(32) = match op {
+      OperandReg(m) => W(m),
+      OperandImm(imm12) => sail_zero_extend(imm12, 32)
+    };
+    W(d) = operand1 & operand2;
+  }
+}
+
 /* Exclusive OR: EOR
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
 union clause ast = ExclusiveOr : (datasize, reg_index, reg_index, reg_index)
