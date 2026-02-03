@@ -19,3 +19,14 @@ function fail(message) = {
     assert(false, message);
     exit()
 }
+
+overload operator == = {eq_bit}
+
+val neq_bit : (bit, bit) -> bool
+function neq_bit(x, y) = not_bool(eq_bit(x, y))
+
+overload operator != = {neq_bit}
+
+val not_bit : bit -> bit
+function not_bit(b) = if b == bitzero then bitone else bitzero
+
