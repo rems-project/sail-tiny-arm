@@ -70,6 +70,9 @@ function clause execute SupervisorCall(imm16) = {
   /* Report exception for tracing (no fault record for SVC) */
   sail_take_exception(None());
 
+  /* Save return address (next instruction after SVC) - must be done before _PC is modified */
+  ELR_EL1 = _PC + 4;
+
   /* Jump to exception vector */
   _PC = VBAR_EL1[63..12] @ vect_offset;
 
@@ -93,9 +96,6 @@ function clause execute SupervisorCall(imm16) = {
     PSTATE.SP,
     64
   );
-
-  /* Save return address (next instruction after SVC) */
-  ELR_EL1 = _PC + 4;
 
   /* Transition to EL1 and use SP_EL1 */
   PSTATE.EL = 0b01;
