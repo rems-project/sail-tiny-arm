@@ -94,68 +94,55 @@ function clause execute Store(size, t, n, op) = {
   wMem(2^size, addr, X(t)[(8*2^size-1)..0], accdesc)
 }
 
-/* Exclusive OR: EOR
+/* EOR/ORR/AND
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
-union clause ast = ExclusiveOr : (datasize, reg_index, reg_index, reg_index)
+union clause ast = BitwiseLogic : (datasize, bitwise_op, reg_index, reg_index, reg_index)
 
-val decodeExclusiveOr : (bit, bits(2), bit, bits(5), bits(6), bits(5), bits(5)) -> option(ast)
-
-/* EOR (shifted register): sf 10 01010 shift N Rm imm6 Rn Rd */
-function clause decode ([sf]@0b10@0b01010@(shift:bits(2))@[N]@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
-  decodeExclusiveOr(sf, shift, N, Rm, imm6, Rn, Rd)
+/* EOR/ORR/AND (shifted register): sf opc 01010 shift 0 Rm 000000 Rn Rd */
+function clause decode ([sf]@(opc : bits(2))@0b01010@(shift:bits(2))@0b0@(Rm:bits(5))@0b000000@(Rn:bits(5))@(Rd:bits(5))) = {
+  if opc == 0b11 then return None(); // ANDS unsupported
+  let op : bitwise_op = match opc {
+    0b00 => And,
+    0b10 => Eor,
+    0b01 => Or,
+    0b11 => fail("ANDS unsupported")
+    };
+  Some(BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), unsigned(Rm)))
 }
 
-function decodeExclusiveOr (sf, shift, N, Rm, imm6, Rn, Rd) = {
-  let d : reg_index = unsigned(Rd);
-  let n : reg_index = unsigned(Rn);
-  let m : reg_index = unsigned(Rm);
-
-  if imm6 != 0b000000 then None () /* We only support unshifted for now */
-  else Some(ExclusiveOr((sf, d, n, m)));
-}
-
-/* EOR Xd/Wd, Xn/Wn, Xm/Wm */
-function clause execute ExclusiveOr(sf, d, n, m) = {
+/* EOR/ORR/AND Xd/Wd, Xn/Wn, Xm/Wm */
+function clause execute BitwiseLogic(sf, op, d, n, m) = {
   _PC = _PC + 4;
   let size = if sf == bitone then 64 else 32;
   let operand1 = XS(n, size);
   let operand2 = XS(m, size);
-  XS(d, size) = operand1 ^ operand2;
+  match op {
+    Eor => XS(d, size) = operand1 ^ operand2,
+    Or => XS(d, size) = operand1 | operand2,
+    And => XS(d, size) = operand1 & operand2,
+  }
 }
 
-/* Move (register and immediate forms)
+/* MOVZ
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
-union clause ast = Move : (datasize, reg_index, move_operand)
-
-/* MOV (register) - Alias of ORR (shifted register) */
-/* ORR (shifted register): sf 0 101010 shift 0 Rm imm6 Rn Rd */
-/* MOV Xd/Wd, Xm/Wm is ORR Xd/Wd, XZR/WZR, Xm/Wm */
-function clause decode ([sf]@0b0@0b101010@0b00@0b0@(Rm:bits(5))@0b000000@0b11111@(Rd:bits(5))) = {
-  let d : reg_index = unsigned(Rd);
-  let m : reg_index = unsigned(Rm);
-  Some(Move((sf, d, MoveReg(m))))
-}
+union clause ast = Movz : (datasize, reg_index, bits(16), range(0,3))
 
 /* MOVZ: sf 10 100101 hw imm16 Rd */
 function clause decode ([sf]@0b10@0b100101@(hw:bits(2))@(imm16:bits(16))@(Rd:bits(5))) = {
   let d : reg_index = unsigned(Rd);
   /* For 32-bit (sf=0), hw must be 00 or 01 (hw[1]=0) */
   if sf == bitzero & hw[1] == bitone then None()
-  else Some(Move((sf, d, MoveImm(struct { imm = imm16, hw = hw }))))
+  else Some(Movz((sf, d, imm16, unsigned(hw))))
 }
 
-/* MOV Xd/Wd, Xm/Wm or MOVZ Xd/Wd, #imm, LSL #shift */
-function clause execute Move(sf, d, op) = {
+/* MOVZ Xd/Wd, #imm, LSL #shift */
+function clause execute Movz(sf, d, imm, hw) = {
   _PC = _PC + 4;
+
   let size = if sf == bitone then 64 else 32;
-  match op {
-    MoveReg(m) => XS(d, size) = XS(m, size),
-    MoveImm(data) => {
-      /* Compute 64-bit result, then truncate for 32-bit */
-      let res : bits(64) = sail_shiftleft(sail_zero_extend(data.imm, 64), 16 * unsigned(data.hw));
-      XS(d, size) = res[size-1..0]
-    }
-  }
+  /* Compute 64-bit result, then truncate for 32-bit */
+  let res : bits(64) = sail_shiftleft(sail_zero_extend(imm, 64), 16 * hw);
+  XS(d, size) = res[size-1..0]
 }
 
 /* Arithmetic: ADD/SUB (register and immediate forms)

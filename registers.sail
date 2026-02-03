@@ -6,16 +6,11 @@ union operand = {
   OperandImm : bits(12)
 }
 
-/* Move immediate data: 16-bit immediate with 2-bit shift */
-struct move_imm_data = {
-  imm : bits(16),
-  hw : bits(2)
-}
-
-/* Move operand type: either a register or a 16-bit immediate with shift */
-union move_operand = {
-  MoveReg : reg_index,
-  MoveImm : move_imm_data
+/* Bitwise operations */
+enum bitwise_op = {
+  Eor,
+  Or,
+  And,
 }
 
 register _PC : bits(64)
