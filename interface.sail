@@ -92,55 +92,48 @@ function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = stru
   }
 }
 
+/* Helper to get current exception level */
 $ifdef SYSTEM_TINY_ARM
-function create_writeAccessDescriptor() -> AccessDescriptor = {
-  var accdesc = base_AccessDescriptor(AccessType_GPR);
-  accdesc.write = true;
-  accdesc.read = false;
-  accdesc.el = PSTATE.EL;
-  accdesc
-}
-
-function create_readAccessDescriptor() -> AccessDescriptor = {
-  var accdesc = base_AccessDescriptor(AccessType_GPR);
-  accdesc.read = true;
-  accdesc.write = false;
-  accdesc.el = PSTATE.EL;
-  accdesc
-}
-
-function create_iFetchAccessDescriptor() -> AccessDescriptor = {
-  var accdesc = base_AccessDescriptor(AccessType_IFETCH);
-  accdesc.read = true;
-  accdesc.write = false;
-  accdesc.el = PSTATE.EL;
-  accdesc
-}
+function current_el() -> bits(2) = PSTATE.EL
 $else
-function create_writeAccessDescriptor() -> AccessDescriptor = {
+function current_el() -> bits(2) = 0b00
+$endif
+
+/* Create GPR access descriptor with specified direction and memory ordering */
+function create_GPRAccessDescriptor(is_write: bool, ordering: MemoryOrdering) -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
-  accdesc.write = true;
-  accdesc.read = false;
-  accdesc.el = 0b00;
+  accdesc.write = is_write;
+  accdesc.read = not_bool(is_write);
+  accdesc.el = current_el();
+  match ordering {
+    Ordering_Relaxed => (),
+    Ordering_Acquire => accdesc.acqsc = true,
+    Ordering_AcquireRCpc => accdesc.acqpc = true,
+    Ordering_Release => accdesc.relsc = true
+  };
   accdesc
 }
 
-function create_readAccessDescriptor() -> AccessDescriptor = {
-  var accdesc = base_AccessDescriptor(AccessType_GPR);
-  accdesc.read = true;
-  accdesc.write = false;
-  accdesc.el = 0b00;
-  accdesc
-}
+/* Convenience wrappers for common access patterns */
+function create_readAccessDescriptor() -> AccessDescriptor =
+  create_GPRAccessDescriptor(false, Ordering_Relaxed)
+
+function create_writeAccessDescriptor() -> AccessDescriptor =
+  create_GPRAccessDescriptor(true, Ordering_Relaxed)
+
+function create_readAcquireAccessDescriptor(ordering: MemoryOrdering) -> AccessDescriptor =
+  create_GPRAccessDescriptor(false, ordering)
+
+function create_writeReleaseAccessDescriptor() -> AccessDescriptor =
+  create_GPRAccessDescriptor(true, Ordering_Release)
 
 function create_iFetchAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_IFETCH);
   accdesc.read = true;
   accdesc.write = false;
-  accdesc.el = 0b00;
+  accdesc.el = current_el();
   accdesc
 }
-$endif
 
 $ifdef SYSTEM_TINY_ARM
 enum DescriptorType = {

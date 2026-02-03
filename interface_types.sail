@@ -175,6 +175,14 @@ struct MemAttrHints = {attrs : bits(2), hints : bits(2), transient : bool}
 
 enum Shareability = {Shareability_NSH, Shareability_ISH, Shareability_OSH}
 
+/* Memory ordering for load/store operations */
+enum MemoryOrdering = {
+  Ordering_Relaxed,     /* No ordering constraints */
+  Ordering_Acquire,     /* Load-Acquire (sequential consistency) */
+  Ordering_AcquireRCpc, /* Load-Acquire RCpc (processor consistency) */
+  Ordering_Release      /* Store-Release (sequential consistency) */
+}
+
 enum MemTagType = {
   MemTag_Untagged,
   MemTag_AllocationTagged,

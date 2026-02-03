@@ -42,6 +42,43 @@ function execute_store(size : bits(2), t : reg_index, vaddr : bits(64)) -> unit 
   }
 }
 
+/* Helper for Load-Acquire operations (LDAR, LDAPR) */
+function execute_load_acquire(sf : datasize, t : reg_index, vaddr : bits(64), ordering : MemoryOrdering) -> unit = {
+  let accdesc = create_readAcquireAccessDescriptor(ordering);
+  let addr : bits(addr_size) =
+    match translate_address(vaddr, accdesc) {
+      Some(addr) => addr,
+      None() => return ()
+    };
+  _PC = _PC + 4;
+  if sf == bitone then {
+    let data : bits(64) = rMem(8, addr, accdesc);
+    X(t) = data;
+  } else {
+    let data : bits(32) = rMem(4, addr, accdesc);
+    W(t) = data;
+  }
+}
+
+/* Helper for Store-Release operations (STLR) */
+function execute_store_release(sf : datasize, t : reg_index, vaddr : bits(64)) -> unit = {
+  let accdesc = create_writeReleaseAccessDescriptor();
+  let addr : bits(addr_size) =
+    match translate_address(vaddr, accdesc) {
+      Some(addr) => addr,
+      None() => return ()
+    };
+  wMem_Addr(addr);
+  _PC = _PC + 4;
+  if sf == bitone then {
+    let data = X(t);
+    wMem(8, addr, data, accdesc);
+  } else {
+    let data = W(t);
+    wMem(4, addr, data, accdesc);
+  }
+}
+
 /* LoadStore: LDR/STR, LDRH/STRH, LDRB/STRB (register and immediate forms)
  * size: 00 = 8-bit (B), 01 = 16-bit (H), 10 = 32-bit (W), 11 = 64-bit (X) */
 union clause ast = Load : (bits(2), reg_index, reg_index, operand)
@@ -107,6 +144,57 @@ function clause execute Store(size, t, n, op) = {
     }
   };
   execute_store(size, t, addr);
+}
+
+/* Load-Acquire: LDAR/LDAPR
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers)
+ * ordering: Ordering_Acquire (LDAR) or Ordering_AcquireRCpc (LDAPR) */
+union clause ast = LoadAcquire : (datasize, reg_index, reg_index, MemoryOrdering)
+
+/* LDAR: size 00 1000 1 1 0 11111 0 11111 Rn Rt
+ * size=11 for 64-bit, size=10 for 32-bit */
+function clause decode ((size:bits(2))@0b00@0b1000@0b1@0b1@0b0@0b11111@0b0@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+  let sf : datasize = if size == 0b11 then bitone else bitzero;
+  if size != 0b11 & size != 0b10 then None()
+  else Some(LoadAcquire((sf, t, n, Ordering_Acquire)))
+}
+
+/* LDAPR: size 00 1000 1 0 1 11111 1100 00 Rn Rt
+ * size=11 for 64-bit, size=10 for 32-bit */
+function clause decode ((size:bits(2))@0b00@0b1000@0b1@0b0@0b1@0b11111@0b1100@0b00@(Rn:bits(5))@(Rt:bits(5))) = {
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+  let sf : datasize = if size == 0b11 then bitone else bitzero;
+  if size != 0b11 & size != 0b10 then None()
+  else Some(LoadAcquire((sf, t, n, Ordering_AcquireRCpc)))
+}
+
+/* LDAR/LDAPR Xt/Wt, [Xn] */
+function clause execute LoadAcquire(sf, t, n, ordering) = {
+  let addr : bits(64) = X(n);
+  execute_load_acquire(sf, t, addr, ordering);
+}
+
+/* Store-Release: STLR
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
+union clause ast = StoreRelease : (datasize, reg_index, reg_index)
+
+/* STLR: size 00 1000 1 0 0 11111 1 11111 Rn Rt
+ * size=11 for 64-bit, size=10 for 32-bit */
+function clause decode ((size:bits(2))@0b00@0b1000@0b1@0b0@0b0@0b11111@0b1@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+  let sf : datasize = if size == 0b11 then bitone else bitzero;
+  if size != 0b11 & size != 0b10 then None()
+  else Some(StoreRelease((sf, t, n)))
+}
+
+/* STLR Xt/Wt, [Xn] */
+function clause execute StoreRelease(sf, t, n) = {
+  let addr : bits(64) = X(n);
+  execute_store_release(sf, t, addr);
 }
 
 /* Bitwise AND: AND
