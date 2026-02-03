@@ -98,14 +98,15 @@ function clause execute SupervisorCall(imm16) = {
   );
 
   /* Transition to EL1 and use SP_EL1 */
-  PSTATE.EL = 0b01;
-  PSTATE.SP = 0b1;
-
   /* Mask interrupts on exception entry */
-  PSTATE.D = 0b1;
-  PSTATE.A = 0b1;
-  PSTATE.I = 0b1;
-  PSTATE.F = 0b1;
+  PSTATE = {PSTATE with
+    EL = 0b01,
+    SP = 0b1,
+    D = 0b1,
+    A = 0b1,
+    I = 0b1,
+    F = 0b1
+  };
 }
 
 /* Exception Return (ERET) - EL1 only */
@@ -124,15 +125,18 @@ function clause execute ExceptionReturn() = {
   let spsr = SPSR_EL1;
 
   /* Restore PSTATE fields from SPSR */
-  PSTATE.N = spsr[31..31];
-  PSTATE.Z = spsr[30..30];
-  PSTATE.C = spsr[29..29];
-  PSTATE.V = spsr[28..28];
-  PSTATE.D = spsr[9..9];
-  PSTATE.A = spsr[8..8];
-  PSTATE.I = spsr[7..7];
-  PSTATE.F = spsr[6..6];
-  PSTATE.EL = spsr[3..2];
-  PSTATE.SP = spsr[0..0];
+  let new_pstate = {PSTATE with
+    N = spsr[31..31],
+    Z = spsr[30..30],
+    C = spsr[29..29],
+    V = spsr[28..28],
+    D = spsr[9..9],
+    A = spsr[8..8],
+    I = spsr[7..7],
+    F = spsr[6..6],
+    EL = spsr[3..2],
+    SP = spsr[0..0]
+  };
+  PSTATE = new_pstate;
 }
 $endif
