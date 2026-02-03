@@ -147,6 +147,44 @@ function clause execute ExclusiveOr(sf, d, n, m) = {
   }
 }
 
+/* Inclusive OR: ORR
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
+union clause ast = InclusiveOr : (datasize, reg_index, reg_index, reg_index)
+
+val decodeInclusiveOr : (bit, bits(2), bit, bits(5), bits(6), bits(5), bits(5)) -> option(ast)
+
+/* ORR (shifted register): sf 01 01010 shift N Rm imm6 Rn Rd */
+function clause decode ([sf]@0b01@0b01010@(shift:bits(2))@[N]@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeInclusiveOr(sf, shift, N, Rm, imm6, Rn, Rd)
+}
+
+function decodeInclusiveOr (sf, shift, N, Rm, imm6, Rn, Rd) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+  let m : reg_index = unsigned(Rm);
+
+  /* For 32-bit (sf=0), imm6[5] must be 0 */
+  if sf == bitzero & imm6[5] == bitone then None ()
+  else if imm6 != 0b000000 then None () /* We only support unshifted for now */
+  else Some(InclusiveOr((sf, d, n, m)));
+}
+
+/* ORR Xd/Wd, Xn/Wn, Xm/Wm */
+function clause execute InclusiveOr(sf, d, n, m) = {
+  _PC = _PC + 4;
+  if sf == bitone then {
+    /* 64-bit */
+    let operand1 = X(n);
+    let operand2 = X(m);
+    X(d) = operand1 | operand2;
+  } else {
+    /* 32-bit */
+    let operand1 = W(n);
+    let operand2 = W(m);
+    W(d) = operand1 | operand2;
+  }
+}
+
 /* Move (register and immediate forms)
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
 union clause ast = Move : (datasize, reg_index, move_operand)
