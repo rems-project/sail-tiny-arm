@@ -186,6 +186,46 @@ function clause execute Compare(sf, n, op) = {
   }
 }
 
+/* Helper: Check condition code against NZCV flags */
+val condition_holds : bits(4) -> bool
+function condition_holds(cond) = {
+  let n = PSTATE.N == 0b1;
+  let z = PSTATE.Z == 0b1;
+  let c = PSTATE.C == 0b1;
+  let v = PSTATE.V == 0b1;
+  match cond {
+    0b0000 => z,              /* EQ: Z == 1 */
+    0b0001 => not_bool(z),    /* NE: Z == 0 */
+    0b0010 => c,              /* CS/HS: C == 1 */
+    0b0011 => not_bool(c),    /* CC/LO: C == 0 */
+    0b0100 => n,              /* MI: N == 1 */
+    0b0101 => not_bool(n),    /* PL: N == 0 */
+    0b0110 => v,              /* VS: V == 1 */
+    0b0111 => not_bool(v),    /* VC: V == 0 */
+    0b1000 => c & not_bool(z),     /* HI: C == 1 && Z == 0 */
+    0b1001 => not_bool(c) | z,     /* LS: C == 0 || Z == 1 */
+    0b1010 => n == v,         /* GE: N == V */
+    0b1011 => n != v,         /* LT: N != V */
+    0b1100 => not_bool(z) & (n == v), /* GT: Z == 0 && N == V */
+    0b1101 => z | (n != v),   /* LE: Z == 1 || N != V */
+    0b1110 => true,           /* AL: always */
+    0b1111 => true            /* NV: always (as AL) */
+  }
+}
+
+/* CSEL Xd/Wd, Xn/Wn, Xm/Wm, cond - Conditional Select */
+function clause execute ConditionalSelect(sf, d, n, m, cond) = {
+  _PC = _PC + 4;
+  let cond_holds = condition_holds(cond);
+  if sf == bitone then {
+    /* 64-bit */
+    X(d) = if cond_holds then X(n) else X(m);
+  } else {
+    /* 32-bit */
+    W(d) = if cond_holds then W(n) else W(m);
+  }
+}
+
 /* MRS/MSR: Move to/from System Register */
 /* is_read: true = MRS (read from system register), false = MSR (write to system register) */
 union clause ast = SystemRegisterMove : (bool, bits(3), bits(4), bits(4), bits(3), reg_index)

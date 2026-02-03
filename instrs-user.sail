@@ -426,6 +426,21 @@ function clause decode ([sf]@0b11@0b10001@(shift:bits(2))@(imm12:bits(12))@(Rn:b
   decodeCompare(sf, shift, imm12, 0b000000, 0b00000, Rn)
 }
 
+/* CMP execute is defined in instrs-sys.sail for system mode */
+
+/* Conditional Select: CSEL
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers)
+ * Selects Rn if condition is true, else Rm */
+union clause ast = ConditionalSelect : (datasize, reg_index, reg_index, reg_index, bits(4))
+
+/* CSEL: sf 0 0 11010100 Rm cond 0 0 Rn Rd */
+function clause decode ([sf]@0b0@0b0@0b11010100@(Rm:bits(5))@(cond:bits(4))@0b0@0b0@(Rn:bits(5))@(Rd:bits(5))) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+  let m : reg_index = unsigned(Rm);
+  Some(ConditionalSelect((sf, d, n, m, cond)))
+}
+
 function decodeCompare (sf, shift, imm12, imm6, Rm, Rn) = {
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
