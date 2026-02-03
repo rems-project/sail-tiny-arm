@@ -140,6 +140,52 @@ function clause execute ExceptionReturn() = {
   PSTATE = new_pstate;
 }
 
+/* CMP Xn/Wn, Xm/Wm or CMP Xn/Wn, #imm - sets NZCV flags (system mode) */
+function clause execute Compare(sf, n, op) = {
+  _PC = _PC + 4;
+  if sf == bitone then {
+    /* 64-bit */
+    let op1 : bits(64) = X(n);
+    let op2 : bits(64) = match op {
+      OperandReg(m) => X(m),
+      OperandImm(imm12) => sail_zero_extend(imm12, 64)
+    };
+    let result : bits(65) = sail_zero_extend(op1, 65) + sail_zero_extend(not_vec(op2), 65) + 1;
+    let result64 : bits(64) = result[63..0];
+    /* Set condition flags */
+    let sign1 = op1[63..63];
+    let sign2 = op2[63..63];
+    let signr = result64[63..63];
+    let overflow : bool = (sign1 != sign2) & (sign1 != signr);
+    PSTATE = {PSTATE with
+      N = signr,
+      Z = if result64 == 0x0000000000000000 then 0b1 else 0b0,
+      C = result[64..64],
+      V = if overflow then 0b1 else 0b0
+    };
+  } else {
+    /* 32-bit */
+    let op1 : bits(32) = W(n);
+    let op2 : bits(32) = match op {
+      OperandReg(m) => W(m),
+      OperandImm(imm12) => sail_zero_extend(imm12, 32)
+    };
+    let result : bits(33) = sail_zero_extend(op1, 33) + sail_zero_extend(not_vec(op2), 33) + 1;
+    let result32 : bits(32) = result[31..0];
+    /* Set condition flags */
+    let sign1 = op1[31..31];
+    let sign2 = op2[31..31];
+    let signr = result32[31..31];
+    let overflow : bool = (sign1 != sign2) & (sign1 != signr);
+    PSTATE = {PSTATE with
+      N = signr,
+      Z = if result32 == 0x00000000 then 0b1 else 0b0,
+      C = result[32..32],
+      V = if overflow then 0b1 else 0b0
+    };
+  }
+}
+
 /* MRS/MSR: Move to/from System Register */
 /* is_read: true = MRS (read from system register), false = MSR (write to system register) */
 union clause ast = SystemRegisterMove : (bool, bits(3), bits(4), bits(4), bits(3), reg_index)

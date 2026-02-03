@@ -410,6 +410,40 @@ function clause execute Sub(sf, d, n, op) = {
   }
 }
 
+/* Compare: CMP (alias of SUBS with Rd=XZR, sets NZCV flags)
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
+union clause ast = Compare : (datasize, reg_index, operand)
+
+val decodeCompare : (bit, bits(2), bits(12), bits(6), bits(5), bits(5)) -> option(ast)
+
+/* CMP (shifted register): sf 11 01011 shift 0 Rm imm6 Rn 11111 */
+function clause decode ([sf]@0b11@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@0b11111) = {
+  decodeCompare(sf, shift, 0x000, imm6, Rm, Rn)
+}
+
+/* CMP (immediate): sf 11 10001 shift imm12 Rn 11111 */
+function clause decode ([sf]@0b11@0b10001@(shift:bits(2))@(imm12:bits(12))@(Rn:bits(5))@0b11111) = {
+  decodeCompare(sf, shift, imm12, 0b000000, 0b00000, Rn)
+}
+
+function decodeCompare (sf, shift, imm12, imm6, Rm, Rn) = {
+  let n : reg_index = unsigned(Rn);
+  let m : reg_index = unsigned(Rm);
+  let is_imm = (imm12 != 0x000) | (Rm == 0b00000 & imm6 == 0b000000);
+
+  /* For 32-bit (sf=0), imm6[5] must be 0 in register form */
+  if sf == bitzero & is_imm == false & imm6[5] == bitone then None ()
+  else if is_imm == false then {
+    /* Register form */
+    if imm6 != 0b000000 then None () /* We only support unshifted for now */
+    else Some(Compare((sf, n, OperandReg(m))))
+  } else {
+    /* Immediate form - only support shift == 0b00 (no shift) for now */
+    if shift == 0b00 then Some(Compare((sf, n, OperandImm(imm12))))
+    else None()
+  }
+}
+
 /* Data Barrier */
 union clause ast = DataMemoryBarrier : (MBReqDomain, MBReqTypes)
 union clause ast = DataSynchronizationBarrier : (MBReqDomain, MBReqTypes)
