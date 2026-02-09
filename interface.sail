@@ -4,6 +4,17 @@ $include <concurrency_interface/exception.sail>
 $include <concurrency_interface/cache_op.sail>
 $include <concurrency_interface/translation.sail>
 
+scattered union ast
+
+val decode : bits(32) -> option(ast)
+scattered function decode
+
+val execute : ast -> unit
+scattered function execute
+
+// Simple top level fetch and execute loop.
+val fetch_and_execute : unit -> unit
+
 $ifdef SYSTEM_TINY_ARM
 type addr_size : Int = 56
 let addr_size' : int(56) = 56
@@ -216,6 +227,25 @@ function base_AddressDescriptor (accdesc: AccessDescriptor) -> AddressDescriptor
   mecid = sail_zeros(16),
   vaddress = sail_zeros(64)
 }
+
+function base_TLBIRecord (op : TLBIOp) -> TLBIRecord = struct {
+  op = op,
+  from_aarch64 = true,
+  security = SS_NonSecure,
+  regime = Regime_EL10,
+  vmid = 0x0000,
+  asid = 0x0000,
+  level = TLBILevel_Any,
+  attr = TLBI_AllAttr,
+  ipaspace = PAS_NonSecure,
+  address = sail_zeros(64),
+  end_address_name = sail_zeros(64),
+  d64 = true,
+  d128 = false,
+  ttl = 0b0000,
+  tg = 0b00,
+}
+
 $endif
 
 $ifdef SYSTEM_TINY_ARM
@@ -275,11 +305,15 @@ instantiation sail_mem_address_announce with
   'CHERI = false,
   'cap_size_log = 0
 
-  /* See tiny-arm for descriptions, interface for definitions */
+/* See tiny-arm for descriptions, interface for definitions */
 val iFetch : (bits(addr_size), AccessDescriptor) -> bits(32)
 val rMem : (bits(addr_size), AccessDescriptor) -> bits(64)
 val wMem_Addr : bits(addr_size) -> unit
 val wMem : (bits(addr_size), bits(64), AccessDescriptor) -> unit
+val dataMemoryBarrier : (MBReqDomain, MBReqTypes) -> unit
+val dataSynchronizationBarrer : (MBReqDomain, MBReqTypes) -> unit
+val instructionSynchronizationBarrier : unit -> unit
+
 val translate_address : (bits(64), AccessDescriptor) -> option(bits(addr_size))
 
 val read_memory : forall 'N, 'N > 0.
@@ -323,8 +357,34 @@ function wMem(addr, value, accdesc) = {
 instantiation sail_barrier with
   'barrier = Barrier
 
-function dataMemoryBarrier(types) = sail_barrier(
+function dataMemoryBarrier(domain, types) = sail_barrier(
   Barrier_DMB(struct{
-    domain = MBReqDomain_FullSystem,
+    domain = domain,
     types = types,
     nXS = false}))
+
+function dataSynchronizationBarrer(domain, types) = sail_barrier(
+  Barrier_DSB(struct{
+    domain = domain,
+    types = types,
+    nXS = false}))
+
+function instructionSynchronizationBarrier() = sail_barrier(Barrier_ISB())
+
+$ifdef SYSTEM_TINY_ARM
+val reportTLBI : (TLBIOp, option(bits(64)), option(bits(16))) -> unit
+
+function reportTLBI(op, addr, asid) = {
+  var r = base_TLBIRecord(op);
+  r.address = match addr {
+    Some(addr) => addr,
+    None() => 0x0000000000000000
+  };
+  r.asid = match asid {
+    Some(asid) => asid,
+    None() => 0x0000
+  };
+
+  sail_tlbi(struct { rec = r, shareability = Shareability_ISH })
+}
+$endif

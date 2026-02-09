@@ -3,4 +3,6 @@ interface_types.sail
 registers.sail
 interface.sail
 translation.sail
+instrs-user.sail
+instrs-sys.sail
 tiny-arm.sail
