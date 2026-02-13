@@ -1,5 +1,6 @@
-/* Helper functions for Load/Store operations */
-function execute_load(sf : datasize, t : reg_index, vaddr : bits(64)) -> unit = {
+/* Helper functions for Load/Store operations
+ * size: 00 = 8-bit (B), 01 = 16-bit (H), 10 = 32-bit (W), 11 = 64-bit (X) */
+function execute_load(size : bits(2), t : reg_index, vaddr : bits(64)) -> unit = {
   let accdesc = create_readAccessDescriptor();
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns input address. */
@@ -11,16 +12,15 @@ function execute_load(sf : datasize, t : reg_index, vaddr : bits(64)) -> unit = 
   /* The instruction can't fault now (in a real model), so update the PC */
   _PC = _PC + 4;
   /* Read value from memory and write to register */
-  if sf == bitone then {
-    let data : bits(64) = rMem(8, addr, accdesc);
-    X(t) = data;
-  } else {
-    let data : bits(32) = rMem(4, addr, accdesc);
-    W(t) = data;
+  match size {
+    0b11 => { let data : bits(64) = rMem(8, addr, accdesc); X(t) = data },
+    0b10 => { let data : bits(32) = rMem(4, addr, accdesc); W(t) = data },
+    0b01 => { let data : bits(16) = rMem(2, addr, accdesc); W(t) = sail_zero_extend(data, 32) },
+    0b00 => { let data : bits(8)  = rMem(1, addr, accdesc); W(t) = sail_zero_extend(data, 32) }
   }
 }
 
-function execute_store(sf : datasize, t : reg_index, vaddr : bits(64)) -> unit = {
+function execute_store(size : bits(2), t : reg_index, vaddr : bits(64)) -> unit = {
   let accdesc = create_writeAccessDescriptor();
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns input address. */
@@ -34,19 +34,18 @@ function execute_store(sf : datasize, t : reg_index, vaddr : bits(64)) -> unit =
   /* The instruction can't fault now (in a real model), so update the PC */
   _PC = _PC + 4;
   /* Read value from register and write to memory */
-  if sf == bitone then {
-    let data = X(t);
-    wMem(8, addr, data, accdesc);
-  } else {
-    let data = W(t);
-    wMem(4, addr, data, accdesc);
+  match size {
+    0b11 => { let data = X(t); wMem(8, addr, data, accdesc) },
+    0b10 => { let data = W(t); wMem(4, addr, data, accdesc) },
+    0b01 => { let data = W(t); wMem(2, addr, data[15..0], accdesc) },
+    0b00 => { let data = W(t); wMem(1, addr, data[7..0], accdesc) }
   }
 }
 
-/* LoadStore: LDR and STR (register and immediate forms)
- * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
-union clause ast = Load : (datasize, reg_index, reg_index, operand)
-union clause ast = Store : (datasize, reg_index, reg_index, operand)
+/* LoadStore: LDR/STR, LDRH/STRH, LDRB/STRB (register and immediate forms)
+ * size: 00 = 8-bit (B), 01 = 16-bit (H), 10 = 32-bit (W), 11 = 64-bit (X) */
+union clause ast = Load : (bits(2), reg_index, reg_index, operand)
+union clause ast = Store : (bits(2), reg_index, reg_index, operand)
 
 val decodeLoadStoreRegister : (bits(2), bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
 
@@ -59,12 +58,9 @@ function decodeLoadStoreRegister (size, opc, Rm, option_v, S, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
-  /* size=11 (64-bit), size=10 (32-bit) */
-  let sf : datasize = if size == 0b11 then bitone else bitzero;
-  if size != 0b11 & size != 0b10 then None ()
-  else if option_v != 0b011 | S == bitone then None ()
-  else if opc == 0b01 then Some(Load((sf, t, n, OperandReg(m))))
-  else if opc == 0b00 then Some(Store((sf, t, n, OperandReg(m))))
+  if option_v != 0b011 | S == bitone then None ()
+  else if opc == 0b01 then Some(Load((size, t, n, OperandReg(m))))
+  else if opc == 0b00 then Some(Store((size, t, n, OperandReg(m))))
   else None ();
 }
 
@@ -78,36 +74,39 @@ function clause decode ((size:bits(2))@0b111@0b0@0b01@(opc:bits(2))@(imm12:bits(
 function decodeLoadStoreImmediate (size, opc, imm12, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
-  /* size=11 (64-bit), size=10 (32-bit) */
-  let sf : datasize = if size == 0b11 then bitone else bitzero;
-  if size != 0b11 & size != 0b10 then None ()
-  else if opc == 0b01 then Some(Load((sf, t, n, OperandImm(imm12))))
-  else if opc == 0b00 then Some(Store((sf, t, n, OperandImm(imm12))))
+  if opc == 0b01 then Some(Load((size, t, n, OperandImm(imm12))))
+  else if opc == 0b00 then Some(Store((size, t, n, OperandImm(imm12))))
   else None()
 }
 
-/* LDR Xt/Wt, [Xn, Xm] or LDR Xt/Wt, [Xn, #pimm] */
-function clause execute Load(sf, t, n, op) = {
+/* LDR/LDRH/LDRB Xt/Wt, [Xn, Xm] or [Xn, #pimm] */
+function clause execute Load(size, t, n, op) = {
   let addr : bits(64) = match op {
     OperandReg(m) => X(n) + X(m),
-    /* Scale: 8 bytes for 64-bit, 4 bytes for 32-bit */
-    OperandImm(imm12) => if sf == bitone
-      then X(n) + sail_zero_extend(imm12 @ 0b000, 64)
-      else X(n) + sail_zero_extend(imm12 @ 0b00, 64)
+    /* Immediate scaled by access size: 8/4/2/1 bytes */
+    OperandImm(imm12) => match size {
+      0b11 => X(n) + sail_zero_extend(imm12 @ 0b000, 64),
+      0b10 => X(n) + sail_zero_extend(imm12 @ 0b00, 64),
+      0b01 => X(n) + sail_zero_extend(imm12 @ 0b0, 64),
+      0b00 => X(n) + sail_zero_extend(imm12, 64)
+    }
   };
-  execute_load(sf, t, addr);
+  execute_load(size, t, addr);
 }
 
-/* STR Xt/Wt, [Xn, Xm] or STR Xt/Wt, [Xn, #pimm] */
-function clause execute Store(sf, t, n, op) = {
+/* STR/STRH/STRB Xt/Wt, [Xn, Xm] or [Xn, #pimm] */
+function clause execute Store(size, t, n, op) = {
   let addr : bits(64) = match op {
     OperandReg(m) => X(n) + X(m),
-    /* Scale: 8 bytes for 64-bit, 4 bytes for 32-bit */
-    OperandImm(imm12) => if sf == bitone
-      then X(n) + sail_zero_extend(imm12 @ 0b000, 64)
-      else X(n) + sail_zero_extend(imm12 @ 0b00, 64)
+    /* Immediate scaled by access size: 8/4/2/1 bytes */
+    OperandImm(imm12) => match size {
+      0b11 => X(n) + sail_zero_extend(imm12 @ 0b000, 64),
+      0b10 => X(n) + sail_zero_extend(imm12 @ 0b00, 64),
+      0b01 => X(n) + sail_zero_extend(imm12 @ 0b0, 64),
+      0b00 => X(n) + sail_zero_extend(imm12, 64)
+    }
   };
-  execute_store(sf, t, addr);
+  execute_store(size, t, addr);
 }
 
 /* Exclusive OR: EOR
