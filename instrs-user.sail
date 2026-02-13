@@ -13,12 +13,9 @@ function decodeLoadStoreRegister (size, opc, Rm, option_v, S, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
-  /* size=11 (64-bit), size=10 (32-bit) */
-  let sf : datasize = if size == 0b11 then bitone else bitzero;
-  if size != 0b11 & size != 0b10 then None ()
-  else if option_v != 0b011 | S == bitone then None ()
-  else if opc == 0b01 then Some(Load((sf, t, n, OperandReg(m))))
-  else if opc == 0b00 then Some(Store((sf, t, n, OperandReg(m))))
+  if option_v != 0b011 | S == bitone then None ()
+  else if opc == 0b01 then Some(Load((size, t, n, OperandReg(m))))
+  else if opc == 0b00 then Some(Store((size, t, n, OperandReg(m))))
   else None ();
 }
 
@@ -32,11 +29,8 @@ function clause decode ((size:bits(2))@0b111@0b0@0b01@(opc:bits(2))@(imm12:bits(
 function decodeLoadStoreImmediate (size, opc, imm12, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
-  /* size=11 (64-bit), size=10 (32-bit) */
-  let sf : datasize = if size == 0b11 then bitone else bitzero;
-  if size != 0b11 & size != 0b10 then None ()
-  else if opc == 0b01 then Some(Load((sf, t, n, OperandImm(imm12))))
-  else if opc == 0b00 then Some(Store((sf, t, n, OperandImm(imm12))))
+  if opc == 0b01 then Some(Load((size, t, n, OperandImm(imm12))))
+  else if opc == 0b00 then Some(Store((size, t, n, OperandImm(imm12))))
   else None()
 }
 
@@ -48,10 +42,13 @@ function clause execute Load(t, n, op) = {
   /* Compute the (virtual) address of the access */
   let vaddr : bits(64) = match op {
     OperandReg(m) => X(n) + X(m),
-    /* Scale: 8 bytes for 64-bit, 4 bytes for 32-bit */
-    OperandImm(imm12) => if sf == bitone
-      then X(n) + sail_zero_extend(imm12 @ 0b000, 64)
-      else X(n) + sail_zero_extend(imm12 @ 0b00, 64)
+    /* Immediate scaled by access size: 8/4/2/1 bytes */
+    OperandImm(imm12) => match size {
+      0b11 => X(n) + sail_zero_extend(imm12 @ 0b000, 64),
+      0b10 => X(n) + sail_zero_extend(imm12 @ 0b00, 64),
+      0b01 => X(n) + sail_zero_extend(imm12 @ 0b0, 64),
+      0b00 => X(n) + sail_zero_extend(imm12, 64)
+    }
   };
 
   /* Translate the virtual address into the physical address.
@@ -78,10 +75,13 @@ function clause execute Store(t, n, op) = {
   /* Compute the (virtual) address of the access */
   let vaddr : bits(64) = match op {
     OperandReg(m) => X(n) + X(m),
-    /* Scale: 8 bytes for 64-bit, 4 bytes for 32-bit */
-    OperandImm(imm12) => if sf == bitone
-      then X(n) + sail_zero_extend(imm12 @ 0b000, 64)
-      else X(n) + sail_zero_extend(imm12 @ 0b00, 64)
+    /* Immediate scaled by access size: 8/4/2/1 bytes */
+    OperandImm(imm12) => match size {
+      0b11 => X(n) + sail_zero_extend(imm12 @ 0b000, 64),
+      0b10 => X(n) + sail_zero_extend(imm12 @ 0b00, 64),
+      0b01 => X(n) + sail_zero_extend(imm12 @ 0b0, 64),
+      0b00 => X(n) + sail_zero_extend(imm12, 64)
+    }
   };
 
   /* Translate the virtual address into the physical address.
