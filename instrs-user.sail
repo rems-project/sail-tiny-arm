@@ -119,17 +119,10 @@ function decodeExclusiveOr (sf, shift, N, Rm, imm6, Rn, Rd) = {
 /* EOR Xd/Wd, Xn/Wn, Xm/Wm */
 function clause execute ExclusiveOr(sf, d, n, m) = {
   _PC = _PC + 4;
-  if sf == bitone then {
-    /* 64-bit */
-    let operand1 = X(n);
-    let operand2 = X(m);
-    X(d) = operand1 ^ operand2;
-  } else {
-    /* 32-bit */
-    let operand1 = W(n);
-    let operand2 = W(m);
-    W(d) = operand1 ^ operand2;
-  }
+  let 'size = if sf == bitone then 64 else 32;
+  let operand1 = XS(n, 'size);
+  let operand2 = XS(m, 'size);
+  XS(d, 'size) = operand1 ^ operand2;
 }
 
 /* Move (register and immediate forms)
@@ -156,29 +149,15 @@ function clause decode ([sf]@0b10@0b100101@(hw:bits(2))@(imm16:bits(16))@(Rd:bit
 /* MOV Xd/Wd, Xm/Wm or MOVZ Xd/Wd, #imm, LSL #shift */
 function clause execute Move(sf, d, op) = {
   _PC = _PC + 4;
-  if sf == bitone then {
-    /* 64-bit */
-    let res : bits(64) = match op {
-      MoveReg(m) => X(m),
-      MoveImm(data) => match data.hw {
-        0b00 => sail_zero_extend(data.imm, 64),                /* imm at bits [15:0] */
-        0b01 => sail_zero_extend(data.imm, 48) @ 0x0000,       /* imm at bits [31:16] */
-        0b10 => sail_zero_extend(data.imm, 32) @ 0x00000000,   /* imm at bits [47:32] */
-        0b11 => data.imm @ 0x000000000000                      /* imm at bits [63:48] */
-      }
-    };
-    X(d) = res;
-  } else {
-    /* 32-bit - zero-extended on write */
-    let res : bits(32) = match op {
-      MoveReg(m) => W(m),
-      MoveImm(data) => match data.hw {
-        0b00 => sail_zero_extend(data.imm, 32),          /* imm at bits [15:0] */
-        0b01 => data.imm @ 0x0000,                       /* imm at bits [31:16] */
-        _ => sail_zeros(32)                              /* unreachable: validated in decode */
-      }
-    };
-    W(d) = res;
+  let size = if sf == bitone then 64 else 32;
+  match op {
+    MoveReg(m) => XS(d, size) = XS(m, size),
+    MoveImm(data) => {
+      /* Compute 64-bit result, then truncate for 32-bit */
+      let res : bits(64) = sail_shiftleft(sail_zero_extend(data.imm, 64), 16 * unsigned(data.hw));
+      if sf == bitone then X(d) = res
+      else W(d) = res[31..0]
+    }
   }
 }
 
@@ -233,45 +212,25 @@ function decodeAddSub (sf, op, is_imm, shift, imm12, imm6, Rm, Rn, Rd) = {
 /* ADD Xd/Wd, Xn/Wn, Xm/Wm or ADD Xd/Wd, Xn/Wn, #imm */
 function clause execute Add(sf, d, n, op) = {
   _PC = _PC + 4;
-  if sf == bitone then {
-    /* 64-bit */
-    let op1 = X(n);
-    let op2 : bits(64) = match op {
-      OperandReg(m) => X(m),
-      OperandImm(imm12) => sail_zero_extend(imm12, 64)
-    };
-    X(d) = op1 + op2;
-  } else {
-    /* 32-bit */
-    let op1 = W(n);
-    let op2 : bits(32) = match op {
-      OperandReg(m) => W(m),
-      OperandImm(imm12) => sail_zero_extend(imm12, 32)
-    };
-    W(d) = op1 + op2;
-  }
+  let 'size = if sf == bitone then 64 else 32;
+  let op1 = XS(n, 'size);
+  let op2 : bits('size) = match op {
+    OperandReg(m) => XS(m, 'size),
+    OperandImm(imm12) => sail_zero_extend(imm12, 'size)
+  };
+  XS(d, 'size) = op1 + op2;
 }
 
 /* SUB Xd/Wd, Xn/Wn, Xm/Wm or SUB Xd/Wd, Xn/Wn, #imm */
 function clause execute Sub(sf, d, n, op) = {
   _PC = _PC + 4;
-  if sf == bitone then {
-    /* 64-bit */
-    let op1 = X(n);
-    let op2 : bits(64) = match op {
-      OperandReg(m) => X(m),
-      OperandImm(imm12) => sail_zero_extend(imm12, 64)
-    };
-    X(d) = op1 + (not_vec(op2) + 1);
-  } else {
-    /* 32-bit */
-    let op1 = W(n);
-    let op2 : bits(32) = match op {
-      OperandReg(m) => W(m),
-      OperandImm(imm12) => sail_zero_extend(imm12, 32)
-    };
-    W(d) = op1 + (not_vec(op2) + 1);
-  }
+  let 'size = if sf == bitone then 64 else 32;
+  let op1 = XS(n, 'size);
+  let op2 : bits('size) = match op {
+    OperandReg(m) => XS(m, 'size),
+    OperandImm(imm12) => sail_zero_extend(imm12, 'size)
+  };
+  XS(d, 'size) = op1 + (not_vec(op2) + 1);
 }
 
 /* Data Barrier */

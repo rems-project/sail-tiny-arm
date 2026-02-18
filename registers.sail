@@ -128,6 +128,23 @@ function rW(n) = {
 
 overload W = {rW, wW}
 
+/* Sized register access: avoids 32/64-bit duplication in instructions */
+val rXS : forall 'N, 'N in {32, 64}. (reg_index, int('N)) -> bits('N)
+
+function rXS(n, size) = {
+  if size == 64 then rX(n)
+  else rW(n)
+}
+
+val wXS : forall 'N, 'N in {32, 64}. (reg_index, int('N), bits('N)) -> unit
+
+function wXS(n, size, value) = {
+  if size == 64 then wX(n, value)
+  else wW(n, value)
+}
+
+overload XS = {rXS, wXS}
+
 function rPC() -> bits(64) = _PC
 function wPC(pc : bits(64)) -> unit = _PC = pc
 

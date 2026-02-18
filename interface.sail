@@ -307,9 +307,9 @@ instantiation sail_mem_address_announce with
 
 /* See tiny-arm for descriptions, interface for definitions */
 val iFetch : (bits(addr_size), AccessDescriptor) -> bits(32)
-val rMem : forall 'N, 'N > 0. (int('N), bits(addr_size), AccessDescriptor) -> bits('N * 8)
+val rMem : forall 'N, 'N > 0. (int('N), bits(addr_size), AccessDescriptor) -> bits(8 * 'N)
 val wMem_Addr : bits(addr_size) -> unit
-val wMem : forall 'N, 'N > 0. (int('N), bits(addr_size), bits('N * 8), AccessDescriptor) -> unit
+val wMem : forall 'N, 'N > 0. (int('N), bits(addr_size), bits(8 * 'N), AccessDescriptor) -> unit
 val dataMemoryBarrier : (MBReqDomain, MBReqTypes) -> unit
 val dataSynchronizationBarrer : (MBReqDomain, MBReqTypes) -> unit
 val instructionSynchronizationBarrier : unit -> unit
@@ -317,7 +317,7 @@ val instructionSynchronizationBarrier : unit -> unit
 val translate_address : (bits(64), AccessDescriptor) -> option(bits(addr_size))
 
 val read_memory : forall 'N, 'N > 0.
-  (int('N), bits(addr_size), AccessDescriptor) -> bits('N * 8)
+  (int('N), bits(addr_size), AccessDescriptor) -> bits(8 * 'N)
 
 function read_memory(N, addr, accdesc) = {
   let req : Mem_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
