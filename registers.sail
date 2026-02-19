@@ -12,12 +12,6 @@ struct move_imm_data = {
   hw : bits(2)
 }
 
-/* Move operand type: either a register or a 16-bit immediate with shift */
-union move_operand = {
-  MoveReg : reg_index,
-  MoveImm : move_imm_data
-}
-
 register _PC : bits(64)
 
 /* General purpose registers */

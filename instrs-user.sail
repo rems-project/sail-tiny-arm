@@ -141,9 +141,9 @@ function clause execute ExclusiveOr(sf, d, n, m) = {
   }
 }
 
-/* Move (register and immediate forms)
+/* ORR / MOV (register)
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
-union clause ast = Move : (datasize, reg_index, move_operand)
+union clause ast = Orr : (datasize, reg_index, reg_index)
 
 /* MOV (register) - Alias of ORR (shifted register) */
 /* ORR (shifted register): sf 0 101010 shift 0 Rm imm6 Rn Rd */
@@ -151,41 +151,49 @@ union clause ast = Move : (datasize, reg_index, move_operand)
 function clause decode ([sf]@0b0@0b101010@0b00@0b0@(Rm:bits(5))@0b000000@0b11111@(Rd:bits(5))) = {
   let d : reg_index = unsigned(Rd);
   let m : reg_index = unsigned(Rm);
-  Some(Move((sf, d, MoveReg(m))))
+  Some(Orr((sf, d, m)))
 }
+
+/* ORR Xd/Wd, XZR/WZR, Xm/Wm */
+function clause execute Orr(sf, d, m) = {
+  _PC = _PC + 4;
+  if sf == bitone then {
+    X(d) = X(m);
+  } else {
+    W(d) = W(m);
+  }
+}
+
+/* MOVZ
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
+union clause ast = Movz : (datasize, reg_index, move_imm_data)
 
 /* MOVZ: sf 10 100101 hw imm16 Rd */
 function clause decode ([sf]@0b10@0b100101@(hw:bits(2))@(imm16:bits(16))@(Rd:bits(5))) = {
   let d : reg_index = unsigned(Rd);
   /* For 32-bit (sf=0), hw must be 00 or 01 (hw[1]=0) */
   if sf == bitzero & hw[1] == bitone then None()
-  else Some(Move((sf, d, MoveImm(struct { imm = imm16, hw = hw }))))
+  else Some(Movz((sf, d, struct { imm = imm16, hw = hw })))
 }
 
-/* MOV Xd/Wd, Xm/Wm or MOVZ Xd/Wd, #imm, LSL #shift */
-function clause execute Move(sf, d, op) = {
+/* MOVZ Xd/Wd, #imm, LSL #shift */
+function clause execute Movz(sf, d, data) = {
   _PC = _PC + 4;
   if sf == bitone then {
     /* 64-bit */
-    let res : bits(64) = match op {
-      MoveReg(m) => X(m),
-      MoveImm(data) => match data.hw {
-        0b00 => sail_zero_extend(data.imm, 64),                /* imm at bits [15:0] */
-        0b01 => sail_zero_extend(data.imm, 48) @ 0x0000,       /* imm at bits [31:16] */
-        0b10 => sail_zero_extend(data.imm, 32) @ 0x00000000,   /* imm at bits [47:32] */
-        0b11 => data.imm @ 0x000000000000                      /* imm at bits [63:48] */
-      }
+    let res : bits(64) = match data.hw {
+      0b00 => sail_zero_extend(data.imm, 64),                /* imm at bits [15:0] */
+      0b01 => sail_zero_extend(data.imm, 48) @ 0x0000,       /* imm at bits [31:16] */
+      0b10 => sail_zero_extend(data.imm, 32) @ 0x00000000,   /* imm at bits [47:32] */
+      0b11 => data.imm @ 0x000000000000                      /* imm at bits [63:48] */
     };
     X(d) = res;
   } else {
     /* 32-bit - zero-extended on write */
-    let res : bits(32) = match op {
-      MoveReg(m) => W(m),
-      MoveImm(data) => match data.hw {
-        0b00 => sail_zero_extend(data.imm, 32),          /* imm at bits [15:0] */
-        0b01 => data.imm @ 0x0000,                       /* imm at bits [31:16] */
-        _ => sail_zeros(32)                              /* unreachable: validated in decode */
-      }
+    let res : bits(32) = match data.hw {
+      0b00 => sail_zero_extend(data.imm, 32),          /* imm at bits [15:0] */
+      0b01 => data.imm @ 0x0000,                       /* imm at bits [31:16] */
+      _ => sail_zeros(32)                              /* unreachable: validated in decode */
     };
     W(d) = res;
   }
