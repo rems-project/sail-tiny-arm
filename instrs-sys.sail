@@ -98,13 +98,45 @@ function clause execute SupervisorCall(imm16) = {
   );
 
   /* Transition to EL1 and use SP_EL1 */
-  PSTATE.EL = 0b01;
-  PSTATE.SP = 0b1;
-
   /* Mask interrupts on exception entry */
-  PSTATE.D = 0b1;
-  PSTATE.A = 0b1;
-  PSTATE.I = 0b1;
-  PSTATE.F = 0b1;
+  PSTATE = {PSTATE with
+    EL = 0b01,
+    SP = 0b1,
+    D = 0b1,
+    A = 0b1,
+    I = 0b1,
+    F = 0b1
+  };
+}
+
+/* Exception Return (ERET) - EL1 only */
+union clause ast = ExceptionReturn : unit
+
+/* ERET: 1101 0110 1001 1111 0000 0011 1110 0000 */
+function clause decode (0b11010110100111110000001111100000) = {
+  Some(ExceptionReturn())
+}
+
+function clause execute ExceptionReturn() = {
+  /* Set PC to the exception link register (no +4 increment) */
+  _PC = ELR_EL1;
+
+  /* Read saved program status register */
+  let spsr = SPSR_EL1;
+
+  /* Restore PSTATE fields from SPSR */
+  let new_pstate = {PSTATE with
+    N = spsr[31..31],
+    Z = spsr[30..30],
+    C = spsr[29..29],
+    V = spsr[28..28],
+    D = spsr[9..9],
+    A = spsr[8..8],
+    I = spsr[7..7],
+    F = spsr[6..6],
+    EL = spsr[3..2],
+    SP = spsr[0..0]
+  };
+  PSTATE = new_pstate;
 }
 $endif
