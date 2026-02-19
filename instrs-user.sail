@@ -110,19 +110,17 @@ function decodeExclusiveOr (sf, shift, N, Rm, imm6, Rn, Rd) = {
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
 
-  /* For 32-bit (sf=0), imm6[5] must be 0 */
-  if sf == bitzero & imm6[5] == bitone then None ()
-  else if imm6 != 0b000000 then None () /* We only support unshifted for now */
+  if imm6 != 0b000000 then None () /* We only support unshifted for now */
   else Some(ExclusiveOr((sf, d, n, m)));
 }
 
 /* EOR Xd/Wd, Xn/Wn, Xm/Wm */
 function clause execute ExclusiveOr(sf, d, n, m) = {
   _PC = _PC + 4;
-  let 'size = if sf == bitone then 64 else 32;
-  let operand1 = XS(n, 'size);
-  let operand2 = XS(m, 'size);
-  XS(d, 'size) = operand1 ^ operand2;
+  let size = if sf == bitone then 64 else 32;
+  let operand1 = XS(n, size);
+  let operand2 = XS(m, size);
+  XS(d, size) = operand1 ^ operand2;
 }
 
 /* Move (register and immediate forms)
@@ -155,8 +153,7 @@ function clause execute Move(sf, d, op) = {
     MoveImm(data) => {
       /* Compute 64-bit result, then truncate for 32-bit */
       let res : bits(64) = sail_shiftleft(sail_zero_extend(data.imm, 64), 16 * unsigned(data.hw));
-      if sf == bitone then X(d) = res
-      else W(d) = res[31..0]
+      XS(d, size) = res[size-1..0]
     }
   }
 }
@@ -166,48 +163,40 @@ function clause execute Move(sf, d, op) = {
 union clause ast = Add : (datasize, reg_index, reg_index, operand)
 union clause ast = Sub : (datasize, reg_index, reg_index, operand)
 
-val decodeAddSub : (bit, bit, bit, bits(2), bits(12), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
-
-/* ADD (shifted register): sf 00 01011 shift 0 Rm imm6 Rn Rd */
-function clause decode ([sf]@0b00@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
-  decodeAddSub(sf, bitzero, bitzero, shift, 0x000, imm6, Rm, Rn, Rd)
+/* ADD/SUB (shifted register) */
+val decodeAddSubShift : (bit, bit, bits(2), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
+function clause decode ([sf]@[op]@0b0@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeAddSubShift(sf, op, shift, imm6, Rm, Rn, Rd)
 }
 
-/* SUB (shifted register): sf 10 01011 shift 0 Rm imm6 Rn Rd */
-function clause decode ([sf]@0b10@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
-  decodeAddSub(sf, bitone, bitzero, shift, 0x000, imm6, Rm, Rn, Rd)
-}
-
-/* ADD (immediate): sf 00 10001 shift imm12 Rn Rd */
-function clause decode ([sf]@0b00@0b10001@(shift:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
-  decodeAddSub(sf, bitzero, bitone, shift, imm12, 0b000000, 0b00000, Rn, Rd)
-}
-
-/* SUB (immediate): sf 10 10001 shift imm12 Rn Rd */
-function clause decode ([sf]@0b10@0b10001@(shift:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
-  decodeAddSub(sf, bitone, bitone, shift, imm12, 0b000000, 0b00000, Rn, Rd)
-}
-
-function decodeAddSub (sf, op, is_imm, shift, imm12, imm6, Rm, Rn, Rd) = {
+function decodeAddSubShift (sf, op, shift, imm6, Rm, Rn, Rd) = {
   let d : reg_index = unsigned(Rd);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
 
-  /* For 32-bit (sf=0), imm6[5] must be 0 in register form */
-  if sf == bitzero & is_imm == bitzero & imm6[5] == bitone then None ()
-  else if is_imm == bitzero then {
-    /* Register form */
-    if imm6 != 0b000000 then None () /* We only support unshifted for now */
-    else if op == bitzero then Some(Add((sf, d, n, OperandReg(m))))
-    else Some(Sub((sf, d, n, OperandReg(m))))
-  } else {
-    /* Immediate form - only support shift == 0b00 (no shift) for now */
-    if shift == 0b00 then {
-      if op == bitzero then Some(Add((sf, d, n, OperandImm(imm12))))
-      else Some(Sub((sf, d, n, OperandImm(imm12))))
-    } else None()
-  }
+  if imm6 != 0b000000 then return None (); /* We only support unshifted for now */
+
+  if op == bitzero then Some(Add((sf, d, n, OperandReg(m))))
+  else Some(Sub((sf, d, n, OperandReg(m))))
 }
+
+
+val decodeAddSubImm : (bit, bit, bits(1), bits(12), bits(5), bits(5)) -> option(ast)
+/* ADD/SUB (immediate) */
+function clause decode ([sf]@[op]@0b0@0b100010@(sh:bits(1))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeAddSubImm(sf, op, sh, imm12, Rn, Rd)
+}
+
+function decodeAddSubImm (sf, op, sh, imm12, Rn, Rd) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+
+  if sh != 0b0 then return None(); /* Only support unshifted immediate */
+
+  if op == bitzero then Some(Add((sf, d, n, OperandImm(imm12))))
+  else Some(Sub((sf, d, n, OperandImm(imm12))))
+}
+
 
 /* ADD Xd/Wd, Xn/Wn, Xm/Wm or ADD Xd/Wd, Xn/Wn, #imm */
 function clause execute Add(sf, d, n, op) = {
@@ -323,8 +312,13 @@ function clause execute CompareAndBranch(sf, t, offset) = {
   /* Get operand value - 64-bit or 32-bit (zero-extended for comparison) */
   let operand : bits(64) = if sf == bitone then X(t) else sail_zero_extend(W(t), 64);
   if operand == 0x0000000000000000 then {
+    /* Ask for the value of the program counter register and record it
+     * in the local variable base */
     let base = PC();
+    /* Compute the address */
     let addr = base + offset;
+    /* Ask for the value of result to be written to the program counter
+     * register */
     PC() = addr;
   }
   else _PC = _PC + 4;
