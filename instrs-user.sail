@@ -31,8 +31,9 @@ function clause decode ((size:bits(2))@0b111@0b0@0b01@(opc:bits(2))@(imm12:bits(
 function decodeLoadStoreImmediate (size, opc, imm12, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
-  if opc == 0b01 then Some(Load((unsigned(size), t, n, OperandImm(imm12))))
-  else if opc == 0b00 then Some(Store((unsigned(size), t, n, OperandImm(imm12))))
+  let imm = sail_zero_extend(imm12, 64);
+  if opc == 0b01 then Some(Load((unsigned(size), t, n, OperandImm(imm))))
+  else if opc == 0b00 then Some(Store((unsigned(size), t, n, OperandImm(imm))))
   else None()
 }
 
@@ -45,8 +46,7 @@ function clause execute Load(size, t, n, op) = {
   let vaddr : bits(64) = match op {
     OperandReg(m) => X(n) + X(m),
     /* Immediate scaled by access size: 8/4/2/1 bytes */
-    OperandImm(imm12) =>
-      X(n) + sail_shiftleft(sail_zero_extend(imm12, 64), size)
+    OperandImm(imm) => X(n) + sail_shiftleft(imm, size)
   };
 
   /* Translate the virtual address into the physical address.
@@ -178,10 +178,11 @@ function decodeAddSubImm (sf, op, sh, imm12, Rn, Rd) = {
   let d : reg_index = unsigned(Rd);
   let n : reg_index = unsigned(Rn);
 
-  if sh != 0b0 then return None(); /* Only support unshifted immediate */
+  let imm =
+    if sh == 0b0 then 0x0000000000000@imm12 else 0x0000000000@imm12@0x000;
 
-  if op == bitzero then Some(Add((sf, d, n, OperandImm(imm12))))
-  else Some(Sub((sf, d, n, OperandImm(imm12))))
+  if op == bitzero then Some(Add((sf, d, n, OperandImm(imm))))
+  else Some(Sub((sf, d, n, OperandImm(imm))))
 }
 
 
@@ -189,24 +190,24 @@ function decodeAddSubImm (sf, op, sh, imm12, Rn, Rd) = {
 function clause execute Add(sf, d, n, op) = {
   _PC = _PC + 4;
   let 'size = if sf == bitone then 64 else 32;
-  let op1 = XS(n, 'size);
+  let op1 = XS(n, size);
   let op2 : bits('size) = match op {
-    OperandReg(m) => XS(m, 'size),
-    OperandImm(imm12) => sail_zero_extend(imm12, 'size)
+    OperandReg(m) => XS(m, size),
+    OperandImm(imm) => imm[size-1..0]
   };
-  XS(d, 'size) = op1 + op2;
+  XS(d, size) = op1 + op2;
 }
 
 /* SUB Xd/Wd, Xn/Wn, Xm/Wm or SUB Xd/Wd, Xn/Wn, #imm */
 function clause execute Sub(sf, d, n, op) = {
   _PC = _PC + 4;
   let 'size = if sf == bitone then 64 else 32;
-  let op1 = XS(n, 'size);
+  let op1 = XS(n, size);
   let op2 : bits('size) = match op {
-    OperandReg(m) => XS(m, 'size),
-    OperandImm(imm12) => sail_zero_extend(imm12, 'size)
+    OperandReg(m) => XS(m, size),
+    OperandImm(imm) => imm[size-1..0]
   };
-  XS(d, 'size) = op1 + (not_vec(op2) + 1);
+  XS(d, size) = op1 - op2;
 }
 
 /* Data Barrier */

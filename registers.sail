@@ -1,9 +1,9 @@
 type reg_index = range(0, 31)
 
-/* Operand type: either a register or a 12-bit immediate */
+/* Operand type: either a register or a 64-bit immediate */
 union operand = {
   OperandReg : reg_index,
-  OperandImm : bits(12)
+  OperandImm : bits(64)
 }
 
 /* Bitwise operations */

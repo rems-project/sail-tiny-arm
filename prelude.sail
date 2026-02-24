@@ -12,8 +12,7 @@ function eq_bits_int (x, y) = (unsigned(x) == y)
 overload operator == = {eq_any, eq_bits_int}
 
 overload operator ^ = {xor_vec}
-overload operator | = {or_vec}
-overload operator & = {and_vec}
+overload operator - = {sub_bits}
 
 val fail: forall 'a. string -> 'a
 function fail(message) = {
