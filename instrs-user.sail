@@ -367,6 +367,54 @@ function clause execute CompareAndBranch(sf, t, offset, iszero) = {
   else _PC = _PC + 4;
 }
 
+/* Logical Shift Right: LSR
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
+union clause ast = LogicalShiftRight : (datasize, reg_index, reg_index, operand)
+
+/* LSR (immediate) - alias of UBFM: sf 10 100110 N immr imms Rn Rd
+ * For 64-bit: N=1, imms=111111; For 32-bit: N=0, imms=011111
+ * shift amount = immr */
+function clause decode ([sf]@0b10@0b100110@[N]@(immr:bits(6))@(imms:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+  /* LSR immediate: N must match sf, imms must be all-ones for the size */
+  let valid_64 = (sf == bitone) & (N == bitone) & (imms == 0b111111);
+  let valid_32 = (sf == bitzero) & (N == bitzero) & (imms == 0b011111);
+  if valid_64 | valid_32 then
+    Some(LogicalShiftRight((sf, d, n, OperandImm(sail_zero_extend(immr, 12)))))
+  else None()
+}
+
+/* LSR (register) - alias of LSRV: sf 0 0 11010110 Rm 0010 01 Rn Rd */
+function clause decode ([sf]@0b0@0b0@0b11010110@(Rm:bits(5))@0b0010@0b01@(Rn:bits(5))@(Rd:bits(5))) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+  let m : reg_index = unsigned(Rm);
+  Some(LogicalShiftRight((sf, d, n, OperandReg(m))))
+}
+
+/* LSR Xd/Wd, Xn/Wn, Xm/Wm or LSR Xd/Wd, Xn/Wn, #shift */
+function clause execute LogicalShiftRight(sf, d, n, op) = {
+  _PC = _PC + 4;
+  if sf == bitone then {
+    /* 64-bit */
+    let operand = X(n);
+    let shift_amount : int = match op {
+      OperandReg(m) => unsigned(X(m)[5..0]),
+      OperandImm(imm) => unsigned(imm[5..0])
+    };
+    X(d) = sail_shiftright(operand, shift_amount);
+  } else {
+    /* 32-bit */
+    let operand = W(n);
+    let shift_amount : int = match op {
+      OperandReg(m) => unsigned(W(m)[4..0]),
+      OperandImm(imm) => unsigned(imm[4..0])
+    };
+    W(d) = sail_shiftright(operand, shift_amount);
+  }
+}
+
 /* Unconditional Branch: B */
 union clause ast = Branch : bits(64)
 
