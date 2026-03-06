@@ -100,4 +100,67 @@ function clause execute ExceptionReturn() = {
   };
   PSTATE = new_pstate;
 }
+
+/* MRS/MSR: Move to/from System Register */
+/* is_read: true = MRS (read from system register), false = MSR (write to system register) */
+union clause ast = SystemRegisterMove : (bool, bits(3), bits(4), bits(4), bits(3), reg_index)
+
+val decodeSystemRegisterMove :
+    (bool, bits(3), bits(4), bits(4), bits(3), bits(5)) -> option(ast)
+
+/* MRS: 1101 0101 0011 op1 CRn CRm op2 Rt (L=1) */
+/* MSR: 1101 0101 0001 op1 CRn CRm op2 Rt (L=0) */
+function clause decode (0b1101010100@[L]@0b11@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4))@(op2:bits(3))@(Rt:bits(5))) = {
+  decodeSystemRegisterMove(L == bitone, op1, CRn, CRm, op2, Rt)
+}
+
+function decodeSystemRegisterMove(is_read, op1, CRn, CRm, op2, Rt) = {
+   Some(SystemRegisterMove(is_read, op1, CRn, CRm, op2, unsigned(Rt)))
+}
+
+/* Lookup system register by encoding */
+val lookup_sys_reg : (bits(3), bits(4), bits(4), bits(3)) -> option(register(bits(64)))
+function lookup_sys_reg(op1, CRn, CRm, op2) = {
+  match (op1, CRn, CRm, op2) {
+    (0b000, 0b0001, 0b0000, 0b000) => Some(ref SCTLR_EL1),
+    (0b000, 0b0010, 0b0000, 0b000) => Some(ref TTBR0_EL1),
+    (0b000, 0b0010, 0b0000, 0b001) => Some(ref TTBR1_EL1),
+    (0b000, 0b0010, 0b0000, 0b010) => Some(ref TCR_EL1),
+    (0b000, 0b0100, 0b0000, 0b000) => Some(ref SPSR_EL1),
+    (0b000, 0b0100, 0b0000, 0b001) => Some(ref ELR_EL1),
+    (0b000, 0b0101, 0b0010, 0b000) => Some(ref ESR_EL1),
+    (0b000, 0b0110, 0b0000, 0b000) => Some(ref FAR_EL1),
+    (0b000, 0b0111, 0b0100, 0b000) => Some(ref PAR_EL1),
+    (0b000, 0b1100, 0b0000, 0b000) => Some(ref VBAR_EL1),
+    _ => None()
+  }
+}
+
+/* TODO: System register access should use sys_reg_read/sys_reg_write outcomes
+ * instead of plain register access. Waiting for decision on identifier format. */
+function clause execute SystemRegisterMove(is_read, op1, CRn, CRm, op2, t) = {
+  _PC = _PC + 4;
+  let sys_reg_opt = lookup_sys_reg(op1, CRn, CRm, op2);
+  match sys_reg_opt {
+    Some(reg_ref) => {
+      if is_read then {
+        /* MRS Xt, <reg> - read from system register */
+        /* TODO: use sys_reg_read outcome */
+        X(t) = *reg_ref
+      } else {
+        /* MSR <reg>, Xt - write to system register */
+        /* TODO: use sys_reg_write outcome */
+        *reg_ref = X(t)
+      }
+    },
+    None() =>
+      assert(false,
+        concat_str("Unsupported System Register: ", concat_str((if is_read then "MRS" else "MSR"),
+        concat_str(" op1=", concat_str(bits_str(op1),
+        concat_str(" CRn=", concat_str(bits_str(CRn),
+        concat_str(" CRm=", concat_str(bits_str(CRm),
+        concat_str(" op2=", concat_str(bits_str(op2),
+        concat_str(" Rt=", dec_str(t)))))))))))))
+  }
+}
 $endif
