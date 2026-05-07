@@ -13,6 +13,12 @@ enum bitwise_op = {
   And,
 }
 
+/* Shift operations (extend with Asr, Ror as needed) */
+enum shift_op = {
+  Lsl,
+  Lsr,
+}
+
 register _PC : bits(64)
 
 /* General purpose registers */

@@ -367,6 +367,57 @@ function clause execute CompareAndBranch(sf, t, offset, iszero) = {
   else _PC = _PC + 4;
 }
 
+/* Logical Shift: LSL/LSR (extend with ASR/ROR by adding cases below)
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
+union clause ast = LogicalShift : (datasize, shift_op, reg_index, reg_index, operand)
+
+/* LSL/LSR (immediate) - aliases of UBFM: sf 10 100110 N immr imms Rn Rd
+ * LSR: imms is all-ones for the size; shift = immr
+ * LSL: imms+1 == immr (mod size); shift = size-1-imms */
+function clause decode ([sf]@0b10@0b100110@[N]@(immr:bits(6))@(imms:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+  let valid_size = (sf == bitone & N == bitone) | (sf == bitzero & N == bitzero);
+  if not_bool(valid_size) then return None();
+  let size_imms : bits(6) = if sf == bitone then 0b111111 else 0b011111;
+  if imms == size_imms then
+    Some(LogicalShift((sf, Lsr, d, n, OperandImm(sail_zero_extend(immr, 64)))))
+  else if (unsigned(imms) + 1) == unsigned(immr) then {
+    let shift : bits(6) = size_imms - imms;
+    Some(LogicalShift((sf, Lsl, d, n, OperandImm(sail_zero_extend(shift, 64)))))
+  }
+  else None()
+}
+
+/* LSL/LSR (register) - LSLV/LSRV: sf 0 0 11010110 Rm 0010 op2 Rn Rd
+ * op2: 00 = LSL, 01 = LSR (10 = ASR, 11 = ROR — future) */
+function clause decode ([sf]@0b0@0b0@0b11010110@(Rm:bits(5))@0b0010@(op2:bits(2))@(Rn:bits(5))@(Rd:bits(5))) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+  let m : reg_index = unsigned(Rm);
+  match op2 {
+    0b00 => Some(LogicalShift((sf, Lsl, d, n, OperandReg(m)))),
+    0b01 => Some(LogicalShift((sf, Lsr, d, n, OperandReg(m)))),
+    _ => None()
+  }
+}
+
+/* LSL/LSR Xd/Wd, Xn/Wn, Xm/Wm or LSL/LSR Xd/Wd, Xn/Wn, #shift */
+function clause execute LogicalShift(sf, op, d, n, oper) = {
+  _PC = _PC + 4;
+  let 'size = if sf == bitone then 64 else 32;
+  let raw : bits('size) = match oper {
+    OperandReg(m) => XS(m, size),
+    OperandImm(imm) => imm[size - 1 .. 0]
+  };
+  let shift_amount : int = tmod_int(unsigned(raw), size);
+  let result : bits('size) = match op {
+    Lsl => sail_shiftleft(XS(n, size), shift_amount),
+    Lsr => sail_shiftright(XS(n, size), shift_amount)
+  };
+  XS(d, size) = result;
+}
+
 /* Unconditional Branch: B */
 union clause ast = Branch : bits(64)
 
