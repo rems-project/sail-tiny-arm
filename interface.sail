@@ -92,18 +92,19 @@ function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = stru
   }
 }
 
-function create_writeAccessDescriptor() -> AccessDescriptor = {
+function create_writeAccessDescriptor(release : bool) -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.write = true;
-  accdesc.read = false;
+  accdesc.relsc = release;
   accdesc.el = CurrentEL;
   accdesc
 }
 
-function create_readAccessDescriptor() -> AccessDescriptor = {
+function create_readAccessDescriptor(acquire : bool, rcpc : bool) -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.read = true;
-  accdesc.write = false;
+  accdesc.acqsc = acquire & not_bool(rcpc);
+  accdesc.acqpc = acquire & rcpc;
   accdesc.el = CurrentEL;
   accdesc
 }
