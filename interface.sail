@@ -92,12 +92,11 @@ function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = stru
   }
 }
 
-$ifdef SYSTEM_TINY_ARM
 function create_writeAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.write = true;
   accdesc.read = false;
-  accdesc.el = PSTATE.EL;
+  accdesc.el = CurrentEL;
   accdesc
 }
 
@@ -105,7 +104,7 @@ function create_readAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.read = true;
   accdesc.write = false;
-  accdesc.el = PSTATE.EL;
+  accdesc.el = CurrentEL;
   accdesc
 }
 
@@ -113,34 +112,9 @@ function create_iFetchAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_IFETCH);
   accdesc.read = true;
   accdesc.write = false;
-  accdesc.el = PSTATE.EL;
+  accdesc.el = CurrentEL;
   accdesc
 }
-$else
-function create_writeAccessDescriptor() -> AccessDescriptor = {
-  var accdesc = base_AccessDescriptor(AccessType_GPR);
-  accdesc.write = true;
-  accdesc.read = false;
-  accdesc.el = 0b00;
-  accdesc
-}
-
-function create_readAccessDescriptor() -> AccessDescriptor = {
-  var accdesc = base_AccessDescriptor(AccessType_GPR);
-  accdesc.read = true;
-  accdesc.write = false;
-  accdesc.el = 0b00;
-  accdesc
-}
-
-function create_iFetchAccessDescriptor() -> AccessDescriptor = {
-  var accdesc = base_AccessDescriptor(AccessType_IFETCH);
-  accdesc.read = true;
-  accdesc.write = false;
-  accdesc.el = 0b00;
-  accdesc
-}
-$endif
 
 $ifdef SYSTEM_TINY_ARM
 enum DescriptorType = {

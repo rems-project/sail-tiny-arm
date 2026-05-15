@@ -30,7 +30,7 @@ function extract_perms_leaf(descriptor : bits(64)) -> Permissions = {
 
 function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> AccessDescriptor = {
   var accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_TTW);
-  accdesc.el = PSTATE.EL;
+  accdesc.el = CurrentEL;
   accdesc.read = true;
   accdesc.toplevel = toplevel;
   accdesc.varange = varange;
@@ -188,12 +188,12 @@ function take_exception(target_el : bits(2), fault : option(FaultRecord)) -> uni
   /* Declare the exception to the concurrent model (no-op otherwise) */
   sail_take_exception(fault);
 
-  let source_el = PSTATE.EL;
+  let source_el = CurrentEL;
 
   /* Determine vector offset based on source EL */
   let vect_offset : bits(12) =
     if source_el == target_el then {
-      if PSTATE.SP == 0b0 then 0x000 else 0x200
+      if SPSel == 0b0 then 0x000 else 0x200
     } else {
       0x400
     };
@@ -202,29 +202,12 @@ function take_exception(target_el : bits(2), fault : option(FaultRecord)) -> uni
   _PC = VBAR_EL1[63..12] @ vect_offset;
  
   /* Save PSTATE to SPSR_EL1 */
-  SPSR_EL1 = sail_zero_extend(
-    PSTATE.N @ PSTATE.Z @ PSTATE.C @ PSTATE.V @
-    0b0000000000000000000 @
-    PSTATE.D @
-    PSTATE.A @
-    PSTATE.I @
-    PSTATE.F @
-    0b00 @
-    PSTATE.EL @
-    0b0 @
-    PSTATE.SP,
-    64
-  );
+  SPSR_EL1 = sail_zeros(32)@NZCV@sail_zeros(18)@DAIF@0b00@CurrentEL@0b0@SPSel;
 
   /* Transition to EL1 and use SP_EL1 and mask interrupts*/
-  PSTATE = {PSTATE with
-    EL = 0b01,
-    SP = 0b1,
-    D = 0b1,
-    A = 0b1,
-    I = 0b1,
-    F = 0b1
-  };
+  CurrentEL = 0b01;
+  SPSel = 0b1;
+  DAIF = 0b1111;
 }
 
 function handle_fault (addrdesc : AddressDescriptor) -> unit = {

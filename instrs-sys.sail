@@ -79,25 +79,20 @@ function clause decode (0b11010110100111110000001111100000) = {
 }
 
 function clause execute ExceptionReturn() = {
+  assert (CurrentEL != 0b00, "Trying to ERET from EL0, fault not implemented");
   /* Set PC to the exception link register (no +4 increment) */
   _PC = ELR_EL1;
 
   /* Read saved program status register */
   let spsr = SPSR_EL1;
+  assert (spsr[4..4] == 0b0, "AArch32 not supported");
+  assert (spsr[3..2] == 0b00 | spsr[3..2] == 0b01,
+          "EL2 and EL3 not supported");
+  assert (spsr[3..0] != 0b0001, "Can't have SPSel set to 1 in EL0");
 
-  /* Restore PSTATE fields from SPSR */
-  let new_pstate = {PSTATE with
-    N = spsr[31..31],
-    Z = spsr[30..30],
-    C = spsr[29..29],
-    V = spsr[28..28],
-    D = spsr[9..9],
-    A = spsr[8..8],
-    I = spsr[7..7],
-    F = spsr[6..6],
-    EL = spsr[3..2],
-    SP = spsr[0..0]
-  };
-  PSTATE = new_pstate;
+  NZCV = spsr[31..28];
+  DAIF = spsr[9..6];
+  CurrentEL = spsr[3..2];
+  SPSel = spsr[0..0];
 }
 $endif
