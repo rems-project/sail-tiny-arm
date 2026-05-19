@@ -246,6 +246,21 @@ function clause execute Sub(sf, d, n, op) = {
   XS(d, size) = op1 - op2;
 }
 
+/* CAS/CASB/CASH variants: size 0010001 L 1 Rs o0 11111 Rn Rt */
+function clause decode ((size:bits(2))@0b0010001@[L]@0b1@(Rs:bits(5))@[o0]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  fail("Instruction not supported by design: CAS/CASB/CASH variants")
+}
+
+/* CSEL: sf 00 11010100 Rm cond 00 Rn Rd */
+function clause decode ([sf]@0b00@0b11010100@(Rm:bits(5))@(cond:bits(4))@0b00@(Rn:bits(5))@(Rd:bits(5))) = {
+  fail("Instruction not supported by design: CSEL")
+}
+
+/* SWP/SWPA/SWPL/SWPAL: size 11 1000 A R 1 Rs 1 00000 Rn Rt */
+function clause decode ((size:bits(2))@0b11@0b1000@[A]@[R]@0b1@(Rs:bits(5))@0b1@0b00000@(Rn:bits(5))@(Rt:bits(5))) = {
+  fail("Instruction not supported by design: SWP/SWPA/SWPL/SWPAL")
+}
+
 /* Data Barrier */
 union clause ast = DataMemoryBarrier : (MBReqDomain, MBReqTypes)
 union clause ast = DataSynchronizationBarrier : (MBReqDomain, MBReqTypes)
