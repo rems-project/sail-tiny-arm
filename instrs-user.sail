@@ -189,7 +189,7 @@ function clause decode ([sf]@(opc : bits(2))@0b100100@[N]@(immr:bits(6))@(imms:b
   let op = decode_bitwise_op(opc);
   if N == bitone & sf == bitzero then
     fail("64 bit mask in 32 bit bitwise operation");
-  let mask = decode_bitmask(N, imms, immr); //
+  let (mask,_) = decode_bitmask(N, imms, immr, true);
   BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), OperandImm(mask))
 }
 
@@ -234,6 +234,43 @@ function clause execute Movz(sf, d, imm, hw) = {
   /* Compute 64-bit result, then truncate for 32-bit */
   let res : bits(64) = sail_shiftleft(sail_zero_extend(imm, 64), 16 * hw);
   X(d, size) = res[size-1..0]
+}
+
+/* Bitfield moves: SBFM/UBFM.*/
+/* This also covers all sign extend functions such as SXTH as well as immediate shifts*/
+union clause ast = BitfieldMove :
+  (datasize, /* signed: */ bool, reg_index, reg_index, /*imms*/bits(6), /*immr*/bits(6))
+
+function clause decode ([sf]@(opc:bits(2))@0b100110@[N]@(immr:bits(6))@(imms:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  let d : reg_index = unsigned(Rd);
+  let n : reg_index = unsigned(Rn);
+  assert(sf == N, "xBFM mask sizes doesn't match operation size");
+  if sf == bitzero then
+    assert(imms[5] == bitzero & immr[5] == bitzero,
+      "32bit xBFM has masks larger than 32 bits");
+
+  let signd : bool = match opc {
+    0b00 => true,
+    0b10 => false,
+    _ => fail("xBFM opc has unsupported value")
+  };
+
+  BitfieldMove(sf, signd, d, n, imms, immr)
+}
+
+function clause execute BitfieldMove(sf, signd, d, n, imms, immr) = {
+  _PC = _PC + 4;
+  let 'size = if sf == bitone then 64 else 32;
+  let 's = unsigned(imms);
+  let 'r = unsigned(immr);
+  assert(constraint('s < 'size)); // Should have fired in the decode
+  let (wmask, tmask) = decode_bitmask(sf, imms, immr, false);
+  let wmask = wmask['size-1..0];
+  let tmask = tmask['size-1..0];
+  let src = X(n, 'size);
+  let bot = rotate_right(src, r) & wmask;
+  let top = if signd & (src[s] == bitone) then sail_ones('size) else sail_zeros('size);
+  X(d, 'size) = (top & not_vec(tmask)) | (bot & tmask);
 }
 
 /* Arithmetic: ADD(S)/SUB(S) (register and immediate forms)

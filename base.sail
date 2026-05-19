@@ -105,22 +105,33 @@ enum cond = {
   NV,
 }
 
+val rotate_right : forall 'n. (bits('n), int) -> bits('n)
+function rotate_right (v, r) =
+  if r == 0 then v else sail_shiftright(v, r) | sail_shiftleft(v, 'n - r)
+
 // Computes first return value of DecodeBitMasks in official spec
-function decode_bitmask(N : bit, imms : bits(6), immr : bits(6)) -> bits(64) = {
+function decode_bitmask(N : bit, imms : bits(6), immr : bits(6), immediate : bool) -> (bits(64), bits(64)) = {
   // Determine the size of the element repetition
   let 'len = if N == bitone then 6 else (5-count_leading_zeros(not_vec(imms)));
   assert(constraint('len > 0), "Invalid immediate encoding for bitwise operation");
 
   // The mask will have size 2^len and will have (s + 1) ones
   let s = unsigned(imms[len-1..0]);
-  assert(s + 1 < 2^len, "All-ones mask is not allowed in bitwise operations");
-  let elem = sail_zero_extend(sail_ones(s + 1), 2^len);
-
-  // ROR by r. Bits above len will rotate by a multiple of 2^len, so are ignored
   let r = unsigned(immr[len-1..0]);
-  let relem = if r == 0 then elem else elem[r-1..0]@elem[2^len-1..r];
+  if immediate then
+    assert(s + 1 < 2^len, "All-ones mask is not allowed in immediate bitwise operations");
 
-  replicate_bits(relem, 2^(6-len))
+  let welem = sail_zero_extend(sail_ones(s + 1), 2^len);
+  // ROR by r.
+  let relem = rotate_right(welem, r);
+  let wmask = replicate_bits(relem, 2^(6-len));
+
+  let diff = s - r;
+  let d = if diff >= 0 then diff else 2^len + diff;
+  let telem = sail_zero_extend(sail_ones(d + 1), 2^len);
+
+  let tmask = replicate_bits(telem, 2^(6-len));
+  (wmask, tmask)
 }
 
 /************* Top level definition start ***************/
