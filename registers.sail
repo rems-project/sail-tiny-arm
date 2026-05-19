@@ -1,5 +1,22 @@
 type reg_index = range(0, 31)
 
+
+enum extend_type = {
+  UXTB,
+  UXTH,
+  UXTW,
+  UXTX,
+  SXTB,
+  SXTH,
+  SXTW,
+  SXTX,
+}
+
+union mem_offset = {
+  MemOffsetReg : (reg_index, extend_type, range(0,4)),
+  MemOffsetImm : bits(64)
+}
+
 /* Operand type: either a register or a 64-bit immediate */
 union operand = {
   OperandReg : reg_index,

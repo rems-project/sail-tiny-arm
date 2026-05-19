@@ -1,13 +1,24 @@
-/* LoadStore: LDR/STR, LDRH/STRH, LDRB/STRB (register and immediate forms)
+/* LoadStore: LD(AP?)?X?R(H/B)?/STL?X?R(H/B)?, (register and immediate forms)
  * size is the log of the byte size, writing 2^{size} bytes */
 union clause ast = Load : (
-  /* size:*/ range(0,3), reg_index, reg_index, operand,
+  /* size:*/ range(0,3), reg_index, reg_index, mem_offset,
   /* acquire */ bool, /* RCpc */ bool, /* exclusive */ bool
 )
 union clause ast = Store : (
-  /* size:*/ range(0,3), reg_index, reg_index, operand,
+  /* size:*/ range(0,3), reg_index, reg_index, mem_offset,
   /* release */ bool, /* if exclusive, the target Rs */ option(reg_index)
 )
+
+mapping ext_bits : extend_type <-> bits(3) = {
+  UXTB <-> 0b000,
+  UXTH <-> 0b001,
+  UXTW <-> 0b010,
+  UXTX <-> 0b011,
+  SXTB <-> 0b100,
+  SXTH <-> 0b101,
+  SXTW <-> 0b110,
+  SXTX <-> 0b111,
+}
 
 val decodeLoadStoreRegister : (bits(2), bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
 
@@ -16,18 +27,19 @@ function clause decode ((size:bits(2))@0b111@0b0@0b00@(opc:bits(2))@0b1@(Rm:bits
   decodeLoadStoreRegister(size, opc, Rm, option_v, S, Rn, Rt)
 }
 
+
 function decodeLoadStoreRegister (size, opc, Rm, option_v, S, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
-  /* option_v == 0b011 and S == 0 means that the offset in Rm is
-   * used as is and not shifted or extended. */
-  if option_v != 0b011 | S == bitone then None ()
-  else if opc == 0b01 then
-    Some(Load((unsigned(size), t, n, OperandReg(m), false, false, false)))
+  let shift : range(0,4) = if S == bitone then unsigned(size) else 0;
+  if option_v[1] == bitzero then return None(); // Unsupported by Arm
+  let offset = MemOffsetReg(m, ext_bits(option_v), shift);
+  if opc == 0b01 then
+    Some(Load((unsigned(size), t, n, offset, false, false, false)))
   else if opc == 0b00 then
-    Some(Store((unsigned(size), t, n, OperandReg(m), false, None())))
-  else None ();
+    Some(Store((unsigned(size), t, n, offset, false, None())))
+  else None()
 }
 
 val decodeLoadStoreImmediate :
@@ -43,8 +55,8 @@ function decodeLoadStoreImmediate (size, opc, imm12, Rn, Rt) = {
   let n : reg_index = unsigned(Rn);
   let imm = sail_zero_extend(imm12, 64);
   if opc == 0b01 then
-    Some(Load((unsigned(size), t, n, OperandImm(imm), false, false, false)))
-  else if opc == 0b00 then Some(Store((unsigned(size), t, n, OperandImm(imm), false, None())))
+    Some(Load((unsigned(size), t, n, MemOffsetImm(imm), false, false, false)))
+  else if opc == 0b00 then Some(Store((unsigned(size), t, n, MemOffsetImm(imm), false, None())))
   else None()
 }
 
@@ -56,8 +68,8 @@ function clause decode ((size:bits(2))@0b001000@0b1@[L]@0b0@0b11111@0b1@0b11111@
   let offset : bits(64) = 0x0000000000000000;
 
   if L == bitone then
-    Some(Load((unsigned(size), t, n, OperandImm(offset), true, false, false)))
-  else Some(Store((unsigned(size), t, n, OperandImm(offset), true, None())))
+    Some(Load((unsigned(size), t, n, MemOffsetImm(offset), true, false, false)))
+  else Some(Store((unsigned(size), t, n, MemOffsetImm(offset), true, None())))
 }
 
 /* LDAPRB/LDAPRH/LDAPR:
@@ -65,7 +77,7 @@ function clause decode ((size:bits(2))@0b001000@0b1@[L]@0b0@0b11111@0b1@0b11111@
 function clause decode ((size:bits(2))@0b111000@0b10@0b1@0b11111@0b1100@0b00@(Rn:bits(5))@(Rt:bits(5))) = {
   Some(Load((
     unsigned(size), unsigned(Rt), unsigned(Rn),
-    OperandImm(0x0000000000000000), true, true, false
+    MemOffsetImm(0x0000000000000000), true, true, false
   )))
 }
 
@@ -74,7 +86,7 @@ function clause decode ((size:bits(2))@0b111000@0b10@0b1@0b11111@0b1100@0b00@(Rn
 function clause decode ((size:bits(2))@0b001000@0b0@0b1@0b0@0b11111@[acquire]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
   Some(Load((
     unsigned(size), unsigned(Rt), unsigned(Rn),
-    OperandImm(0x0000000000000000), acquire == bitone, false, true
+    MemOffsetImm(0x0000000000000000), acquire == bitone, false, true
   )))
 }
 
@@ -83,21 +95,38 @@ function clause decode ((size:bits(2))@0b001000@0b0@0b1@0b0@0b11111@[acquire]@0b
 function clause decode ((size:bits(2))@0b001000@0b0@0b0@0b0@(Rs:bits(5))@[release]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
   Some(Store((
     unsigned(size), unsigned(Rt), unsigned(Rn),
-    OperandImm(0x0000000000000000), release == bitone, Some(unsigned(Rs))
+    MemOffsetImm(0x0000000000000000), release == bitone, Some(unsigned(Rs))
   )))
 }
 
+val extend : (bits(64), extend_type) -> bits(64)
+function extend(v, ext) = match ext {
+  UXTB => sail_zero_extend(v[7..0], 64),
+  UXTH => sail_zero_extend(v[15..0], 64),
+  UXTW => sail_zero_extend(v[31..0], 64),
+  UXTX => v,
+  SXTB => sail_sign_extend(v[7..0], 64),
+  SXTH => sail_sign_extend(v[15..0], 64),
+  SXTW => sail_sign_extend(v[31..0], 64),
+  SXTX => v,
+}
+
+val get_mem_offset : (range(0,3), mem_offset) -> bits(64)
+function get_mem_offset(size, offset) = {
+  match offset {
+    MemOffsetReg(m, ext, shift) =>
+      sail_shiftleft(extend(X(m), ext), shift),
+    MemOffsetImm(imm) => sail_shiftleft(imm, size)
+  };
+}
+
 /* LDR/LDRH/LDRB Xt/Wt, [Xn, Xm] or [Xn, #pimm]; LDXR/LDAXR */
-function clause execute Load(size, t, n, op, acquire, rcpc, exclusive) = {
+function clause execute Load(size, t, n, offset, acquire, rcpc, exclusive) = {
   /* Create an access descriptor */
   let accdesc = create_readAccessDescriptor(acquire, rcpc, exclusive);
 
   /* Compute the (virtual) address of the access */
-  let vaddr : bits(64) = match op {
-    OperandReg(m) => X(n) + X(m),
-    /* Immediate scaled by access size: 8/4/2/1 bytes */
-    OperandImm(imm) => X(n) + sail_shiftleft(imm, size)
-  };
+  let vaddr : bits(64) = X(n) + get_mem_offset(size, offset);
 
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns the input address. */
@@ -115,18 +144,14 @@ function clause execute Load(size, t, n, op, acquire, rcpc, exclusive) = {
 }
 
 /* STR/STRH/STRB Xt/Wt, [Xn, Xm] or [Xn, #pimm]; STXR/STLXR */
-function clause execute Store(size, t, n, op, release, s) = {
+function clause execute Store(size, t, n, offset, release, s) = {
   /* Create an access descriptor */
   let exclusive : bool = match s { Some(_) => true, None() => false };
   let accdesc = create_writeAccessDescriptor(release, exclusive);
 
   /* Compute the (virtual) address of the access */
-  let vaddr : bits(64) = match op {
-    OperandReg(m) => X(n) + X(m),
-    /* Immediate scaled by access size: 8/4/2/1 bytes */
-    OperandImm(imm12) =>
-      X(n) + sail_shiftleft(sail_zero_extend(imm12, 64), size)
-  };
+  let vaddr : bits(64) = X(n) + get_mem_offset(size, offset);
+
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns the input address. */
   let addr : bits(addr_size) =
