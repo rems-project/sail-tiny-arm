@@ -411,3 +411,67 @@ function clause execute Branch(offset) = {
   /* Branch to the target address */
   PC() = target;
 }
+
+
+/* Conditional Branch: B.cond */
+union clause ast = ConditionalBranch : (bits(64), cond)
+
+/* The different conditions */
+mapping cond_bits : cond <-> bits(4) = {
+  EQ <-> 0b0000,
+  NE <-> 0b0001,
+  CS <-> 0b0010,
+  CC <-> 0b0011,
+  MI <-> 0b0100,
+  PL <-> 0b0101,
+  VS <-> 0b0110,
+  VC <-> 0b0111,
+  HI <-> 0b1000,
+  LS <-> 0b1001,
+  GE <-> 0b1010,
+  LT <-> 0b1011,
+  GT <-> 0b1100,
+  LE <-> 0b1101,
+  AL <-> 0b1110,
+  NV <-> 0b1111,
+}
+
+/* B <label> - Encoding: 0 00101 imm26 */
+function clause decode (0b010@0b101@0b00@(imm19:bits(19))@0b0@(cond:bits(4))) = {
+  let offset : bits(64) = sail_sign_extend(imm19 @ 0b00, 64);
+  Some(ConditionalBranch(offset, cond_bits(cond)))
+}
+
+/* Compute a condition using the flags */
+val condition_holds : cond -> bool
+function condition_holds(cond) = match cond {
+  EQ => Z() == bitone,
+  NE => Z() == bitzero,
+  CS => C() == bitone,
+  CC => C() == bitzero,
+  MI => N() == bitone,
+  PL => N() == bitzero,
+  VS => V() == bitone,
+  VC => V() == bitzero,
+  HI => C() == bitone & Z() == bitzero,
+  LS => C() == bitzero | Z() == bitone,
+  GE => N() == V(),
+  LT => N() != V(),
+  GT => N() == V() & Z() == bitzero,
+  LE => N() != V() | Z() == bitone,
+  AL => true,
+  NV => true // Arm is weird, but actuall NV and AL are the same
+}
+
+/* B <offset> */
+function clause execute ConditionalBranch(offset, cond) = {
+  /* Get the current program counter */
+  let base = PC();
+
+  if condition_holds(cond) then {
+    /* Compute the target address (PC-relative) */
+    let target = base + offset;
+    /* Branch to the target address */
+    PC() = target;
+  } else PC() = base + 4
+}
