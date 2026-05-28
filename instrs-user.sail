@@ -1,7 +1,13 @@
 /* LoadStore: LDR/STR, LDRH/STRH, LDRB/STRB (register and immediate forms)
  * size is the log of the byte size, writing 2^{size} bytes */
-union clause ast = Load : (/* size:*/ range(0,3), reg_index, reg_index, operand)
-union clause ast = Store : (/* size:*/ range(0,3), reg_index, reg_index, operand)
+union clause ast = Load : (
+  /* size:*/ range(0,3), reg_index, reg_index, operand,
+  /* acquire */ bool, /* RCpc */ bool
+)
+union clause ast = Store : (
+  /* size:*/ range(0,3), reg_index, reg_index, operand,
+  /* release */ bool
+)
 
 val decodeLoadStoreRegister : (bits(2), bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
 
@@ -14,14 +20,18 @@ function decodeLoadStoreRegister (size, opc, Rm, option_v, S, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
-  /* option_v == 0b011 and S == 1 means that the offset in Rm is used as is and not shifted or extended */
+  /* option_v == 0b011 and S == 0 means that the offset in Rm is
+   * used as is and not shifted or extended. */
   if option_v != 0b011 | S == bitone then None ()
-  else if opc == 0b01 then Some(Load((unsigned(size), t, n, OperandReg(m))))
-  else if opc == 0b00 then Some(Store((unsigned(size), t, n, OperandReg(m))))
+  else if opc == 0b01 then
+    Some(Load((unsigned(size), t, n, OperandReg(m), false, false)))
+  else if opc == 0b00 then
+    Some(Store((unsigned(size), t, n, OperandReg(m), false)))
   else None ();
 }
 
-val decodeLoadStoreImmediate : (bits(2), bits(2), bits(12), bits(5), bits(5)) -> option(ast)
+val decodeLoadStoreImmediate :
+  (bits(2), bits(2), bits(12), bits(5), bits(5)) -> option(ast)
 
 /* LDR/STR immediate: size 111 0 01 opc imm12 Rn Rt */
 function clause decode ((size:bits(2))@0b111@0b0@0b01@(opc:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rt:bits(5))) = {
@@ -32,15 +42,37 @@ function decodeLoadStoreImmediate (size, opc, imm12, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let imm = sail_zero_extend(imm12, 64);
-  if opc == 0b01 then Some(Load((unsigned(size), t, n, OperandImm(imm))))
-  else if opc == 0b00 then Some(Store((unsigned(size), t, n, OperandImm(imm))))
+  if opc == 0b01 then
+    Some(Load((unsigned(size), t, n, OperandImm(imm), false, false)))
+  else if opc == 0b00 then Some(Store((unsigned(size), t, n, OperandImm(imm), false)))
   else None()
 }
 
+/* LDARB/LDARH/LDAR and STLRB/STLRH/STLR:
+ * size 001000 1 L 0 11111 1 11111 Rn Rt */
+function clause decode ((size:bits(2))@0b001000@0b1@[L]@0b0@0b11111@0b1@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+  let offset : bits(64) = 0x0000000000000000;
+
+  if L == bitone then
+    Some(Load((unsigned(size), t, n, OperandImm(offset), true, false)))
+  else Some(Store((unsigned(size), t, n, OperandImm(offset), true)))
+}
+
+/* LDAPRB/LDAPRH/LDAPR:
+ * size 111000 10 1 11111 1100 00 Rn Rt */
+function clause decode ((size:bits(2))@0b111000@0b10@0b1@0b11111@0b1100@0b00@(Rn:bits(5))@(Rt:bits(5))) = {
+  Some(Load((
+    unsigned(size), unsigned(Rt), unsigned(Rn),
+    OperandImm(0x0000000000000000), true, true
+  )))
+}
+
 /* LDR/LDRH/LDRB Xt/Wt, [Xn, Xm] or [Xn, #pimm] */
-function clause execute Load(size, t, n, op) = {
-  /* Create an access descriptor (pure operation) */
-  let accdesc = create_readAccessDescriptor();
+function clause execute Load(size, t, n, op, acquire, rcpc) = {
+  /* Create an access descriptor */
+  let accdesc = create_readAccessDescriptor(acquire, rcpc);
 
   /* Compute the (virtual) address of the access */
   let vaddr : bits(64) = match op {
@@ -65,9 +97,9 @@ function clause execute Load(size, t, n, op) = {
 }
 
 /* STR/STRH/STRB Xt/Wt, [Xn, Xm] or [Xn, #pimm] */
-function clause execute Store(size, t, n, op) = {
-  /* Create an access descriptor (pure operation) */
-  let accdesc = create_writeAccessDescriptor();
+function clause execute Store(size, t, n, op, release) = {
+  /* Create an access descriptor */
+  let accdesc = create_writeAccessDescriptor(release);
 
   /* Compute the (virtual) address of the access */
   let vaddr : bits(64) = match op {
