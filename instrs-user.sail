@@ -436,7 +436,7 @@ mapping cond_bits : cond <-> bits(4) = {
   NV <-> 0b1111,
 }
 
-/* B <label> - Encoding: 0 00101 imm26 */
+/* B.cond <label> - Encoding: 010 101 00 imm19 0 cond */
 function clause decode (0b010@0b101@0b00@(imm19:bits(19))@0b0@(cond:bits(4))) = {
   let offset : bits(64) = sail_sign_extend(imm19 @ 0b00, 64);
   Some(ConditionalBranch(offset, cond_bits(cond)))
@@ -463,7 +463,7 @@ function condition_holds(cond) = match cond {
   NV => true // Arm is weird, but actuall NV and AL are the same
 }
 
-/* B <offset> */
+/* B.cond <offset> */
 function clause execute ConditionalBranch(offset, cond) = {
   /* Get the current program counter */
   let base = PC();
@@ -474,4 +474,35 @@ function clause execute ConditionalBranch(offset, cond) = {
     /* Branch to the target address */
     PC() = target;
   } else PC() = base + 4
+}
+
+
+/* ADR: form PC-relative address */
+union clause ast = Adr : (reg_index, bits(64))
+
+/* ADR: 0 immlo 10000 immhi Rd */
+function clause decode (0b0@(immlo:bits(2))@0b10000@(immhi:bits(19))@(Rd:bits(5))) = {
+  let offset : bits(64) = sail_sign_extend(immhi @ immlo, 64);
+  Some(Adr(unsigned(Rd), offset))
+}
+
+/* ADR Xd, <label> */
+function clause execute Adr(d, offset) = {
+  let base = PC();
+  _PC = _PC + 4;
+  X(d) = base + offset;
+}
+
+
+/* BR: Branch to register */
+union clause ast = BranchRegister : reg_index
+
+/* BR: 1101011 0000 11111 000000 Rn 00000 */
+function clause decode (0b1101011@0b0000@0b11111@0b000000@(Rn:bits(5))@0b00000) = {
+  Some(BranchRegister(unsigned(Rn)))
+}
+
+/* BR Xn */
+function clause execute BranchRegister(n) = {
+  PC() = X(n);
 }
