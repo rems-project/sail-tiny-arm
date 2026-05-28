@@ -13,6 +13,27 @@ enum bitwise_op = {
   And,
 }
 
+/* Condition for conditional instructions */
+enum cond = {
+  EQ,
+  NE,
+  CS,
+  CC,
+  MI,
+  PL,
+  VS,
+  VC,
+  HI,
+  LS,
+  GE,
+  LT,
+  GT,
+  LE,
+  AL,
+  NV,
+}
+
+
 register _PC : bits(64)
 
 /* General purpose registers */
@@ -151,7 +172,21 @@ $else
 let CurrentEL : bits(2) = 0b00
 $endif
 
+
 register NZCV : bits(4)
+function rN() -> bit = NZCV[3]
+function wN(bit) : bit -> unit = NZCV[3] = bit
+overload N = {rN, wN}
+function rZ() -> bit = NZCV[2]
+function wZ(bit) : bit -> unit = NZCV[2] = bit
+overload Z = {rZ, wZ}
+function rC() -> bit = NZCV[1]
+function wC(bit) : bit -> unit = NZCV[1] = bit
+overload C = {rC, wC}
+function rV() -> bit = NZCV[0]
+function wV(bit) : bit -> unit = NZCV[0] = bit
+overload V = {rV, wV}
+
 
 $ifdef SYSTEM_TINY_ARM
 
