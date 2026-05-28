@@ -2,11 +2,11 @@
  * size is the log of the byte size, writing 2^{size} bytes */
 union clause ast = Load : (
   /* size:*/ range(0,3), reg_index, reg_index, operand,
-  /* acquire */ bool, /* RCpc */ bool
+  /* acquire */ bool, /* RCpc */ bool, /* exclusive */ bool
 )
 union clause ast = Store : (
   /* size:*/ range(0,3), reg_index, reg_index, operand,
-  /* release */ bool
+  /* release */ bool, /* if exclusive, the target Rs */ option(reg_index)
 )
 
 val decodeLoadStoreRegister : (bits(2), bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
@@ -24,9 +24,9 @@ function decodeLoadStoreRegister (size, opc, Rm, option_v, S, Rn, Rt) = {
    * used as is and not shifted or extended. */
   if option_v != 0b011 | S == bitone then None ()
   else if opc == 0b01 then
-    Some(Load((unsigned(size), t, n, OperandReg(m), false, false)))
+    Some(Load((unsigned(size), t, n, OperandReg(m), false, false, false)))
   else if opc == 0b00 then
-    Some(Store((unsigned(size), t, n, OperandReg(m), false)))
+    Some(Store((unsigned(size), t, n, OperandReg(m), false, None())))
   else None ();
 }
 
@@ -43,8 +43,8 @@ function decodeLoadStoreImmediate (size, opc, imm12, Rn, Rt) = {
   let n : reg_index = unsigned(Rn);
   let imm = sail_zero_extend(imm12, 64);
   if opc == 0b01 then
-    Some(Load((unsigned(size), t, n, OperandImm(imm), false, false)))
-  else if opc == 0b00 then Some(Store((unsigned(size), t, n, OperandImm(imm), false)))
+    Some(Load((unsigned(size), t, n, OperandImm(imm), false, false, false)))
+  else if opc == 0b00 then Some(Store((unsigned(size), t, n, OperandImm(imm), false, None())))
   else None()
 }
 
@@ -56,8 +56,8 @@ function clause decode ((size:bits(2))@0b001000@0b1@[L]@0b0@0b11111@0b1@0b11111@
   let offset : bits(64) = 0x0000000000000000;
 
   if L == bitone then
-    Some(Load((unsigned(size), t, n, OperandImm(offset), true, false)))
-  else Some(Store((unsigned(size), t, n, OperandImm(offset), true)))
+    Some(Load((unsigned(size), t, n, OperandImm(offset), true, false, false)))
+  else Some(Store((unsigned(size), t, n, OperandImm(offset), true, None())))
 }
 
 /* LDAPRB/LDAPRH/LDAPR:
@@ -65,14 +65,32 @@ function clause decode ((size:bits(2))@0b001000@0b1@[L]@0b0@0b11111@0b1@0b11111@
 function clause decode ((size:bits(2))@0b111000@0b10@0b1@0b11111@0b1100@0b00@(Rn:bits(5))@(Rt:bits(5))) = {
   Some(Load((
     unsigned(size), unsigned(Rt), unsigned(Rn),
-    OperandImm(0x0000000000000000), true, true
+    OperandImm(0x0000000000000000), true, true, false
   )))
 }
 
-/* LDR/LDRH/LDRB Xt/Wt, [Xn, Xm] or [Xn, #pimm] */
-function clause execute Load(size, t, n, op, acquire, rcpc) = {
+/* LDXR/LDXRB/LDXRH and LDAXR/LDAXRB/LDAXRH:
+ * size 001000 0 1 0 11111 acquire 11111 Rn Rt */
+function clause decode ((size:bits(2))@0b001000@0b0@0b1@0b0@0b11111@[acquire]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  Some(Load((
+    unsigned(size), unsigned(Rt), unsigned(Rn),
+    OperandImm(0x0000000000000000), acquire == bitone, false, true
+  )))
+}
+
+/* STXR/STXRB/STXRH and STLXR/STLXRB/STLXRH:
+ * size 001000 0 0 0 Rs release 11111 Rn Rt */
+function clause decode ((size:bits(2))@0b001000@0b0@0b0@0b0@(Rs:bits(5))@[release]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  Some(Store((
+    unsigned(size), unsigned(Rt), unsigned(Rn),
+    OperandImm(0x0000000000000000), release == bitone, Some(unsigned(Rs))
+  )))
+}
+
+/* LDR/LDRH/LDRB Xt/Wt, [Xn, Xm] or [Xn, #pimm]; LDXR/LDAXR */
+function clause execute Load(size, t, n, op, acquire, rcpc, exclusive) = {
   /* Create an access descriptor */
-  let accdesc = create_readAccessDescriptor(acquire, rcpc);
+  let accdesc = create_readAccessDescriptor(acquire, rcpc, exclusive);
 
   /* Compute the (virtual) address of the access */
   let vaddr : bits(64) = match op {
@@ -96,10 +114,11 @@ function clause execute Load(size, t, n, op, acquire, rcpc) = {
   X(t) = sail_zero_extend(rMem(2^size, addr, accdesc), 64);
 }
 
-/* STR/STRH/STRB Xt/Wt, [Xn, Xm] or [Xn, #pimm] */
-function clause execute Store(size, t, n, op, release) = {
+/* STR/STRH/STRB Xt/Wt, [Xn, Xm] or [Xn, #pimm]; STXR/STLXR */
+function clause execute Store(size, t, n, op, release, s) = {
   /* Create an access descriptor */
-  let accdesc = create_writeAccessDescriptor(release);
+  let exclusive : bool = match s { Some(_) => true, None() => false };
+  let accdesc = create_writeAccessDescriptor(release, exclusive);
 
   /* Compute the (virtual) address of the access */
   let vaddr : bits(64) = match op {
@@ -116,14 +135,33 @@ function clause execute Store(size, t, n, op, release) = {
       None() => return () // A translation fault is handled in `translate_address`.
     };
 
-  /* Announce that a store will be performed to this address */
-  wMem_Addr(addr);
+  /* Ordinary stores always write; exclusive stores may fail and report status in Rs. */
+  match s {
+    None() => {
+      /* Announce that a store will be performed to this address */
+      wMem_Addr(addr);
 
-  /* The instruction can't fault now, so update the PC */
-  _PC = _PC + 4;
+      /* The instruction can't fault now, so update the PC */
+      _PC = _PC + 4;
 
-  /* Read value from register Xt and write to memory */
-  wMem(2^size, addr, X(t)[(8*2^size-1)..0], accdesc)
+      /* Read value from register Xt and write to memory */
+      wMem(2^size, addr, X(t)[(8*2^size-1)..0], accdesc)
+    },
+    Some(s) => {
+      /* Choose the STXR outcome nondeterministically; sail_mem_write prunes
+       * successful branches that the exclusive memory model rejects. */
+      let success : bool = undefined;
+      if success then {
+        wMem_Addr(addr);
+        _PC = _PC + 4;
+        X(s) = sail_zero_extend(0b0, 64);
+        wMem(2^size, addr, X(t)[(8*2^size-1)..0], accdesc);
+      } else {
+        _PC = _PC + 4;
+        X(s) = sail_zero_extend(0b1, 64);
+      }
+    }
+  }
 }
 
 
