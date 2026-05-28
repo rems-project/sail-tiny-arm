@@ -181,70 +181,80 @@ function clause execute Movz(sf, d, imm, hw) = {
   XS(d, size) = res[size-1..0]
 }
 
-/* Arithmetic: ADD/SUB (register and immediate forms)
- * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
-union clause ast = Add : (datasize, reg_index, reg_index, operand)
-union clause ast = Sub : (datasize, reg_index, reg_index, operand)
+/* Arithmetic: ADD(S)/SUB(S) (register and immediate forms)
+ * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers)
+ * op: 0 is ADD, 1 is SUB
+ * S (suffix): 0 doesn't write NZCV, and 1 does write NZCV */
+union clause ast = AddSub : (datasize, /*op*/bit, /*S*/bit, reg_index, reg_index, operand)
 
-/* ADD/SUB (shifted register) */
-val decodeAddSubShift : (bit, bit, bits(2), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
-function clause decode ([sf]@[op]@0b0@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
-  decodeAddSubShift(sf, op, shift, imm6, Rm, Rn, Rd)
+/* ADD(S)/SUB(S) (shifted register) */
+val decodeAddSubShift : (bit, bit, bit, bits(2), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
+function clause decode ([sf]@[op]@[S]@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeAddSubShift(sf, op, S, shift, imm6, Rm, Rn, Rd)
 }
 
-function decodeAddSubShift (sf, op, shift, imm6, Rm, Rn, Rd) = {
+function decodeAddSubShift (sf, op, S, shift, imm6, Rm, Rn, Rd) = {
   let d : reg_index = unsigned(Rd);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
 
   if imm6 != 0b000000 then return None (); /* We only support unshifted for now */
 
-  if op == bitzero then Some(Add((sf, d, n, OperandReg(m))))
-  else Some(Sub((sf, d, n, OperandReg(m))))
+  Some(AddSub((sf, op, S, d, n, OperandReg(m))))
 }
 
-
-val decodeAddSubImm : (bit, bit, bits(1), bits(12), bits(5), bits(5)) -> option(ast)
-/* ADD/SUB (immediate) */
-function clause decode ([sf]@[op]@0b0@0b100010@(sh:bits(1))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
-  decodeAddSubImm(sf, op, sh, imm12, Rn, Rd)
+/* ADD(S)/SUB(S) (immediate) */
+val decodeAddSubImm : (bit, bit, bit, bits(1), bits(12), bits(5), bits(5)) -> option(ast)
+function clause decode ([sf]@[op]@[S]@0b100010@(sh:bits(1))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
+  decodeAddSubImm(sf, op, S, sh, imm12, Rn, Rd)
 }
 
-function decodeAddSubImm (sf, op, sh, imm12, Rn, Rd) = {
+function decodeAddSubImm (sf, op, S, sh, imm12, Rn, Rd) = {
   let d : reg_index = unsigned(Rd);
   let n : reg_index = unsigned(Rn);
 
   let imm =
     if sh == 0b0 then 0x0000000000000@imm12 else 0x0000000000@imm12@0x000;
 
-  if op == bitzero then Some(Add((sf, d, n, OperandImm(imm))))
-  else Some(Sub((sf, d, n, OperandImm(imm))))
+  Some(AddSub((sf, op, S, d, n, OperandImm(imm))))
 }
 
 
-/* ADD Xd/Wd, Xn/Wn, Xm/Wm or ADD Xd/Wd, Xn/Wn, #imm */
-function clause execute Add(sf, d, n, op) = {
+/* ADD(S)/SUB(S) Xd/Wd, Xn/Wn, Xm/Wm or ADD(S)/SUB(S) Xd/Wd, Xn/Wn, #imm */
+function clause execute AddSub(sf, op, S, d, n, m) = {
   _PC = _PC + 4;
   let 'size = if sf == bitone then 64 else 32;
+  let addition = op == bitzero;
   let op1 = XS(n, size);
-  let op2 : bits('size) = match op {
+  let op2 : bits('size) = match m {
     OperandReg(m) => XS(m, size),
     OperandImm(imm) => imm[size-1..0]
   };
-  XS(d, size) = op1 + op2;
+  let result = if addition then op1 + op2 else op1 - op2;
+  XS(d, size) = result;
+
+  if S == bitone then {
+    let n = result[size-1];
+    let z = if result == sail_zeros(size) then bitone else bitzero;
+
+    let c =
+      if addition
+      // u(result) < u(op1) <==> u(op1) + u(op2) == 2^size + u(result)
+      then if unsigned(result) < unsigned(op1) then bitone else bitzero
+      // Unsigned substraction underflow is represented by c=0
+      else if unsigned(op1) >= unsigned(op2) then bitone else bitzero;
+
+    // Signed overflow happens when the two operands have the same sign and the
+    // result has the opposite sign. If substraction, the second sign is
+    // reversed
+    let s1 = op1[size-1];
+    let s2 = if addition then op2[size-1] else not_bit(op2[size-1]);
+    let v = if s1 == s2 then if s1 != n then bitone else bitzero else bitzero;
+
+    NZCV = [n]@[z]@[c]@[v]
+  }
 }
 
-/* SUB Xd/Wd, Xn/Wn, Xm/Wm or SUB Xd/Wd, Xn/Wn, #imm */
-function clause execute Sub(sf, d, n, op) = {
-  _PC = _PC + 4;
-  let 'size = if sf == bitone then 64 else 32;
-  let op1 = XS(n, size);
-  let op2 : bits('size) = match op {
-    OperandReg(m) => XS(m, size),
-    OperandImm(imm) => imm[size-1..0]
-  };
-  XS(d, size) = op1 - op2;
-}
 
 /* CAS/CASB/CASH variants: size 0010001 L 1 Rs o0 11111 Rn Rt */
 function clause decode ((size:bits(2))@0b0010001@[L]@0b1@(Rs:bits(5))@[o0]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
