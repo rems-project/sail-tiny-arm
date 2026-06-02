@@ -50,8 +50,12 @@ enum cond = {
   NV,
 }
 
-
+/* The program counter */
 register _PC : bits(64)
+function rPC() -> bits(64) = _PC
+function wPC(pc : bits(64)) -> unit = _PC = pc
+overload PC = {rPC, wPC}
+
 
 /* General purpose registers */
 
@@ -137,51 +141,14 @@ function rX(n) = {
     0x0000000000000000;
 }
 
-overload X = {rX, wX}
+val rXS : forall 'N, 'N in {8, 16, 32, 64}. (reg_index, int('N)) -> bits('N)
+function rXS(n, size) = rX(n)[size-1..0]
+val wXS : forall 'N, 'N in {8, 16, 32, 64}. (reg_index, int('N), bits('N)) -> unit
+function wXS(n, size, value) = wX(n, sail_zero_extend(value, 64))
+overload X = {rX, wX, rXS, wXS}
 
 /* Datasize: 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
 type datasize = bit
-
-/* W register access (32-bit, zero-extended on write) */
-val wW : (reg_index, bits(32)) -> unit
-
-function wW(n, value) = {
-  if n != 31 then
-    *GPRs[n] = sail_zero_extend(value, 64);
-}
-
-val rW : reg_index -> bits(32)
-
-function rW(n) = {
-  if n != 31 then
-    (*GPRs[n])[31..0]
-  else
-    0x00000000;
-}
-
-overload W = {rW, wW}
-
-/* Sized register access: avoids 32/64-bit duplication in instructions */
-val rXS : forall 'N, 'N in {32, 64}. (reg_index, int('N)) -> bits('N)
-
-function rXS(n, size) = {
-  if size == 64 then rX(n)
-  else rW(n)
-}
-
-val wXS : forall 'N, 'N in {32, 64}. (reg_index, int('N), bits('N)) -> unit
-
-function wXS(n, size, value) = {
-  if size == 64 then wX(n, value)
-  else wW(n, value)
-}
-
-overload XS = {rXS, wXS}
-
-function rPC() -> bits(64) = _PC
-function wPC(pc : bits(64)) -> unit = _PC = pc
-
-overload PC = {rPC, wPC}
 
 $ifdef SYSTEM_TINY_ARM
 register CurrentEL : bits(2)
@@ -204,18 +171,40 @@ function rV() -> bit = NZCV[0]
 function wV(bit) : bit -> unit = NZCV[0] = bit
 overload V = {rV, wV}
 
+register SP_EL0 : bits (64)
+
+$ifndef SYSTEM_TINY_ARM
+function rSP() -> bits(64) = SP_EL0
+function wSP(sp : bits(64)) -> unit = SP_EL0 = sp
+$endif
 
 $ifdef SYSTEM_TINY_ARM
 
 register SPSel : bits(1)
 register DAIF : bits(4)
 
-// We fix the size to 64 and happyly ignore 128 bits register extension for VMSA128
-
-register SP_EL0 : bits(64)
 register SP_EL1 : bits(64)
 register SP_EL2 : bits(64)
 register SP_EL3 : bits(64)
+
+function rSP() -> bits(64) = {
+  if SPSel == 0b0 then SP_EL0
+  else match CurrentEL {
+    0b00 => SP_EL0,
+    0b01 => SP_EL1,
+    0b10 => SP_EL2,
+    0b11 => SP_EL3
+  }
+}
+function wSP(sp : bits(64)) -> unit = {
+  if SPSel == 0b0 then SP_EL0 = sp
+  else match CurrentEL {
+    0b00 => SP_EL0 = sp,
+    0b01 => SP_EL1 = sp,
+    0b10 => SP_EL2 = sp,
+    0b11 => SP_EL3 = sp
+  }
+}
 
 register ELR_EL1 : bits(64)
 register ELR_EL2 : bits(64)
@@ -231,6 +220,7 @@ register FAR_EL3 : bits(64)
 
 register PAR_EL1 : bits(64)
 
+// We fix the size to 64 and happyly ignore 128 bits register extension for VMSA128
 register TTBR0_EL1 : bits(64)
 register TTBR1_EL1 : bits(64)
 register TTBR0_EL2 : bits(64)
@@ -262,3 +252,10 @@ register SCTLR_EL2 : bits(64)
 register SCTLR_EL3 : bits(64)
 
 $endif
+
+val rSPS : forall 'N, 'N in {8, 16, 32, 64}. (int('N)) -> bits('N)
+function rSPS(size) = rSP()[size-1..0]
+val wSPS : forall 'N, 'N in {8, 16, 32, 64}. (int('N), bits('N)) -> unit
+function wSPS(size, value) = wSP(sail_zero_extend(value, 64))
+
+overload SP = {rSP, wSP, rSPS, wSPS}

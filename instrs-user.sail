@@ -125,8 +125,10 @@ function clause execute Load(size, t, n, offset, acquire, rcpc, exclusive) = {
   /* Create an access descriptor */
   let accdesc = create_readAccessDescriptor(acquire, rcpc, exclusive);
 
+
   /* Compute the (virtual) address of the access */
-  let vaddr : bits(64) = X(n) + get_mem_offset(size, offset);
+  let base = if n == 31 then SP() else X(n);
+  let vaddr : bits(64) = base + get_mem_offset(size, offset);
 
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns the input address. */
@@ -150,7 +152,8 @@ function clause execute Store(size, t, n, offset, release, s) = {
   let accdesc = create_writeAccessDescriptor(release, exclusive);
 
   /* Compute the (virtual) address of the access */
-  let vaddr : bits(64) = X(n) + get_mem_offset(size, offset);
+  let base = if n == 31 then SP() else X(n);
+  let vaddr : bits(64) = base + get_mem_offset(size, offset);
 
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns the input address. */
@@ -241,16 +244,19 @@ function clause decode ([sf]@(opc : bits(2))@0b100100@[N]@(immr:bits(6))@(imms:b
 function clause execute BitwiseLogic(sf, op, d, n, op2) = {
   _PC = _PC + 4;
   let 'size = if sf == bitone then 64 else 32;
-  let operand1 = XS(n, size);
+  let operand1 = X(n, size);
   let operand2 : bits('size) = match op2 {
-      OperandReg(m) => XS(m, size),
+      OperandReg(m) => X(m, size),
       OperandImm(mask) => mask[size-1..0]
     };
-  match op {
-    Eor => XS(d, size) = operand1 ^ operand2,
-    Or => XS(d, size) = operand1 | operand2,
-    And => XS(d, size) = operand1 & operand2,
-  }
+  let result : bits('size) = match op {
+    Eor => operand1 ^ operand2,
+    Or => operand1 | operand2,
+    And => operand1 & operand2,
+  };
+  // If the operand was an immediate, d == 31 means SP otherwise it means 0
+  let use_sp : bool = match op2 {OperandReg (_) => false, OperandImm(_) => true };
+  if use_sp & d == 31 then SP(size) = result else X(d, size) = result;
 }
 
 
@@ -273,14 +279,15 @@ function clause execute Movz(sf, d, imm, hw) = {
   let size = if sf == bitone then 64 else 32;
   /* Compute 64-bit result, then truncate for 32-bit */
   let res : bits(64) = sail_shiftleft(sail_zero_extend(imm, 64), 16 * hw);
-  XS(d, size) = res[size-1..0]
+  X(d, size) = res[size-1..0]
 }
 
 /* Arithmetic: ADD(S)/SUB(S) (register and immediate forms)
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers)
  * op: 0 is ADD, 1 is SUB
  * S (suffix): 0 doesn't write NZCV, and 1 does write NZCV */
-union clause ast = AddSub : (datasize, /*op*/bit, /*S*/bit, reg_index, reg_index, operand)
+union clause ast = AddSub : (datasize, /*op*/bit, /*S*/bit, reg_index,
+                             reg_index, operand, /* use_sp */ bool)
 
 /* ADD(S)/SUB(S) (shifted register) */
 val decodeAddSubShift : (bit, bit, bit, bits(2), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
@@ -295,7 +302,7 @@ function decodeAddSubShift (sf, op, S, shift, imm6, Rm, Rn, Rd) = {
 
   if imm6 != 0b000000 then return None (); /* We only support unshifted for now */
 
-  Some(AddSub((sf, op, S, d, n, OperandReg(m))))
+  Some(AddSub((sf, op, S, d, n, OperandReg(m), false)))
 }
 
 /* ADD(S)/SUB(S) (immediate) */
@@ -311,22 +318,23 @@ function decodeAddSubImm (sf, op, S, sh, imm12, Rn, Rd) = {
   let imm =
     if sh == 0b0 then 0x0000000000000@imm12 else 0x0000000000@imm12@0x000;
 
-  Some(AddSub((sf, op, S, d, n, OperandImm(imm))))
+  Some(AddSub((sf, op, S, d, n, OperandImm(imm), true)))
 }
 
 
 /* ADD(S)/SUB(S) Xd/Wd, Xn/Wn, Xm/Wm or ADD(S)/SUB(S) Xd/Wd, Xn/Wn, #imm */
-function clause execute AddSub(sf, op, S, d, n, m) = {
+function clause execute AddSub(sf, op, S, d, n, m, use_sp) = {
   _PC = _PC + 4;
   let 'size = if sf == bitone then 64 else 32;
   let addition = op == bitzero;
-  let op1 = XS(n, size);
+  let op1 = if use_sp & n == 31 then SP(size) else X(n, size);
   let op2 : bits('size) = match m {
-    OperandReg(m) => XS(m, size),
+    OperandReg(m) => X(m, size),
     OperandImm(imm) => imm[size-1..0]
   };
   let result = if addition then op1 + op2 else op1 - op2;
-  XS(d, size) = result;
+  // We're only writing SP if not writing flags
+  if use_sp & S == bitzero & d == 31 then SP(size) = result else X(d, size) = result;
 
   if S == bitone then {
     let n = result[size-1];
@@ -469,7 +477,7 @@ function decodeCompareAndBranch(sf, op, imm19, Rt) = {
 /* CBZ/CBNZ Xt/Wt, <offset> */
 function clause execute CompareAndBranch(sf, t, offset, iszero) = {
   /* Get operand value - 64-bit or 32-bit (zero-extended for comparison) */
-  let operand : bits(64) = if sf == bitone then X(t) else sail_zero_extend(W(t), 64);
+  let operand : bits(64) = if sf == bitone then X(t) else sail_zero_extend(X(t, 32), 64);
   /* Check condition: CBZ branches if zero, CBNZ branches if not zero */
   let condition_met = if iszero
     then operand == 0x0000000000000000
