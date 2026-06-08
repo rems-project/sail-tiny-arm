@@ -34,6 +34,7 @@
   (coq-stdpp-bitvector (>= 1.10.0))
   (coq-sail-stdpp (>= 0.19.1))
   (coq-record-update (>= 0.3.4))
+  coq-sail-arm
  )
 )
 
