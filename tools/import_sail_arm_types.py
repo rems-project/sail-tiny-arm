@@ -6,8 +6,7 @@ from pathlib import Path
 
 START = "Definition bits (n : Z) : Type := mword n.\n\n"
 END = "#[export]\nInstance dummy_Barrier : Inhabited (Barrier) := { inhabitant := Barrier_DSB inhabitant }.\n\n"
-SAIL_ARM_IMPORT = "Require Import SailArm.armv9_types.\n"
-SAIL_ARM_EXPORT = "From SailArm Require Export armv9_types.\n"
+REPLACEMENT = "From SailArm Require Export armv9_types.\n\n"
 LATE_REGISTER_REF = "Definition register_ref := @register_ref register type_of_register.\n"
 REGISTER_BLOCK_END = "Definition register_accessors : SailStdpp.Values.register_accessors regstate register type_of_register := (@register_lookup, @register_set).\n"
 MODEL_HELPER_INSERTION_POINT = "Open Scope Z.\n\n"
@@ -82,32 +81,23 @@ def fix_register_namespace(text: str) -> str:
     return text
 
 
-def remove_shared_interface_block(path: Path, text: str) -> str:
-    if SAIL_ARM_IMPORT in text:
-        text = text.replace(SAIL_ARM_IMPORT, SAIL_ARM_EXPORT, 1)
-    elif SAIL_ARM_EXPORT not in text:
-        raise SystemExit(f"{path}: SailArm Coq import not found; expected --coq-alt-modules")
-
-    if START not in text:
-        raise SystemExit(f"{path}: shared interface type block start not found")
-
-    start = text.index(START)
-    try:
-        end = text.index(END, start) + len(END)
-    except ValueError as exc:
-        raise SystemExit(f"{path}: shared interface type block end not found") from exc
-    return text[:start] + text[end:]
-
-
 def import_sail_arm_types(path: Path) -> None:
     text = path.read_text()
-    text = remove_shared_interface_block(path, text)
+    if START in text:
+        start = text.index(START)
+        try:
+            end = text.index(END, start) + len(END)
+        except ValueError as exc:
+            raise SystemExit(f"{path}: shared interface type block end not found") from exc
+        text = text[:start] + REPLACEMENT + text[end:]
+    elif REPLACEMENT not in text:
+        raise SystemExit(f"{path}: shared interface type block start not found")
+
     path.write_text(fix_register_namespace(text))
 
 
 def align_sail_arm_register_uses(path: Path) -> None:
     text = path.read_text()
-    text = text.replace(SAIL_ARM_IMPORT, "", 1)
     replacements = {
         "((read_reg TTBR0_EL1)  : M (mword 64))": "((read_TTBR0_EL1_64 (tt))  : M (mword 64))",
         "((read_reg TTBR1_EL1)  : M (mword 64))": "((read_TTBR1_EL1_64 (tt))  : M (mword 64))",
