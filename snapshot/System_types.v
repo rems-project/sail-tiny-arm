@@ -7,6 +7,7 @@ Require Import SailStdpp.Real.
 Require Import SailStdpp.ConcurrencyInterfaceTypesV2.
 Require Import SailStdpp.ConcurrencyInterfaceV2.
 Require Import SailStdpp.ConcurrencyInterfaceBuiltinsV2.
+From SailArm Require Export armv9_types.
 From RecordUpdate Require Import RecordSet.
 Import RecordSetNotations.
 
@@ -14,8 +15,6 @@ Import ListNotations.
 Open Scope string.
 Open Scope bool.
 Open Scope Z.
-
-From SailArm Require Export armv9_types.
 
 Definition reg_index : Type := Z.
 
