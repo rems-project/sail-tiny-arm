@@ -100,4 +100,60 @@ function clause execute ExceptionReturn() = {
   CurrentEL = spsr[3..2];
   SPSel = spsr[0..0];
 }
+
+/* MRS/MSR: Move to/from system registers */
+/* is_read: true = MRS (read from system register), false = MSR (write to system register) */
+union clause ast = SystemRegisterMove : (bool, SysRegID, reg_index)
+
+val decodeSystemRegisterMove :
+    (bool, bits(2), bits(3), bits(4), bits(4), bits(3), bits(5)) -> ast
+
+/* MRS: 1101 0101 0011 op1 CRn CRm op2 Rt (L=1) */
+/* MSR: 1101 0101 0001 op1 CRn CRm op2 Rt (L=0) */
+function clause decode (0b1101010100@[L]@0b1@(o0:bits(1))@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4))@(op2:bits(3))@(Rt:bits(5))) = {
+  let op0 : bits(2) = 0b1 @ o0;
+  decodeSystemRegisterMove(L == bitone, op0, op1, CRn, CRm, op2, Rt)
+}
+
+/* The lookup result is (register reference, minimum EL, readable, writable). */
+val lookup_sys_reg : SysRegID -> (register(bits(64)), bits(2), bool, bool)
+function lookup_sys_reg(sys_reg_id) = {
+  match sys_reg_id {
+    0xC038 => (ref ID_AA64MMFR0_EL1, 0b01, true, false),
+    0xC039 => (ref ID_AA64MMFR1_EL1, 0b01, true, false),
+    0xC03A => (ref ID_AA64MMFR2_EL1, 0b01, true, false),
+    0xC03B => (ref ID_AA64MMFR3_EL1, 0b01, true, false),
+    0xC03C => (ref ID_AA64MMFR4_EL1, 0b01, true, false),
+    0xC080 => (ref SCTLR_EL1, 0b01, true, true),
+    0xC100 => (ref TTBR0_EL1, 0b01, true, true),
+    0xC101 => (ref TTBR1_EL1, 0b01, true, true),
+    0xC102 => (ref TCR_EL1, 0b01, true, true),
+    0xC200 => (ref SPSR_EL1, 0b01, true, true),
+    0xC201 => (ref ELR_EL1, 0b01, true, true),
+    0xC290 => (ref ESR_EL1, 0b01, true, true),
+    0xC300 => (ref FAR_EL1, 0b01, true, true),
+    0xC3A0 => (ref PAR_EL1, 0b01, true, true),
+    0xC600 => (ref VBAR_EL1, 0b01, true, true),
+    _ => fail("Unsupported System Register")
+  }
+}
+
+function decodeSystemRegisterMove(is_read, op0, op1, CRn, CRm, op2, Rt) = {
+  let sys_reg_id = op0 @ op1 @ CRn @ CRm @ op2;
+  SystemRegisterMove(is_read, sys_reg_id, unsigned(Rt))
+}
+
+function clause execute SystemRegisterMove(is_read, sys_reg_id, t) = {
+  let (reg_ref, min_el, readable, writable) = lookup_sys_reg(sys_reg_id);
+  assert(unsigned(CurrentEL) >= unsigned(min_el),
+         "Trying to access system register from too-low EL, fault not implemented");
+
+  let access_allowed = if is_read then readable else writable;
+  assert(access_allowed, "System register is not accessible");
+
+  _PC = _PC + 4;
+
+  if is_read then X(t) = sail_sys_reg_read(sys_reg_id, reg_ref)
+  else sail_sys_reg_write(sys_reg_id, reg_ref, X(t))
+}
 $endif
