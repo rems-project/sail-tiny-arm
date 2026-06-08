@@ -11,21 +11,25 @@
 )
 
 (rule
- (deps sail_files (:sail %{read-lines:sail_files}) (env_var SAIL_OPTS) (env_var SAIL_COQ_OPTS) (package sail))
+ (deps sail_files (:sail %{read-lines:sail_files}) (env_var SAIL_OPTS) (env_var SAIL_COQ_OPTS) tools/import_sail_arm_types.py (package sail))
  (targets User.v User_types.v)
  (action
-  (run sail %{env:SAIL_OPTS=--strict-var}
-       --coq %{env:SAIL_COQ_OPTS=--coq-record-update}
-       -o User %{sail}))
+  (progn
+   (run sail %{env:SAIL_OPTS=--strict-var}
+        --coq %{env:SAIL_COQ_OPTS=--coq-record-update}
+        -o User %{sail})
+   (run ./tools/import_sail_arm_types.py User_types.v)))
 )
 
 (rule
- (deps sail_files (:sail %{read-lines:sail_files}) (env_var SAIL_OPTS) (env_var SAIL_COQ_OPTS) (package sail))
+ (deps sail_files (:sail %{read-lines:sail_files}) (env_var SAIL_OPTS) (env_var SAIL_COQ_OPTS) tools/import_sail_arm_types.py (package sail))
  (targets System.v System_types.v)
  (action
-  (run sail %{env:SAIL_OPTS=--strict-var} -D SYSTEM_TINY_ARM
-       --coq %{env:SAIL_COQ_OPTS=--coq-record-update}
-       -o System %{sail}))
+  (progn
+   (run sail %{env:SAIL_OPTS=--strict-var} -D SYSTEM_TINY_ARM
+        --coq %{env:SAIL_COQ_OPTS=--coq-record-update}
+        -o System %{sail})
+   (run ./tools/import_sail_arm_types.py System_types.v)))
 )
 
 (rule
