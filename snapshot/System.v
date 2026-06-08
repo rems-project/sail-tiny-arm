@@ -1161,6 +1161,11 @@ Definition DataSynchronizationBarrier (domain : MBReqDomain) (types : MBReqTypes
 Definition InstructionSynchronizationBarrier '(tt : unit) : M (unit) :=
    (sail_barrier ((Barrier_ISB (tt))))  : M (unit).
 
+Definition report_tlbi (r : TLBIRecord) (s : Shareability) : M (unit) :=
+   (sail_tlbi (({| TLBIInfo_rec := r;  TLBIInfo_shareability := s |})))  : M (unit).
+
+Definition TLBI (r : TLBIRecord) (s : Shareability) : M (unit) := (report_tlbi (r) (s))  : M (unit).
+
 Definition reportTLBI (op : TLBIOp) (addr : option (mword 64)) (asid : option (mword 16)) : M (unit) :=
    let r := base_TLBIRecord (op) in
    let r : TLBIRecord :=
@@ -1170,7 +1175,7 @@ Definition reportTLBI (op : TLBIOp) (addr : option (mword 64)) (asid : option (m
    let r : TLBIRecord :=
      r
      <|TLBIRecord_asid := match asid with | Some asid => asid | None => (Ox"0000")  : mword 16 end|> in
-   (sail_tlbi (({| TLBIInfo_rec := r;  TLBIInfo_shareability := Shareability_ISH |})))
+   (TLBI (r) (Shareability_ISH))
     : M (unit).
 
 Definition undefined_Permissions '(tt : unit) : M (Permissions) :=

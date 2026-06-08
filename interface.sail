@@ -405,6 +405,14 @@ function DataSynchronizationBarrier(domain, types, nXS) = sail_barrier(
 function InstructionSynchronizationBarrier() = sail_barrier(Barrier_ISB())
 
 $ifdef SYSTEM_TINY_ARM
+val report_tlbi : (TLBIRecord, Shareability) -> unit
+
+function report_tlbi(r, s) = sail_tlbi(struct { rec = r, shareability = s })
+
+val TLBI : (TLBIRecord, Shareability) -> unit
+
+function TLBI(r, s) = report_tlbi(r, s)
+
 val reportTLBI : (TLBIOp, option(bits(64)), option(bits(16))) -> unit
 
 function reportTLBI(op, addr, asid) = {
@@ -418,6 +426,6 @@ function reportTLBI(op, addr, asid) = {
     None() => 0x0000
   };
 
-  sail_tlbi(struct { rec = r, shareability = Shareability_ISH })
+  TLBI(r, Shareability_ISH)
 }
 $endif
