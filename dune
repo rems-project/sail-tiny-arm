@@ -18,7 +18,7 @@
    (run sail %{env:SAIL_OPTS=--strict-var}
         --coq %{env:SAIL_COQ_OPTS=--coq-record-update}
         -o User %{sail})
-   (run ./tools/import_sail_arm_types.py User_types.v)))
+   (run ./tools/import_sail_arm_types.py User_types.v User.v)))
 )
 
 (rule
@@ -29,7 +29,7 @@
    (run sail %{env:SAIL_OPTS=--strict-var} -D SYSTEM_TINY_ARM
         --coq %{env:SAIL_COQ_OPTS=--coq-record-update}
         -o System %{sail})
-   (run ./tools/import_sail_arm_types.py System_types.v)))
+   (run ./tools/import_sail_arm_types.py System_types.v System.v)))
 )
 
 (rule

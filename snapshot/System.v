@@ -14,6 +14,33 @@ Open Scope bool.
 Open Scope Z.
 
 
+Definition read_TTBR0_EL1_64 '(tt : unit) : M (mword 64) :=
+  ((read_reg TTBR0_EL1) : M (mword 128)) >>= fun w =>
+  returnM (subrange_vec_dec w 63 0).
+
+Definition read_TTBR1_EL1_64 '(tt : unit) : M (mword 64) :=
+  ((read_reg TTBR1_EL1) : M (mword 128)) >>= fun w =>
+  returnM (subrange_vec_dec w 63 0).
+
+Definition write_PAR_EL1_64 (w : mword 64) : M unit :=
+  write_reg _PAR_EL1 (zero_extend w 128).
+
+Definition write_TTBR0_EL1_64 (w : mword 64) : M unit :=
+  write_reg TTBR0_EL1 (zero_extend w 128).
+
+Definition write_TTBR1_EL1_64 (w : mword 64) : M unit :=
+  write_reg TTBR1_EL1 (zero_extend w 128).
+
+Definition write_TTBR0_EL2_64 (w : mword 64) : M unit :=
+  write_reg TTBR0_EL2 (zero_extend w 128).
+
+Definition write_TTBR1_EL2_64 (w : mword 64) : M unit :=
+  write_reg TTBR1_EL2 (zero_extend w 128).
+
+Definition write_VTTBR_EL2_64 (w : mword 64) : M unit :=
+  write_reg VTTBR_EL2 (zero_extend w 128).
+
+
 Definition neq_int (x : Z) (y : Z) : bool := negb ((Z.eqb (x) (y))).
 
 Definition neq_bool (x : bool) (y : bool) : bool := negb ((Bool.eqb (x) (y))).
@@ -1235,8 +1262,8 @@ Definition va_out_of_range (va : mword 64) : bool :=
 
 Definition get_translation_base_address (varange : VARange) : M (mword 56) :=
    match varange with
-   | VARange_LOWER => ((read_reg TTBR0_EL1)  : M (mword 64))  : M (mword 64)
-   | VARange_UPPER => ((read_reg TTBR1_EL1)  : M (mword 64))  : M (mword 64)
+   | VARange_LOWER => ((read_TTBR0_EL1_64 (tt))  : M (mword 64))  : M (mword 64)
+   | VARange_UPPER => ((read_TTBR1_EL1_64 (tt))  : M (mword 64))  : M (mword 64)
    end >>= fun (ttbr : bits 64) =>
    let baddr := zeros (56) in
    let baddr : mword 56 :=
@@ -1246,10 +1273,10 @@ Definition get_translation_base_address (varange : VARange) : M (mword 56) :=
 Definition ASID_read '(tt : unit) : M (mword 16) :=
    ((read_reg TCR_EL1)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
    (if eq_vec ((slice (w__0) (22) (1))) ((zeros (1))) return M (mword 16) then
-      ((read_reg TTBR0_EL1)  : M (mword 64)) >>= fun (w__1 : mword 64) =>
+      ((read_TTBR0_EL1_64 (tt))  : M (mword 64)) >>= fun (w__1 : mword 64) =>
       returnM ((slice (w__1) (48) (16)))
     else
-      ((read_reg TTBR1_EL1)  : M (mword 64)) >>= fun (w__2 : mword 64) =>
+      ((read_TTBR1_EL1_64 (tt))  : M (mword 64)) >>= fun (w__2 : mword 64) =>
       returnM ((slice (w__2) (48) (16))))
     : M (mword 16).
 
@@ -1455,10 +1482,10 @@ Definition translate_address (va : mword 64) (accdesc : AccessDescriptor) : M (o
       returnM ((Some ((vector_truncate (va) (addr_size')))))
     else
       (if generic_eq ((get_VARange (va))) (VARange_LOWER) return M (mword 1) then
-         ((read_reg TTBR0_EL1)  : M (mword 64)) >>= fun (w__1 : mword 64) =>
+         ((read_TTBR0_EL1_64 (tt))  : M (mword 64)) >>= fun (w__1 : mword 64) =>
          returnM ((slice (w__1) (0) (1)))
        else
-         ((read_reg TTBR1_EL1)  : M (mword 64)) >>= fun (w__2 : mword 64) =>
+         ((read_TTBR1_EL1_64 (tt))  : M (mword 64)) >>= fun (w__2 : mword 64) =>
          returnM ((slice (w__2) (0) (1)))) >>= fun cnp =>
       (ASID_read (tt)) >>= fun (w__3 : mword 16) =>
       let tsi : TranslationStartInfo :=
@@ -2414,19 +2441,19 @@ Definition initialize_registers '(tt : unit) : M (unit) :=
    (undefined_bitvector (64)) >>= fun (w__48 : mword 64) =>
    write_reg FAR_EL3 w__48 >>
    (undefined_bitvector (64)) >>= fun (w__49 : mword 64) =>
-   write_reg PAR_EL1 w__49 >>
+   write_PAR_EL1_64 w__49 >>
    (undefined_bitvector (64)) >>= fun (w__50 : mword 64) =>
-   write_reg TTBR0_EL1 w__50 >>
+   write_TTBR0_EL1_64 w__50 >>
    (undefined_bitvector (64)) >>= fun (w__51 : mword 64) =>
-   write_reg TTBR1_EL1 w__51 >>
+   write_TTBR1_EL1_64 w__51 >>
    (undefined_bitvector (64)) >>= fun (w__52 : mword 64) =>
-   write_reg TTBR0_EL2 w__52 >>
+   write_TTBR0_EL2_64 w__52 >>
    (undefined_bitvector (64)) >>= fun (w__53 : mword 64) =>
-   write_reg TTBR1_EL2 w__53 >>
+   write_TTBR1_EL2_64 w__53 >>
    (undefined_bitvector (64)) >>= fun (w__54 : mword 64) =>
    write_reg TTBR0_EL3 w__54 >>
    (undefined_bitvector (64)) >>= fun (w__55 : mword 64) =>
-   write_reg VTTBR_EL2 w__55 >>
+   write_VTTBR_EL2_64 w__55 >>
    (undefined_bitvector (64)) >>= fun (w__56 : mword 64) =>
    write_reg VBAR_EL1 w__56 >>
    (undefined_bitvector (64)) >>= fun (w__57 : mword 64) =>
