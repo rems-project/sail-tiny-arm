@@ -21,6 +21,8 @@ Definition neq_bool (x : bool) (y : bool) : bool := negb ((Bool.eqb (x) (y))).
 Definition eq_bits_int {n : Z} (x : mword n) (y : Z) (*(n >=? 0) && (y >=? 0)*) : bool :=
    Z.eqb ((uint (x))) (y).
 
+Definition neq_bit (x : bitU) (y : bitU) : bool := negb ((eq_bit (x) (y))).
+
 Definition __id (x : Z) : Z := x.
 
 Definition _shl_int_general (m : Z) (n : Z) : Z :=
@@ -77,6 +79,11 @@ Definition concat_str_bits {n : Z} (str : string) (x : mword n) : string :=
    String.append (str) ((string_of_bits (x))).
 
 Definition concat_str_dec (str : string) (x : Z) : string := String.append (str) ((dec_str (x))).
+
+Definition fail {a : Type} (message : string) : M (a) :=
+   assert_exp' false message >>= fun _ => exit tt.
+
+Definition not_bit (b : bitU) : bitU := if eq_bit (b) (B0) then B1 else B0.
 
 Definition undefined_SecurityState '(tt : unit) : M (SecurityState) :=
    (internal_pick ([SS_NonSecure; SS_Root; SS_Realm; SS_Secure]))  : M (SecurityState).
@@ -563,7 +570,11 @@ Definition undefined_DxB '(tt : unit) : M (DxB) :=
    (undefined_bool (tt)) >>= fun (w__2 : bool) =>
    returnM (({| DxB_domain := w__0;  DxB_types := w__1;  DxB_nXS := w__2 |})).
 
-Definition GPRs : vec (register_ref register (bits 64)) 31 :=
+Definition rPC '(tt : unit) : M (mword 64) := ((read_reg _PC)  : M (mword 64))  : M (mword 64).
+
+Definition wPC (pc : mword 64) : M (unit) := write_reg _PC pc  : M (unit).
+
+Definition GPRs : vec (register_ref (bits 64)) 31 :=
 vec_of_list_len [R30_ref;R29_ref;R28_ref;R27_ref;R26_ref;R25_ref;R24_ref;R23_ref;R22_ref;R21_ref;
                  R20_ref;R19_ref;R18_ref;R17_ref;R16_ref;R15_ref;R14_ref;R13_ref;R12_ref;R11_ref;
                  R10_ref;R9_ref;R8_ref;R7_ref;R6_ref;R5_ref;R4_ref;R3_ref;R2_ref;R1_ref;R0_ref].
@@ -582,9 +593,196 @@ Definition rX (n : Z) (*(0 <=? n) && (n <=? 31)*) : M (mword 64) :=
     else returnM (((Ox"0000000000000000")  : mword 64)))
     : M (mword 64).
 
-Definition rPC '(tt : unit) : M (mword 64) := ((read_reg _PC)  : M (mword 64))  : M (mword 64).
+Definition rXS (n : Z) (size : Z) (*member_Z_list size [8; 16; 32; 64]*) (*(0 <=? n) && (n <=? 31)*)
+: M (mword size) :=
+   (rX (n)) >>= fun (w__0 : mword 64) =>
+   returnM ((autocast (T := mword) (subrange_vec_dec (w__0) ((Z.sub (size) (1))) (0)))).
 
-Definition wPC (pc : mword 64) : M (unit) := write_reg _PC pc  : M (unit).
+Definition wXS (n : Z) (size : Z) (value : mword size) (*member_Z_list size [8; 16; 32; 64]*)
+(*(0 <=? n) && (n <=? 31)*)
+: M (unit) :=
+   (wX (n) ((zero_extend (value) (64))))  : M (unit).
+
+Definition CurrentEL : bits 2 := ('b"00")  : mword 2.
+#[export] Hint Unfold CurrentEL : sail.
+Definition rN '(tt : unit) : M (bitU) :=
+   ((read_reg NZCV)  : M (mword 4)) >>= fun (w__0 : mword 4) =>
+   returnM ((access_vec_dec (w__0) (3))).
+
+Definition wN (bit : bitU) : M (unit) :=
+   ((read_reg NZCV)  : M (mword 4)) >>= fun (w__0 : mword 4) =>
+   write_reg NZCV (update_vec_dec (w__0) (3) (bit))
+    : M (unit).
+
+Definition rZ '(tt : unit) : M (bitU) :=
+   ((read_reg NZCV)  : M (mword 4)) >>= fun (w__0 : mword 4) =>
+   returnM ((access_vec_dec (w__0) (2))).
+
+Definition wZ (bit : bitU) : M (unit) :=
+   ((read_reg NZCV)  : M (mword 4)) >>= fun (w__0 : mword 4) =>
+   write_reg NZCV (update_vec_dec (w__0) (2) (bit))
+    : M (unit).
+
+Definition rC '(tt : unit) : M (bitU) :=
+   ((read_reg NZCV)  : M (mword 4)) >>= fun (w__0 : mword 4) =>
+   returnM ((access_vec_dec (w__0) (1))).
+
+Definition wC (bit : bitU) : M (unit) :=
+   ((read_reg NZCV)  : M (mword 4)) >>= fun (w__0 : mword 4) =>
+   write_reg NZCV (update_vec_dec (w__0) (1) (bit))
+    : M (unit).
+
+Definition rV '(tt : unit) : M (bitU) :=
+   ((read_reg NZCV)  : M (mword 4)) >>= fun (w__0 : mword 4) =>
+   returnM ((access_vec_dec (w__0) (0))).
+
+Definition wV (bit : bitU) : M (unit) :=
+   ((read_reg NZCV)  : M (mword 4)) >>= fun (w__0 : mword 4) =>
+   write_reg NZCV (update_vec_dec (w__0) (0) (bit))
+    : M (unit).
+
+Definition rSP '(tt : unit) : M (mword 64) := ((read_reg SP_EL0)  : M (mword 64))  : M (mword 64).
+
+Definition wSP (sp : mword 64) : M (unit) := write_reg SP_EL0 sp  : M (unit).
+
+Definition rSPS (size : Z) (*member_Z_list size [8; 16; 32; 64]*) : M (mword size) :=
+   (rSP (tt)) >>= fun (w__0 : mword 64) =>
+   returnM ((autocast (T := mword) (subrange_vec_dec (w__0) ((Z.sub (size) (1))) (0)))).
+
+Definition wSPS (size : Z) (value : mword size) (*member_Z_list size [8; 16; 32; 64]*) : M (unit) :=
+   (wSP ((zero_extend (value) (64))))  : M (unit).
+
+Definition undefined_extend_type '(tt : unit) : M (extend_type) :=
+   (internal_pick ([UXTB; UXTH; UXTW; UXTX; SXTB; SXTH; SXTW; SXTX]))  : M (extend_type).
+
+Definition ext_bits_forwards (arg_ : extend_type) : mword 3 :=
+   match arg_ with
+   | UXTB => ('b"000")  : mword 3
+   | UXTH => ('b"001")  : mword 3
+   | UXTW => ('b"010")  : mword 3
+   | UXTX => ('b"011")  : mword 3
+   | SXTB => ('b"100")  : mword 3
+   | SXTH => ('b"101")  : mword 3
+   | SXTW => ('b"110")  : mword 3
+   | SXTX => ('b"111")  : mword 3
+   end.
+
+Definition ext_bits_backwards (arg_ : mword 3) : extend_type :=
+   let b__0 := arg_ in
+   if eq_vec (b__0) ((('b"000")  : mword 3)) then UXTB
+   else if eq_vec (b__0) ((('b"001")  : mword 3)) then UXTH
+   else if eq_vec (b__0) ((('b"010")  : mword 3)) then UXTW
+   else if eq_vec (b__0) ((('b"011")  : mword 3)) then UXTX
+   else if eq_vec (b__0) ((('b"100")  : mword 3)) then SXTB
+   else if eq_vec (b__0) ((('b"101")  : mword 3)) then SXTH
+   else if eq_vec (b__0) ((('b"110")  : mword 3)) then SXTW
+   else SXTX.
+
+Definition ext_bits_forwards_matches (arg_ : extend_type) : bool :=
+   match arg_ with
+   | UXTB => true
+   | UXTH => true
+   | UXTW => true
+   | UXTX => true
+   | SXTB => true
+   | SXTH => true
+   | SXTW => true
+   | SXTX => true
+   end.
+
+Definition ext_bits_backwards_matches (arg_ : mword 3) : bool :=
+   let b__0 := arg_ in
+   if eq_vec (b__0) ((('b"000")  : mword 3)) then true
+   else if eq_vec (b__0) ((('b"001")  : mword 3)) then true
+   else if eq_vec (b__0) ((('b"010")  : mword 3)) then true
+   else if eq_vec (b__0) ((('b"011")  : mword 3)) then true
+   else if eq_vec (b__0) ((('b"100")  : mword 3)) then true
+   else if eq_vec (b__0) ((('b"101")  : mword 3)) then true
+   else if eq_vec (b__0) ((('b"110")  : mword 3)) then true
+   else if eq_vec (b__0) ((('b"111")  : mword 3)) then true
+   else false.
+
+Definition extend_reg (v : mword 64) (ext : extend_type) : mword 64 :=
+   match ext with
+   | UXTB => zero_extend ((subrange_vec_dec (v) (7) (0))) (64)
+   | UXTH => zero_extend ((subrange_vec_dec (v) (15) (0))) (64)
+   | UXTW => zero_extend ((subrange_vec_dec (v) (31) (0))) (64)
+   | UXTX => v
+   | SXTB => sign_extend ((subrange_vec_dec (v) (7) (0))) (64)
+   | SXTH => sign_extend ((subrange_vec_dec (v) (15) (0))) (64)
+   | SXTW => sign_extend ((subrange_vec_dec (v) (31) (0))) (64)
+   | SXTX => v
+   end.
+
+Definition undefined_shift_type '(tt : unit) : M (shift_type) :=
+   (internal_pick ([shift_LSL; shift_LSR; shift_ASR; shift_ROR]))  : M (shift_type).
+
+Definition shift_bits_forwards (arg_ : shift_type) : mword 2 :=
+   match arg_ with
+   | shift_LSL => ('b"00")  : mword 2
+   | shift_LSR => ('b"01")  : mword 2
+   | shift_ASR => ('b"10")  : mword 2
+   | shift_ROR => ('b"11")  : mword 2
+   end.
+
+Definition shift_bits_backwards (arg_ : mword 2) : shift_type :=
+   let b__0 := arg_ in
+   if eq_vec (b__0) ((('b"00")  : mword 2)) then shift_LSL
+   else if eq_vec (b__0) ((('b"01")  : mword 2)) then shift_LSR
+   else if eq_vec (b__0) ((('b"10")  : mword 2)) then shift_ASR
+   else shift_ROR.
+
+Definition shift_bits_forwards_matches (arg_ : shift_type) : bool :=
+   match arg_ with
+   | shift_LSL => true
+   | shift_LSR => true
+   | shift_ASR => true
+   | shift_ROR => true
+   end.
+
+Definition shift_bits_backwards_matches (arg_ : mword 2) : bool :=
+   let b__0 := arg_ in
+   if eq_vec (b__0) ((('b"00")  : mword 2)) then true
+   else if eq_vec (b__0) ((('b"01")  : mword 2)) then true
+   else if eq_vec (b__0) ((('b"10")  : mword 2)) then true
+   else if eq_vec (b__0) ((('b"11")  : mword 2)) then true
+   else false.
+
+Definition shift_reg {N : Z} (v : mword N) (sh : shift_type) (amount : Z)
+(*member_Z_list N [32; 64]*) (*(0 <=? amount) && (amount <=? 63)*)
+: M (mword N) :=
+   match sh with
+   | shift_LSL => returnM ((shiftl (v) (amount)))
+   | shift_LSR => returnM ((shiftr (v) (amount)))
+   | shift_ASR => returnM ((arith_shiftr (v) (amount)))
+   | shift_ROR => (fail ("ROR unsupported"))  : M (mword N)
+   end
+    : M (mword N).
+
+Definition eval_operand (size : Z) (op : operand) (*member_Z_list size [32; 64]*) : M (mword size) :=
+   match op with
+   | OperandRegExt (n, ext, shift) =>
+      (rX (n)) >>= fun (w__0 : mword 64) =>
+      returnM ((shiftl
+                  ((autocast (T := mword)
+                    (subrange_vec_dec ((extend_reg (w__0) (ext))) ((Z.sub (size) (1))) (0))))
+                  (shift)))
+   | OperandRegShift (n, sh, amount) =>
+      (rXS (n) (size)) >>= fun (w__1 : mword size) =>
+      (shift_reg (w__1) (sh) (amount))
+       : M (mword size)
+   | OperandImm imm =>
+      returnM ((autocast (T := mword) (subrange_vec_dec (imm) ((Z.sub (size) (1))) (0))))
+   end
+    : M (mword size).
+
+Definition zero_operand := OperandImm (((Ox"0000000000000000")  : mword 64)).
+#[export] Hint Unfold zero_operand : sail.
+Definition undefined_bitwise_op '(tt : unit) : M (bitwise_op) :=
+   (internal_pick ([Eor; Or; And]))  : M (bitwise_op).
+
+Definition undefined_cond '(tt : unit) : M (cond) :=
+   (internal_pick ([EQ'; NE; CS; CC; MI; PL; VS; VC; HI; LS; GE; LT'; GT'; LE; AL; NV]))  : M (cond).
 
 Definition is_ok {a : Type} {b : Type} (r : result a b) : bool :=
    match r with | Ok _ => true | Err _ => false end.
@@ -612,17 +810,17 @@ Definition sail_reset_registers '(tt : unit) : unit := tt.
 
 Definition sail_synchronize_registers '(tt : unit) : unit := tt.
 
-Definition sail_mark_register {a : Type} (_ : register_ref register a) (_ : string) : unit := tt.
+Definition sail_mark_register {a : Type} (_ : register_ref a) (_ : string) : unit := tt.
 
 Definition sail_mark_register_pair {a : Type} {b : Type}
-(_ : register_ref register a) (_ : register_ref register b) (_ : string)
+(_ : register_ref a) (_ : register_ref b) (_ : string)
 : unit :=
    tt.
 
-Definition sail_ignore_write_to {a : Type} (reg : register_ref register a) : unit :=
+Definition sail_ignore_write_to {a : Type} (reg : register_ref a) : unit :=
    sail_mark_register (reg) ("ignore_write").
 
-Definition sail_pick_dependency {a : Type} (reg : register_ref register a) : unit :=
+Definition sail_pick_dependency {a : Type} (reg : register_ref a) : unit :=
    sail_mark_register (reg) ("pick").
 
 Definition __monomorphize {n : Z} (bv : mword n) (*n >=? 0*) : mword n := bv.
@@ -642,40 +840,6 @@ Definition sail_address_announce (addrsize : Z) (_ : mword addrsize)
 
 Definition addr_size' : Z := 64.
 #[export] Hint Unfold addr_size' : sail.
-Definition mem_acc_is_explicit (acc : AccessDescriptor) : bool :=
-   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR).
-
-Definition mem_acc_is_ifetch (acc : AccessDescriptor) : bool :=
-   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_IFETCH).
-
-Definition mem_acc_is_ttw (acc : AccessDescriptor) : bool :=
-   generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_TTW).
-
-Definition mem_acc_is_relaxed (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     ((andb ((negb (acc.(AccessDescriptor_acqpc))))
-         ((andb ((negb (acc.(AccessDescriptor_acqsc)))) ((negb (acc.(AccessDescriptor_relsc)))))))).
-
-Definition mem_acc_is_rel_acq_rcpc (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_acqpc)).
-
-Definition mem_acc_is_rel_acq_rcsc (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     ((orb (acc.(AccessDescriptor_acqsc)) (acc.(AccessDescriptor_relsc)))).
-
-Definition mem_acc_is_standalone (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     ((andb ((negb (acc.(AccessDescriptor_exclusive)))) ((negb (acc.(AccessDescriptor_atomicop)))))).
-
-Definition mem_acc_is_exclusive (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_exclusive)).
-
-Definition mem_acc_is_atomic_rmw (acc : AccessDescriptor) : bool :=
-   andb ((generic_eq (acc.(AccessDescriptor_acctype)) (AccessType_GPR)))
-     (acc.(AccessDescriptor_atomicop)).
-
 Definition base_AccessDescriptor (acctype : AccessType) : AccessDescriptor :=
    {| AccessDescriptor_acctype := acctype;
       AccessDescriptor_el := zeros (2);
@@ -714,223 +878,795 @@ Definition base_AccessDescriptor (acctype : AccessType) : AccessDescriptor :=
            MPAMinfo_partid := (Ox"0000")  : mword 16;
            MPAMinfo_pmg := (Ox"00")  : mword 8 |} |}.
 
-Definition create_writeAccessDescriptor '(tt : unit) : AccessDescriptor :=
+Definition create_writeAccessDescriptor (release : bool) (exclusive : bool) : AccessDescriptor :=
    let accdesc := base_AccessDescriptor (AccessType_GPR) in
    let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_write := true|> in
-   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := false|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_relsc := release|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_exclusive := exclusive|> in
    accdesc
-   <|AccessDescriptor_el := ('b"00")  : mword 2|>.
+   <|AccessDescriptor_el := CurrentEL|>.
 
-Definition create_readAccessDescriptor '(tt : unit) : AccessDescriptor :=
+Definition create_readAccessDescriptor (acquire : bool) (rcpc : bool) (exclusive : bool)
+: AccessDescriptor :=
    let accdesc := base_AccessDescriptor (AccessType_GPR) in
    let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := true|> in
-   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_write := false|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_acqsc := andb (acquire) ((negb (rcpc)))|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_acqpc := andb (acquire) (rcpc)|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_exclusive := exclusive|> in
    accdesc
-   <|AccessDescriptor_el := ('b"00")  : mword 2|>.
+   <|AccessDescriptor_el := CurrentEL|>.
 
 Definition create_iFetchAccessDescriptor '(tt : unit) : AccessDescriptor :=
    let accdesc := base_AccessDescriptor (AccessType_IFETCH) in
    let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := true|> in
    let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_write := false|> in
    accdesc
-   <|AccessDescriptor_el := ('b"00")  : mword 2|>.
+   <|AccessDescriptor_el := CurrentEL|>.
 
 Definition addr_space_def := tt.
 #[export] Hint Unfold addr_space_def : sail.
 Definition read_memory (N : Z) (addr : mword 64) (accdesc : AccessDescriptor) (*N >? 0*)
-: M (mword (N * 8)) :=
-   let req : Mem_read_request N 0 addr_size addr_space AccessDescriptor :=
-     {| Mem_read_request_access_kind := accdesc;
-        Mem_read_request_address := vector_truncate (addr) (addr_size');
-        Mem_read_request_address_space := addr_space_def;
-        Mem_read_request_size := N;
-        Mem_read_request_num_tag := 0 |} in
-   (sail_mem_read ((autocast (T := fun _sz => (Mem_read_request _ _ _sz _ _)%type) req))) >>= fun (w__0 : result ((vec (mword 8) N * vec bool 0)) unit) =>
-   (match w__0 with
-    | Ok (bytes, _) => returnM ((autocast (T := mword) (from_bytes_le ((__id (N))) (bytes))))
-    | Err _e => exit tt  : M (mword (N * 8))
-    end)
-    : M (mword (N * 8)).
+: M (mword (8 * N)) :=
+   let req : Mem_request N 0 addr_size addr_space AccessDescriptor :=
+     {| Mem_request_access_kind := accdesc;
+        Mem_request_address := vector_truncate (addr) (addr_size');
+        Mem_request_address_space := addr_space_def;
+        Mem_request_size := N;
+        Mem_request_num_tag := 0 |} in
+   (sail_mem_read ((autocast (T := fun _sz => (Mem_request _ _ _sz _ _)%type) req))) >>= fun (w__0 : result ((vec (mword 8) N * vec bool 0)) unit) =>
+   match w__0 with
+   | Ok (bytes, _) => returnM ((from_bytes_le ((__id (N))) (bytes)))
+   | Err _e => exit tt  : M (mword (8 * N))
+   end
+    : M (mword (8 * N)).
 
 Definition iFetch (addr : mword 64) (accdesc : AccessDescriptor) : M (mword 32) :=
-   (read_memory (4) (addr) (accdesc))  : M (mword (4 * 8)).
+   (read_memory (4) (addr) (accdesc))  : M (mword (8 * 4)).
 
-Definition rMem (addr : mword 64) (accdesc : AccessDescriptor) : M (mword 64) :=
-   (read_memory (8) (addr) (accdesc))  : M (mword (8 * 8)).
+Definition rMem (N : Z) (addr : mword 64) (accdesc : AccessDescriptor) (*N >? 0*)
+: M (mword (8 * N)) :=
+   (read_memory (N) (addr) (accdesc))  : M (mword (8 * N)).
 
 Definition wMem_Addr (addr : mword 64) : unit :=
    sail_address_announce (64) ((zero_extend (addr) (64))).
 
-Definition wMem (addr : mword 64) (value : mword 64) (accdesc : AccessDescriptor) : M (unit) :=
-   let req : Mem_write_request 8 0 addr_size addr_space AccessDescriptor :=
-     {| Mem_write_request_access_kind := accdesc;
-        Mem_write_request_address := vector_truncate (addr) (addr_size');
-        Mem_write_request_address_space := addr_space_def;
-        Mem_write_request_size := 8;
-        Mem_write_request_num_tag := 0;
-        Mem_write_request_value := to_bytes_le (8) (value);
-        Mem_write_request_tags := vec_of_list_len [] |} in
-   (sail_mem_write ((autocast (T := fun _sz => (Mem_write_request _ _ _sz _ _)%type) req))) >>= fun (w__0 : result unit unit) =>
-   (match w__0 with | Ok _ => returnM (tt) | Err _ => exit tt  : M (unit) end)
+Definition wMem (N : Z) (addr : mword 64) (value : mword (8 * N)) (accdesc : AccessDescriptor)
+(*N >? 0*)
+: M (unit) :=
+   let req : Mem_request N 0 addr_size addr_space AccessDescriptor :=
+     {| Mem_request_access_kind := accdesc;
+        Mem_request_address := vector_truncate (addr) (addr_size');
+        Mem_request_address_space := addr_space_def;
+        Mem_request_size := N;
+        Mem_request_num_tag := 0 |} in
+   (sail_mem_write ((autocast (T := fun _sz => (Mem_request _ _ _sz _ _)%type) req))
+      ((to_bytes_le (N) (value))) ((vec_of_list_len []))) >>= fun (w__0 : result unit unit) =>
+   match w__0 with | Ok _ => returnM (tt) | Err _ => exit tt  : M (unit) end
     : M (unit).
 
-Definition dataMemoryBarrier (types : MBReqTypes) : M (unit) :=
+Definition DataMemoryBarrier (domain : MBReqDomain) (types : MBReqTypes) : M (unit) :=
    (sail_barrier
-      ((Barrier_DMB
-          (({| DxB_domain := MBReqDomain_FullSystem;
-               DxB_types := types;
-               DxB_nXS := false |})))))
+      ((Barrier_DMB (({| DxB_domain := domain;  DxB_types := types;  DxB_nXS := false |})))))
     : M (unit).
+
+Definition DataSynchronizationBarrier (domain : MBReqDomain) (types : MBReqTypes) (nXS : bool)
+: M (unit) :=
+   (sail_barrier
+      ((Barrier_DSB (({| DxB_domain := domain;  DxB_types := types;  DxB_nXS := nXS |})))))
+    : M (unit).
+
+Definition InstructionSynchronizationBarrier '(tt : unit) : M (unit) :=
+   (sail_barrier ((Barrier_ISB (tt))))  : M (unit).
 
 Definition translate_address (va : mword 64) (accdesc : AccessDescriptor) : option (mword 64) :=
    Some (va).
 
 Definition decodeLoadStoreRegister
-(opc : mword 2) (Rm : mword 5) (option_v : mword 3) (S' : bitU) (Rn : mword 5) (Rt : mword 5)
+(size : mword 2) (opc : mword 2) (Rm : mword 5) (option_v : mword 3) (S' : bitU) (Rn : mword 5)
+(Rt : mword 5)
 : option ast :=
    let t : reg_index := uint (Rt) in
    let n : reg_index := uint (Rn) in
    let m : reg_index := uint (Rm) in
-   if orb ((neq_vec (option_v) ((('b"011")  : mword 3)))) ((eq_bit (S') (B1))) then None
-   else if eq_vec (opc) ((('b"01")  : mword 2)) then Some ((LoadRegister ((t, n, m))))
-   else if eq_vec (opc) ((('b"00")  : mword 2)) then Some ((StoreRegister ((t, n, m))))
+   let shift : Z := if eq_bit (S') (B1) then uint (size) else 0 in
+   if eq_bit ((access_vec_dec (option_v) (1))) (B0) then None
+   else
+     let offset := OperandRegExt ((m, ext_bits_backwards (option_v), shift)) in
+     if eq_vec (opc) ((('b"01")  : mword 2)) then
+       Some ((Load ((uint (size), t, n, offset, false, false, false))))
+     else if eq_vec (opc) ((('b"00")  : mword 2)) then
+       Some ((Store ((uint (size), t, n, offset, false, None))))
+     else None.
+
+Definition decodeLoadStoreImmediate
+(size : mword 2) (opc : mword 2) (imm12 : mword 12) (Rn : mword 5) (Rt : mword 5)
+: option ast :=
+   let size := uint (size) in
+   let t : reg_index := uint (Rt) in
+   let n : reg_index := uint (Rn) in
+   let imm := shiftl ((zero_extend (imm12) (64))) (size) in
+   if eq_vec (opc) ((('b"01")  : mword 2)) then
+     Some ((Load ((size, t, n, OperandImm (imm), false, false, false))))
+   else if eq_vec (opc) ((('b"00")  : mword 2)) then
+     Some ((Store ((size, t, n, OperandImm (imm), false, None))))
    else None.
 
-Definition decodeExclusiveOr
-(sf : bitU) (shift : mword 2) (N : bitU) (Rm : mword 5) (imm6 : mword 6) (Rn : mword 5)
+Definition decode_bitwise_op (opc : mword 2) : M (bitwise_op) :=
+   let b__0 := opc in
+   (if eq_vec (b__0) ((('b"00")  : mword 2)) then returnM (And)
+    else if eq_vec (b__0) ((('b"10")  : mword 2)) then returnM (Eor)
+    else if eq_vec (b__0) ((('b"01")  : mword 2)) then returnM (Or)
+    else (fail ("ANDS unsupported"))  : M (bitwise_op))
+    : M (bitwise_op).
+
+Definition decode_bitmask (N : bitU) (imms : mword 6) (immr : mword 6) : M (mword 64) :=
+   let len := if eq_bit (N) (B1) then 6 else Z.sub (5) ((count_leading_zeros ((not_vec (imms))))) in
+   assert_exp' (Z.gtb ((__id (len))) (0)) "Invalid immediate encoding for bitwise operation" >>= fun _ =>
+   let s := uint ((subrange_vec_dec (imms) ((Z.sub (len) (1))) (0))) in
+   assert_exp' (Z.ltb ((Z.add (s) (1))) ((pow2 (len)))) "All-ones mask is not allowed in bitwise operations" >>= fun _ =>
+   let elem := zero_extend ((sail_ones ((Z.add (s) (1))))) ((pow2 (len))) in
+   let r := uint ((subrange_vec_dec (immr) ((Z.sub (len) (1))) (0))) in
+   let relem :=
+     if Z.eqb (r) (0) then elem
+     else
+       autocast (T := mword)
+       (concat_vec ((subrange_vec_dec (elem) ((Z.sub (r) (1))) (0)))
+          ((subrange_vec_dec (elem) ((Z.sub ((pow2 (len))) (1))) (r)))) in
+   returnM ((autocast (T := mword) (replicate_bits (relem) ((pow2 ((Z.sub (6) (len)))))))).
+
+Definition decodeAddSubExt
+(sf : bitU) (op : bitU) (S' : bitU) (option_v : mword 3) (imm3 : mword 3) (Rm : mword 5)
+(Rn : mword 5) (Rd : mword 5)
+: M (option ast) :=
+   let d : reg_index := uint (Rd) in
+   let n : reg_index := uint (Rn) in
+   let shift := uint (imm3) in
+   (if Z.gtb (shift) (4) return M (Z) then
+      (fail ("AddSub (extended register) shift is greater than 4"))
+       : M (Z)
+    else returnM (shift)) >>= fun (shift : Z) =>
+   let operand := OperandRegExt ((uint (Rm), ext_bits_backwards (option_v), shift)) in
+   returnM ((Some ((AddSub ((sf, op, S', d, n, operand)))))).
+
+Definition decodeAddSubShift
+(sf : bitU) (op : bitU) (S' : bitU) (shift : mword 2) (imm6 : mword 6) (Rm : mword 5) (Rn : mword 5)
 (Rd : mword 5)
+: M (option ast) :=
+   let d : reg_index := uint (Rd) in
+   let n : reg_index := uint (Rn) in
+   (if eq_vec (shift) ((('b"11")  : mword 2)) return M (unit) then
+      (fail ("ADD/SUB doesn't support ROR"))
+       : M (unit)
+    else returnM (tt)) >>
+   (if andb ((eq_bit (sf) (B0))) ((eq_bit ((access_vec_dec (imm6) (5))) (B1))) return M (unit) then
+      (fail ("ADD/SUB: shift by more than 31 bits on 32 bit operation"))
+       : M (unit)
+    else returnM (tt)) >>
+   let operand := OperandRegShift ((uint (Rm), shift_bits_backwards (shift), uint (imm6))) in
+   returnM ((Some ((AddSub ((sf, op, S', d, n, operand)))))).
+
+Definition decodeAddSubImm
+(sf : bitU) (op : bitU) (S' : bitU) (sh : mword 1) (imm12 : mword 12) (Rn : mword 5) (Rd : mword 5)
 : option ast :=
    let d : reg_index := uint (Rd) in
    let n : reg_index := uint (Rn) in
-   let m : reg_index := uint (Rm) in
-   if andb ((eq_bit (sf) (B0))) ((eq_bit ((access_vec_dec (imm6) (5))) (B1))) then None
-   else if neq_vec (imm6) ((('b"000000")  : mword 6)) then None
-   else Some ((ExclusiveOr ((d, n, m)))).
+   let imm :=
+     if eq_vec (sh) ((('b"0")  : mword 1)) then
+       concat_vec (((Ox"0000000000000")  : mword 52)) (imm12)
+     else
+       concat_vec (((Ox"0000000000")  : mword 40)) ((concat_vec (imm12) (((Ox"000")  : mword 12)))) in
+   Some ((AddSub ((sf, op, S', d, n, OperandImm (imm))))).
 
-Definition decodeDataMemoryBarrier (b__0 : mword 4) : option ast :=
-   if eq_vec (b__0) (((Ox"F")  : mword 4)) then Some ((DataMemoryBarrier (MBReqTypes_All)))
-   else if eq_vec (b__0) (((Ox"E")  : mword 4)) then Some ((DataMemoryBarrier (MBReqTypes_Writes)))
-   else if eq_vec (b__0) (((Ox"D")  : mword 4)) then Some ((DataMemoryBarrier (MBReqTypes_Reads)))
-   else None.
+Definition decodeDataBarrier (CRm : mword 4) (is_sync : bool) : option ast :=
+   pure_early_return
+     (let b__3 := subrange_vec_dec (CRm) (3) (2) in
+     (if eq_vec (b__3) ((('b"11")  : mword 2)) then inr (MBReqDomain_FullSystem)
+      else if eq_vec (b__3) ((('b"10")  : mword 2)) then inr (MBReqDomain_InnerShareable)
+      else if eq_vec (b__3) ((('b"01")  : mword 2)) then inr (MBReqDomain_Nonshareable)
+      else if eq_vec (b__3) ((('b"00")  : mword 2)) then inr (MBReqDomain_OuterShareable)
+      else
+        (inl (None  : option ast) : sum (option ast) MBReqDomain)
+         : sum (option ast) (MBReqDomain)) >>$= fun '(domain) =>
+     let b__0 := subrange_vec_dec (CRm) (1) (0) in
+     (if eq_vec (b__0) ((('b"01")  : mword 2)) then inr (MBReqTypes_Reads)
+      else if eq_vec (b__0) ((('b"10")  : mword 2)) then inr (MBReqTypes_Writes)
+      else if eq_vec (b__0) ((('b"11")  : mword 2)) then inr (MBReqTypes_All)
+      else (inl (None  : option ast) : sum (option ast) MBReqTypes)  : sum (option ast) (MBReqTypes)) >>$= fun '(types) =>
+     inr ((if is_sync then Some ((DataSynchronizationBarrierInstr ((domain, types))))
+           else Some ((DataMemoryBarrierInstr ((domain, types))))))).
 
-Definition decodeCompareAndBranch (imm19 : mword 19) (Rt : mword 5) : option ast :=
+Definition decodeCompareAndBranch (sf : bitU) (op : bitU) (imm19 : mword 19) (Rt : mword 5)
+: option ast :=
    let t : reg_index := uint (Rt) in
    let offset : bits 64 := sign_extend ((concat_vec (imm19) ((('b"00")  : mword 2)))) (64) in
-   Some ((CompareAndBranch ((t, offset)))).
+   let iszero : bool := eq_bit (op) (B0) in
+   Some ((CompareAndBranch ((sf, t, offset, iszero)))).
 
-Definition execute_StoreRegister (t : Z) (n : Z) (m : Z) (*(0 <=? t) && (t <=? 31)*)
-(*(0 <=? n) && (n <=? 31)*) (*(0 <=? m) && (m <=? 31)*)
+Definition cond_bits_forwards (arg_ : cond) : mword 4 :=
+   match arg_ with
+   | EQ' => (Ox"0")  : mword 4
+   | NE => (Ox"1")  : mword 4
+   | CS => (Ox"2")  : mword 4
+   | CC => (Ox"3")  : mword 4
+   | MI => (Ox"4")  : mword 4
+   | PL => (Ox"5")  : mword 4
+   | VS => (Ox"6")  : mword 4
+   | VC => (Ox"7")  : mword 4
+   | HI => (Ox"8")  : mword 4
+   | LS => (Ox"9")  : mword 4
+   | GE => (Ox"A")  : mword 4
+   | LT' => (Ox"B")  : mword 4
+   | GT' => (Ox"C")  : mword 4
+   | LE => (Ox"D")  : mword 4
+   | AL => (Ox"E")  : mword 4
+   | NV => (Ox"F")  : mword 4
+   end.
+
+Definition cond_bits_backwards (arg_ : mword 4) : cond :=
+   let b__0 := arg_ in
+   if eq_vec (b__0) (((Ox"0")  : mword 4)) then EQ'
+   else if eq_vec (b__0) (((Ox"1")  : mword 4)) then NE
+   else if eq_vec (b__0) (((Ox"2")  : mword 4)) then CS
+   else if eq_vec (b__0) (((Ox"3")  : mword 4)) then CC
+   else if eq_vec (b__0) (((Ox"4")  : mword 4)) then MI
+   else if eq_vec (b__0) (((Ox"5")  : mword 4)) then PL
+   else if eq_vec (b__0) (((Ox"6")  : mword 4)) then VS
+   else if eq_vec (b__0) (((Ox"7")  : mword 4)) then VC
+   else if eq_vec (b__0) (((Ox"8")  : mword 4)) then HI
+   else if eq_vec (b__0) (((Ox"9")  : mword 4)) then LS
+   else if eq_vec (b__0) (((Ox"A")  : mword 4)) then GE
+   else if eq_vec (b__0) (((Ox"B")  : mword 4)) then LT'
+   else if eq_vec (b__0) (((Ox"C")  : mword 4)) then GT'
+   else if eq_vec (b__0) (((Ox"D")  : mword 4)) then LE
+   else if eq_vec (b__0) (((Ox"E")  : mword 4)) then AL
+   else NV.
+
+Definition cond_bits_forwards_matches (arg_ : cond) : bool :=
+   match arg_ with
+   | EQ' => true
+   | NE => true
+   | CS => true
+   | CC => true
+   | MI => true
+   | PL => true
+   | VS => true
+   | VC => true
+   | HI => true
+   | LS => true
+   | GE => true
+   | LT' => true
+   | GT' => true
+   | LE => true
+   | AL => true
+   | NV => true
+   end.
+
+Definition cond_bits_backwards_matches (arg_ : mword 4) : bool :=
+   let b__0 := arg_ in
+   if eq_vec (b__0) (((Ox"0")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"1")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"2")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"3")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"4")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"5")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"6")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"7")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"8")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"9")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"A")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"B")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"C")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"D")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"E")  : mword 4)) then true
+   else if eq_vec (b__0) (((Ox"F")  : mword 4)) then true
+   else false.
+
+Definition condition_holds (cond : cond) : M (bool) :=
+   match cond with
+   | EQ' => (rZ (tt)) >>= fun (w__0 : bitU) => returnM ((eq_bit (w__0) (B1)))
+   | NE => (rZ (tt)) >>= fun (w__1 : bitU) => returnM ((eq_bit (w__1) (B0)))
+   | CS => (rC (tt)) >>= fun (w__2 : bitU) => returnM ((eq_bit (w__2) (B1)))
+   | CC => (rC (tt)) >>= fun (w__3 : bitU) => returnM ((eq_bit (w__3) (B0)))
+   | MI => (rN (tt)) >>= fun (w__4 : bitU) => returnM ((eq_bit (w__4) (B1)))
+   | PL => (rN (tt)) >>= fun (w__5 : bitU) => returnM ((eq_bit (w__5) (B0)))
+   | VS => (rV (tt)) >>= fun (w__6 : bitU) => returnM ((eq_bit (w__6) (B1)))
+   | VC => (rV (tt)) >>= fun (w__7 : bitU) => returnM ((eq_bit (w__7) (B0)))
+   | HI =>
+      (and_boolM ((rC (tt)) >>= fun (w__8 : bitU) => returnM (((eq_bit (w__8) (B1))  : bool)))
+         ((rZ (tt)) >>= fun (w__9 : bitU) => returnM (((eq_bit (w__9) (B0))  : bool))))
+       : M (bool)
+   | LS =>
+      (or_boolM ((rC (tt)) >>= fun (w__11 : bitU) => returnM (((eq_bit (w__11) (B0))  : bool)))
+         ((rZ (tt)) >>= fun (w__12 : bitU) => returnM (((eq_bit (w__12) (B1))  : bool))))
+       : M (bool)
+   | GE =>
+      (rN (tt)) >>= fun (w__14 : bitU) =>
+      (rV (tt)) >>= fun (w__15 : bitU) => returnM ((eq_bit (w__14) (w__15)))
+   | LT' =>
+      (rN (tt)) >>= fun (w__16 : bitU) =>
+      (rV (tt)) >>= fun (w__17 : bitU) => returnM ((neq_bit (w__16) (w__17)))
+   | GT' =>
+      (and_boolM
+         ((rN (tt)) >>= fun (w__18 : bitU) =>
+          (rV (tt)) >>= fun (w__19 : bitU) => returnM (((eq_bit (w__18) (w__19))  : bool)))
+         ((rZ (tt)) >>= fun (w__20 : bitU) => returnM (((eq_bit (w__20) (B0))  : bool))))
+       : M (bool)
+   | LE =>
+      (or_boolM
+         ((rN (tt)) >>= fun (w__22 : bitU) =>
+          (rV (tt)) >>= fun (w__23 : bitU) => returnM (((neq_bit (w__22) (w__23))  : bool)))
+         ((rZ (tt)) >>= fun (w__24 : bitU) => returnM (((eq_bit (w__24) (B1))  : bool))))
+       : M (bool)
+   | AL => returnM (true)
+   | NV => returnM (true)
+   end
+    : M (bool).
+
+Definition execute_Store
+(size : Z) (t : Z) (n : Z) (offset : operand) (release : bool) (s : option Z)
+(*(0 <=? size) && (size <=? 3)*) (*(0 <=? t) && (t <=? 31)*) (*(0 <=? n) && (n <=? 31)*)
 : M (unit) :=
    catch_early_return
-     (liftR ((rX (n))) >>= fun base_addr =>
-     liftR ((rX (m))) >>= fun offset =>
-     let addr := add_vec (base_addr) (offset) in
-     let accdesc := create_writeAccessDescriptor (tt) in
-     (match (translate_address (addr) (accdesc)) with
-      | Some addr => returnR (unit) (addr)
-      | None => (early_return (tt  : unit) : MR unit (mword 64))  : MR (unit) (mword 64)
-      end) >>= fun (addr : bits addr_size) =>
-     let '(_) := (wMem_Addr (addr))  : unit in
-     ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__1 : mword 64) =>
-     liftR (write_reg _PC (add_vec_int (w__1) (4))) >>
-     liftR ((rX (t))) >>= fun data => liftR ((wMem (addr) (data) (accdesc)))  : MR (unit) (unit)).
+     (let exclusive : bool := match s with | Some _ => true | None => false end in
+     let accdesc := create_writeAccessDescriptor (release) (exclusive) in
+     (if Z.eqb (n) (31) return MR (unit) (mword 64) then liftR ((rSP (tt)))  : MR (unit) (mword 64)
+      else liftR ((rX (n)))  : MR (unit) (mword 64)) >>= fun base =>
+     liftR ((eval_operand (64) (offset))) >>= fun (w__2 : mword 64) =>
+     let vaddr : bits 64 := add_vec (base) (w__2) in
+     match translate_address (vaddr) (accdesc) with
+     | Some addr => returnR (unit) (addr)
+     | None => (early_return (tt  : unit) : MR unit (mword 64))  : MR (unit) (mword 64)
+     end >>= fun (addr : bits addr_size) =>
+     match s with
+     | None =>
+        let '(_) := (wMem_Addr (addr))  : unit in
+        ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__4 : mword 64) =>
+        liftR (write_reg _PC (add_vec_int (w__4) (4))) >>
+        liftR ((rX (t))) >>= fun (w__5 : mword 64) =>
+        liftR ((wMem ((pow2 (size))) (addr)
+                  ((autocast (T := mword)
+                    (subrange_vec_dec (w__5) ((Z.sub ((Z.mul (8) ((pow2 (size))))) (1))) (0))))
+                  (accdesc)))
+         : MR (unit) (unit)
+     | Some s =>
+        liftR ((undefined_bool (tt))) >>= fun (success : bool) =>
+        (if success return MR (unit) (unit) then
+           let '(_) := (wMem_Addr (addr))  : unit in
+           ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__6 : mword 64) =>
+           liftR (write_reg _PC (add_vec_int (w__6) (4))) >>
+           liftR ((wX (s) ((zero_extend ((('b"0")  : mword 1)) (64))))) >>
+           liftR ((rX (t))) >>= fun (w__7 : mword 64) =>
+           liftR ((wMem ((pow2 (size))) (addr)
+                     ((autocast (T := mword)
+                       (subrange_vec_dec (w__7) ((Z.sub ((Z.mul (8) ((pow2 (size))))) (1))) (0))))
+                     (accdesc)))
+            : MR (unit) (unit)
+         else
+           ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__8 : mword 64) =>
+           liftR (write_reg _PC (add_vec_int (w__8) (4))) >>
+           liftR ((wX (s) ((zero_extend ((('b"1")  : mword 1)) (64)))))
+            : MR (unit) (unit))
+         : MR (unit) (unit)
+     end
+      : MR (unit) (unit)).
 
-Definition execute_LoadRegister (t : Z) (n : Z) (m : Z) (*(0 <=? t) && (t <=? 31)*)
-(*(0 <=? n) && (n <=? 31)*) (*(0 <=? m) && (m <=? 31)*)
-: M (unit) :=
-   catch_early_return
-     (liftR ((rX (n))) >>= fun base_addr =>
-     liftR ((rX (m))) >>= fun offset =>
-     let addr := add_vec (base_addr) (offset) in
-     let accdesc := create_readAccessDescriptor (tt) in
-     (match (translate_address (addr) (accdesc)) with
-      | Some addr => returnR (unit) (addr)
-      | None => (early_return (tt  : unit) : MR unit (mword 64))  : MR (unit) (mword 64)
-      end) >>= fun (addr : bits addr_size) =>
-     ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__1 : mword 64) =>
-     liftR (write_reg _PC (add_vec_int (w__1) (4))) >>
-     liftR ((rMem (addr) (accdesc))) >>= fun data => liftR ((wX (t) (data)))  : MR (unit) (unit)).
+Definition execute_Nop '(tt : unit) : M (unit) :=
+   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
+   write_reg _PC (add_vec_int (w__0) (4))
+    : M (unit).
 
-Definition execute_ExclusiveOr (d : Z) (n : Z) (m : Z) (*(0 <=? d) && (d <=? 31)*)
-(*(0 <=? n) && (n <=? 31)*) (*(0 <=? m) && (m <=? 31)*)
+Definition execute_Movz (sf : bitU) (d : Z) (imm : mword 16) (hw : Z) (*(0 <=? d) && (d <=? 31)*)
+(*(0 <=? hw) && (hw <=? 3)*)
 : M (unit) :=
    ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
    write_reg _PC (add_vec_int (w__0) (4)) >>
-   (rX (n)) >>= fun operand1 =>
-   (rX (m)) >>= fun operand2 => (wX (d) ((xor_vec (operand1) (operand2))))  : M (unit).
+   let size := if eq_bit (sf) (B1) then 64 else 32 in
+   let res : bits 64 := shiftl ((zero_extend (imm) (64))) ((Z.mul (16) (hw))) in
+   (wXS (d) (size) ((autocast (T := mword) (subrange_vec_dec (res) ((Z.sub (size) (1))) (0)))))
+    : M (unit).
 
-Definition execute_DataMemoryBarrier (types : MBReqTypes) : M (unit) :=
-   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
-   write_reg _PC (add_vec_int (w__0) (4)) >> (dataMemoryBarrier (types))  : M (unit).
-
-Definition execute_CompareAndBranch (t : Z) (offset : mword 64) (*(0 <=? t) && (t <=? 31)*)
+Definition execute_Load
+(size : Z) (t : Z) (n : Z) (offset : operand) (acquire : bool) (rcpc : bool) (exclusive : bool)
+(*(0 <=? size) && (size <=? 3)*) (*(0 <=? t) && (t <=? 31)*) (*(0 <=? n) && (n <=? 31)*)
 : M (unit) :=
-   (rX (t)) >>= fun operand =>
-   (if eq_vec (operand) (((Ox"0000000000000000")  : mword 64)) return M (unit) then
+   catch_early_return
+     (let accdesc := create_readAccessDescriptor (acquire) (rcpc) (exclusive) in
+     (if Z.eqb (n) (31) return MR (unit) (mword 64) then liftR ((rSP (tt)))  : MR (unit) (mword 64)
+      else liftR ((rX (n)))  : MR (unit) (mword 64)) >>= fun base =>
+     liftR ((eval_operand (64) (offset))) >>= fun (w__2 : mword 64) =>
+     let vaddr : bits 64 := add_vec (base) (w__2) in
+     match translate_address (vaddr) (accdesc) with
+     | Some addr => returnR (unit) (addr)
+     | None => (early_return (tt  : unit) : MR unit (mword 64))  : MR (unit) (mword 64)
+     end >>= fun (addr : bits addr_size) =>
+     ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__4 : mword 64) =>
+     liftR (write_reg _PC (add_vec_int (w__4) (4))) >>
+     liftR ((rMem ((pow2 (size))) (addr) (accdesc))) >>= fun w__5 =>
+     liftR ((wX (t) ((zero_extend (w__5) (64)))))
+      : MR (unit) (unit)).
+
+Definition execute_InstructionSynchronizationBarrierInstr '(tt : unit) : M (unit) :=
+   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
+   write_reg _PC (add_vec_int (w__0) (4)) >> (InstructionSynchronizationBarrier (tt))  : M (unit).
+
+Definition execute_DataSynchronizationBarrierInstr (domain : MBReqDomain) (types : MBReqTypes)
+: M (unit) :=
+   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
+   write_reg _PC (add_vec_int (w__0) (4)) >>
+   (DataSynchronizationBarrier (domain) (types) (false))
+    : M (unit).
+
+Definition execute_DataMemoryBarrierInstr (domain : MBReqDomain) (types : MBReqTypes) : M (unit) :=
+   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
+   write_reg _PC (add_vec_int (w__0) (4)) >> (DataMemoryBarrier (domain) (types))  : M (unit).
+
+Definition execute_ConditionalBranch (offset : mword 64) (cond : cond) : M (unit) :=
+   (rPC (tt)) >>= fun base =>
+   (condition_holds (cond)) >>= fun (w__0 : bool) =>
+   (if w__0 return M (unit) then
+      let target := add_vec (base) (offset) in
+      (wPC (target))
+       : M (unit)
+    else (wPC ((add_vec_int (base) (4))))  : M (unit))
+    : M (unit).
+
+Definition execute_CompareAndBranch (sf : bitU) (t : Z) (offset : mword 64) (iszero : bool)
+(*(0 <=? t) && (t <=? 31)*)
+: M (unit) :=
+   (if eq_bit (sf) (B1) return M (mword 64) then (rX (t))  : M (mword 64)
+    else (rXS (t) (32)) >>= fun (w__1 : mword 32) => returnM ((zero_extend (w__1) (64)))) >>= fun (operand : bits 64) =>
+   let condition_met :=
+     if iszero then eq_vec (operand) (((Ox"0000000000000000")  : mword 64))
+     else neq_vec (operand) (((Ox"0000000000000000")  : mword 64)) in
+   (if condition_met return M (unit) then
       (rPC (tt)) >>= fun base =>
       let addr := add_vec (base) (offset) in
       (wPC (addr))
        : M (unit)
     else
-      ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
-      write_reg _PC (add_vec_int (w__0) (4))
+      ((read_reg _PC)  : M (mword 64)) >>= fun (w__2 : mword 64) =>
+      write_reg _PC (add_vec_int (w__2) (4))
        : M (unit))
     : M (unit).
 
-Definition execute (merge_var : ast) : M (unit) :=
-   (match merge_var with
-    | LoadRegister (t, n, m) => (execute_LoadRegister (t) (n) (m))  : M (unit)
-    | StoreRegister (t, n, m) => (execute_StoreRegister (t) (n) (m))  : M (unit)
-    | ExclusiveOr (d, n, m) => (execute_ExclusiveOr (d) (n) (m))  : M (unit)
-    | DataMemoryBarrier types => (execute_DataMemoryBarrier (types))  : M (unit)
-    | CompareAndBranch (t, offset) => (execute_CompareAndBranch (t) (offset))  : M (unit)
-    end)
+Definition execute_BranchRegister (n : Z) (*(0 <=? n) && (n <=? 31)*) : M (unit) :=
+   (rX (n)) >>= fun (w__0 : mword 64) => (wPC (w__0))  : M (unit).
+
+Definition execute_Branch (offset : mword 64) : M (unit) :=
+   (rPC (tt)) >>= fun base =>
+   let target := add_vec (base) (offset) in
+   (wPC (target))
     : M (unit).
 
-Definition decode (v__0 : mword 32) : option ast :=
-   if andb ((eq_vec ((subrange_vec_dec (v__0) (31) (24))) (((Ox"F8")  : mword 8))))
-        ((andb ((eq_vec ((subrange_vec_dec (v__0) (21) (21))) ((('b"1")  : mword 1))))
-            ((eq_vec ((subrange_vec_dec (v__0) (11) (10))) ((('b"10")  : mword 2)))))) then
-     let S' := access_vec_dec (v__0) (12) in
-     let option_v : bits 3 := subrange_vec_dec (v__0) (15) (13) in
-     let opc : bits 2 := subrange_vec_dec (v__0) (23) (22) in
-     let Rt : bits 5 := subrange_vec_dec (v__0) (4) (0) in
-     let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
-     let Rm : bits 5 := subrange_vec_dec (v__0) (20) (16) in
-     decodeLoadStoreRegister (opc) (Rm) (option_v) (S') (Rn) (Rt)
-   else if eq_vec ((subrange_vec_dec (v__0) (30) (24))) ((('b"1001010")  : mword 7)) then
-     let sf := access_vec_dec (v__0) (31) in
-     let N := access_vec_dec (v__0) (21) in
-     let shift : bits 2 := subrange_vec_dec (v__0) (23) (22) in
-     let imm6 : bits 6 := subrange_vec_dec (v__0) (15) (10) in
-     let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
-     let Rm : bits 5 := subrange_vec_dec (v__0) (20) (16) in
-     let Rd : bits 5 := subrange_vec_dec (v__0) (4) (0) in
-     decodeExclusiveOr (sf) (shift) (N) (Rm) (imm6) (Rn) (Rd)
-   else if andb ((eq_vec ((subrange_vec_dec (v__0) (31) (12))) (((Ox"D5033")  : mword 20))))
-             ((eq_vec ((subrange_vec_dec (v__0) (7) (0))) (((Ox"BF")  : mword 8)))) then
-     let CRm : bits 4 := subrange_vec_dec (v__0) (11) (8) in
-     decodeDataMemoryBarrier (CRm)
-   else if eq_vec ((subrange_vec_dec (v__0) (31) (24))) (((Ox"B4")  : mword 8)) then
-     let imm19 : bits 19 := subrange_vec_dec (v__0) (23) (5) in
-     let Rt : bits 5 := subrange_vec_dec (v__0) (4) (0) in
-     decodeCompareAndBranch (imm19) (Rt)
-   else None.
+Definition execute_BitwiseLogic (sf : bitU) (op : bitwise_op) (d : Z) (n : Z) (op2 : operand)
+(*(0 <=? d) && (d <=? 31)*) (*(0 <=? n) && (n <=? 31)*)
+: M (unit) :=
+   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
+   write_reg _PC (add_vec_int (w__0) (4)) >>
+   let size := if eq_bit (sf) (B1) then 64 else 32 in
+   (rXS (n) (size)) >>= fun operand1 =>
+   (eval_operand ((__id (size))) (op2)) >>= fun operand2 =>
+   let result' : bits size :=
+     match op with
+     | Eor => xor_vec (operand1) (operand2)
+     | Or => or_vec (operand1) (operand2)
+     | And => and_vec (operand1) (operand2)
+     end in
+   match op2 with
+   | OperandRegShift _ => returnM (false)
+   | OperandRegExt _ => (fail ("bitwise operation shouldn't have OperandRegExt"))  : M (bool)
+   | OperandImm _ => returnM (true)
+   end >>= fun (use_sp : bool) =>
+   (if andb (use_sp) ((Z.eqb (d) (31))) return M (unit) then (wSPS (size) (result'))  : M (unit)
+    else (wXS (d) (size) (result'))  : M (unit))
+    : M (unit).
+
+Definition execute_Adr (d : Z) (offset : mword 64) (*(0 <=? d) && (d <=? 31)*) : M (unit) :=
+   (rPC (tt)) >>= fun base =>
+   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
+   write_reg _PC (add_vec_int (w__0) (4)) >> (wX (d) ((add_vec (base) (offset))))  : M (unit).
+
+Definition execute_AddSub (sf : bitU) (op : bitU) (S' : bitU) (d : Z) (n : Z) (m : operand)
+(*(0 <=? d) && (d <=? 31)*) (*(0 <=? n) && (n <=? 31)*)
+: M (unit) :=
+   ((read_reg _PC)  : M (mword 64)) >>= fun (w__0 : mword 64) =>
+   write_reg _PC (add_vec_int (w__0) (4)) >>
+   let size := if eq_bit (sf) (B1) then 64 else 32 in
+   let addition := eq_bit (op) (B0) in
+   let use_sp : bool := match m with | OperandRegShift _ => false | _ => true end in
+   (if andb (use_sp) ((Z.eqb (n) (31))) return M (mword size) then (rSPS (size))  : M (mword size)
+    else (rXS (n) (size))  : M (mword size)) >>= fun op1 =>
+   (eval_operand ((__id (size))) (m)) >>= fun op2 =>
+   let result' := if addition then add_vec (op1) (op2) else sub_vec (op1) (op2) in
+   (if andb (use_sp) ((andb ((eq_bit (S') (B0))) ((Z.eqb (d) (31))))) return M (unit) then
+      (wSPS (size) (result'))
+       : M (unit)
+    else (wXS (d) (size) (result'))  : M (unit)) >>
+   (if eq_bit (S') (B1) return M (unit) then
+      let n := access_vec_dec (result') ((Z.sub (size) (1))) in
+      let z := if eq_vec (result') ((zeros (size))) then B1 else B0 in
+      let c :=
+        if addition then if Z.ltb ((uint (result'))) ((uint (op1))) then B1 else B0
+        else if Z.geb ((uint (op1))) ((uint (op2))) then B1
+        else B0 in
+      let s1 := access_vec_dec (op1) ((Z.sub (size) (1))) in
+      let s2 :=
+        if addition then access_vec_dec (op2) ((Z.sub (size) (1)))
+        else not_bit ((access_vec_dec (op2) ((Z.sub (size) (1))))) in
+      let v := if eq_bit (s1) (s2) then if neq_bit (s1) (n) then B1 else B0 else B0 in
+      write_reg
+        NZCV
+        (concat_vec ((vec_of_bits [n]  : mword 1))
+           ((concat_vec ((vec_of_bits [z]  : mword 1))
+               ((concat_vec ((vec_of_bits [c]  : mword 1)) ((vec_of_bits [v]  : mword 1)))))))
+       : M (unit)
+    else returnM (tt))
+    : M (unit).
+
+Definition execute (merge_var : ast) : M (unit) :=
+   match merge_var with
+   | Load (size, t, n, offset, acquire, rcpc, exclusive) =>
+      (execute_Load (size) (t) (n) (offset) (acquire) (rcpc) (exclusive))  : M (unit)
+   | Store (size, t, n, offset, release, s) =>
+      (execute_Store (size) (t) (n) (offset) (release) (s))  : M (unit)
+   | BitwiseLogic (sf, op, d, n, op2) => (execute_BitwiseLogic (sf) (op) (d) (n) (op2))  : M (unit)
+   | Movz (sf, d, imm, hw) => (execute_Movz (sf) (d) (imm) (hw))  : M (unit)
+   | AddSub (sf, op, S', d, n, m) => (execute_AddSub (sf) (op) (S') (d) (n) (m))  : M (unit)
+   | DataMemoryBarrierInstr (domain, types) =>
+      (execute_DataMemoryBarrierInstr (domain) (types))  : M (unit)
+   | DataSynchronizationBarrierInstr (domain, types) =>
+      (execute_DataSynchronizationBarrierInstr (domain) (types))  : M (unit)
+   | InstructionSynchronizationBarrierInstr arg0 =>
+      (execute_InstructionSynchronizationBarrierInstr (arg0))  : M (unit)
+   | Nop arg0 => (execute_Nop (arg0))  : M (unit)
+   | CompareAndBranch (sf, t, offset, iszero) =>
+      (execute_CompareAndBranch (sf) (t) (offset) (iszero))  : M (unit)
+   | Branch offset => (execute_Branch (offset))  : M (unit)
+   | ConditionalBranch (offset, cond) => (execute_ConditionalBranch (offset) (cond))  : M (unit)
+   | Adr (d, offset) => (execute_Adr (d) (offset))  : M (unit)
+   | BranchRegister n => (execute_BranchRegister (n))  : M (unit)
+   end
+    : M (unit).
+
+Definition decode (v__0 : mword 32) : M (option ast) :=
+   (if andb ((eq_vec ((subrange_vec_dec (v__0) (29) (24))) ((('b"111000")  : mword 6))))
+         ((andb ((eq_vec ((subrange_vec_dec (v__0) (21) (21))) ((('b"1")  : mword 1))))
+             ((eq_vec ((subrange_vec_dec (v__0) (11) (10))) ((('b"10")  : mword 2)))))) then
+      let S' := access_vec_dec (v__0) (12) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let option_v : bits 3 := subrange_vec_dec (v__0) (15) (13) in
+      let opc : bits 2 := subrange_vec_dec (v__0) (23) (22) in
+      let Rt : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      let Rm : bits 5 := subrange_vec_dec (v__0) (20) (16) in
+      returnM ((decodeLoadStoreRegister (size) (opc) (Rm) (option_v) (S') (Rn) (Rt)))
+    else if eq_vec ((subrange_vec_dec (v__0) (29) (24))) ((('b"111001")  : mword 6)) then
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let opc : bits 2 := subrange_vec_dec (v__0) (23) (22) in
+      let imm12 : bits 12 := subrange_vec_dec (v__0) (21) (10) in
+      let Rt : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      returnM ((decodeLoadStoreImmediate (size) (opc) (imm12) (Rn) (Rt)))
+    else if andb ((eq_vec ((subrange_vec_dec (v__0) (29) (23))) ((('b"0010001")  : mword 7))))
+              ((eq_vec ((subrange_vec_dec (v__0) (21) (10))) (((Ox"7FF")  : mword 12)))) then
+      let L := access_vec_dec (v__0) (22) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let Rt : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      let t : reg_index := uint (Rt) in
+      let n : reg_index := uint (Rn) in
+      returnM ((if eq_bit (L) (B1) then
+                  Some ((Load ((uint (size), t, n, zero_operand, true, false, false))))
+                else Some ((Store ((uint (size), t, n, zero_operand, true, None))))))
+    else if eq_vec ((subrange_vec_dec (v__0) (29) (10))) (((Ox"E2FF0")  : mword 20)) then
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let Rt : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      returnM ((Some ((Load ((uint (size), uint (Rt), uint (Rn), zero_operand, true, true, false))))))
+    else if andb
+              ((eq_vec ((subrange_vec_dec (v__0) (29) (16))) ((('b"00100001011111")  : mword 14))))
+              ((eq_vec ((subrange_vec_dec (v__0) (14) (10))) ((('b"11111")  : mword 5)))) then
+      let acquire := access_vec_dec (v__0) (15) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let Rt : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      returnM ((Some
+                  ((Load
+                      ((uint (size), uint (Rt), uint (Rn), zero_operand, eq_bit (acquire) (B1), false, true))))))
+    else if andb ((eq_vec ((subrange_vec_dec (v__0) (29) (21))) ((('b"001000000")  : mword 9))))
+              ((eq_vec ((subrange_vec_dec (v__0) (14) (10))) ((('b"11111")  : mword 5)))) then
+      let release := access_vec_dec (v__0) (15) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let size : bits 2 := subrange_vec_dec (v__0) (31) (30) in
+      let Rt : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      let Rs : bits 5 := subrange_vec_dec (v__0) (20) (16) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      returnM ((Some
+                  ((Store
+                      ((uint (size), uint (Rt), uint (Rn), zero_operand, eq_bit (release) (B1), Some
+                                                                                                  ((uint
+                                                                                                      (Rs)))))))))
+    else if andb ((eq_vec ((subrange_vec_dec (v__0) (28) (24))) ((('b"01010")  : mword 5))))
+              ((eq_vec ((subrange_vec_dec (v__0) (21) (21))) ((('b"0")  : mword 1))))
+      return
+      M (option ast) then
+      let sf := access_vec_dec (v__0) (31) in
+      let shift : bits 2 := subrange_vec_dec (v__0) (23) (22) in
+      let opc : bits 2 := subrange_vec_dec (v__0) (30) (29) in
+      let imm6 : bits 6 := subrange_vec_dec (v__0) (15) (10) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      let Rm : bits 5 := subrange_vec_dec (v__0) (20) (16) in
+      let Rd : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      (decode_bitwise_op (opc)) >>= fun op =>
+      (if andb ((eq_bit (sf) (B0))) ((eq_bit ((access_vec_dec (imm6) (5))) (B1)))
+         return
+         M (unit) then
+         (fail ("bitwise_op: shift by more than 31 bits on 32 bit operation"))
+          : M (unit)
+       else returnM (tt)) >>
+      let operand := OperandRegShift ((uint (Rm), shift_bits_backwards (shift), uint (imm6))) in
+      returnM ((Some ((BitwiseLogic ((sf, op, uint (Rd), uint (Rn), operand))))))
+    else if eq_vec ((subrange_vec_dec (v__0) (28) (23))) ((('b"100100")  : mword 6))
+      return
+      M (option ast) then
+      let sf := access_vec_dec (v__0) (31) in
+      let N := access_vec_dec (v__0) (22) in
+      let opc : bits 2 := subrange_vec_dec (v__0) (30) (29) in
+      let imms : bits 6 := subrange_vec_dec (v__0) (15) (10) in
+      let immr : bits 6 := subrange_vec_dec (v__0) (21) (16) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      let Rd : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      (if eq_vec (opc) ((('b"11")  : mword 2)) then returnM (None)
+       else
+         (decode_bitwise_op (opc)) >>= fun op =>
+         (if andb ((eq_bit (N) (B1))) ((eq_bit (sf) (B0))) then returnM (None)
+          else
+            (decode_bitmask (N) (imms) (immr)) >>= fun mask =>
+            returnM ((Some ((BitwiseLogic ((sf, op, uint (Rd), uint (Rn), OperandImm (mask))))))))
+          : M (option ast))
+       : M (option ast)
+    else if eq_vec ((subrange_vec_dec (v__0) (30) (23))) (((Ox"A5")  : mword 8)) then
+      let sf := access_vec_dec (v__0) (31) in
+      let imm16 : bits 16 := subrange_vec_dec (v__0) (20) (5) in
+      let hw : bits 2 := subrange_vec_dec (v__0) (22) (21) in
+      let Rd : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      let d : reg_index := uint (Rd) in
+      returnM ((if andb ((eq_bit (sf) (B0))) ((eq_bit ((access_vec_dec (hw) (1))) (B1))) then None
+                else Some ((Movz ((sf, d, imm16, uint (hw)))))))
+    else if eq_vec ((subrange_vec_dec (v__0) (28) (21))) (((Ox"59")  : mword 8))
+      return
+      M (option ast) then
+      let sf := access_vec_dec (v__0) (31) in
+      let op := access_vec_dec (v__0) (30) in
+      let S' := access_vec_dec (v__0) (29) in
+      let option_v : bits 3 := subrange_vec_dec (v__0) (15) (13) in
+      let imm3 : bits 3 := subrange_vec_dec (v__0) (12) (10) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      let Rm : bits 5 := subrange_vec_dec (v__0) (20) (16) in
+      let Rd : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      (decodeAddSubExt (sf) (op) (S') (option_v) (imm3) (Rm) (Rn) (Rd))
+       : M (option ast)
+    else if andb ((eq_vec ((subrange_vec_dec (v__0) (28) (24))) ((('b"01011")  : mword 5))))
+              ((eq_vec ((subrange_vec_dec (v__0) (21) (21))) ((('b"0")  : mword 1))))
+      return
+      M (option ast) then
+      let sf := access_vec_dec (v__0) (31) in
+      let op := access_vec_dec (v__0) (30) in
+      let S' := access_vec_dec (v__0) (29) in
+      let shift : bits 2 := subrange_vec_dec (v__0) (23) (22) in
+      let imm6 : bits 6 := subrange_vec_dec (v__0) (15) (10) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      let Rm : bits 5 := subrange_vec_dec (v__0) (20) (16) in
+      let Rd : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      (decodeAddSubShift (sf) (op) (S') (shift) (imm6) (Rm) (Rn) (Rd))
+       : M (option ast)
+    else if eq_vec ((subrange_vec_dec (v__0) (28) (23))) ((('b"100010")  : mword 6)) then
+      let sf := access_vec_dec (v__0) (31) in
+      let op := access_vec_dec (v__0) (30) in
+      let S' := access_vec_dec (v__0) (29) in
+      let sh : bits 1 := subrange_vec_dec (v__0) (22) (22) in
+      let imm12 : bits 12 := subrange_vec_dec (v__0) (21) (10) in
+      let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+      let Rd : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+      returnM ((decodeAddSubImm (sf) (op) (S') (sh) (imm12) (Rn) (Rd)))
+    else if andb ((eq_vec ((subrange_vec_dec (v__0) (29) (23))) ((('b"0010001")  : mword 7))))
+              ((andb ((eq_vec ((subrange_vec_dec (v__0) (21) (21))) ((('b"1")  : mword 1))))
+                  ((eq_vec ((subrange_vec_dec (v__0) (14) (10))) ((('b"11111")  : mword 5))))))
+      return
+      M (option ast) then
+      (fail ("Instruction not supported by design: CAS/CASB/CASH variants"))
+       : M (option ast)
+    else if andb ((eq_vec ((subrange_vec_dec (v__0) (30) (21))) ((('b"0011010100")  : mword 10))))
+              ((eq_vec ((subrange_vec_dec (v__0) (11) (10))) ((('b"00")  : mword 2))))
+      return
+      M (option ast) then
+      (fail ("Instruction not supported by design: CSEL"))
+       : M (option ast)
+    else if andb ((eq_vec ((subrange_vec_dec (v__0) (29) (24))) ((('b"111000")  : mword 6))))
+              ((andb ((eq_vec ((subrange_vec_dec (v__0) (21) (21))) ((('b"1")  : mword 1))))
+                  ((eq_vec ((subrange_vec_dec (v__0) (15) (10))) ((('b"100000")  : mword 6))))))
+      return
+      M (option ast) then
+      (fail ("Instruction not supported by design: SWP/SWPA/SWPL/SWPAL"))
+       : M (option ast)
+    else
+      returnM ((if andb ((eq_vec ((subrange_vec_dec (v__0) (31) (12))) (((Ox"D5033")  : mword 20))))
+                     ((eq_vec ((subrange_vec_dec (v__0) (7) (0))) (((Ox"BF")  : mword 8)))) then
+                  let CRm : bits 4 := subrange_vec_dec (v__0) (11) (8) in
+                  decodeDataBarrier (CRm) (false)
+                else if andb
+                          ((eq_vec ((subrange_vec_dec (v__0) (31) (12))) (((Ox"D5033")  : mword 20))))
+                          ((eq_vec ((subrange_vec_dec (v__0) (7) (0))) (((Ox"9F")  : mword 8))))
+                then
+                  let CRm : bits 4 := subrange_vec_dec (v__0) (11) (8) in
+                  decodeDataBarrier (CRm) (true)
+                else if andb
+                          ((eq_vec ((subrange_vec_dec (v__0) (31) (12))) (((Ox"D5033")  : mword 20))))
+                          ((eq_vec ((subrange_vec_dec (v__0) (7) (0))) (((Ox"DF")  : mword 8))))
+                then
+                  Some ((InstructionSynchronizationBarrierInstr (tt)))
+                else if eq_vec (v__0) (((Ox"D503201F")  : mword 32)) then Some ((Nop (tt)))
+                else if eq_vec ((subrange_vec_dec (v__0) (30) (25))) ((('b"011010")  : mword 6))
+                then
+                  let sf := access_vec_dec (v__0) (31) in
+                  let op := access_vec_dec (v__0) (24) in
+                  let imm19 : bits 19 := subrange_vec_dec (v__0) (23) (5) in
+                  let Rt : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+                  decodeCompareAndBranch (sf) (op) (imm19) (Rt)
+                else if eq_vec ((subrange_vec_dec (v__0) (31) (26))) ((('b"000101")  : mword 6))
+                then
+                  let imm26 : bits 26 := subrange_vec_dec (v__0) (25) (0) in
+                  let offset : bits 64 :=
+                    sign_extend ((concat_vec (imm26) ((('b"00")  : mword 2)))) (64) in
+                  Some ((Branch (offset)))
+                else if andb
+                          ((eq_vec ((subrange_vec_dec (v__0) (31) (24))) (((Ox"54")  : mword 8))))
+                          ((eq_vec ((subrange_vec_dec (v__0) (4) (4))) ((('b"0")  : mword 1)))) then
+                  let imm19 : bits 19 := subrange_vec_dec (v__0) (23) (5) in
+                  let cond : bits 4 := subrange_vec_dec (v__0) (3) (0) in
+                  let offset : bits 64 :=
+                    sign_extend ((concat_vec (imm19) ((('b"00")  : mword 2)))) (64) in
+                  Some ((ConditionalBranch ((offset, cond_bits_backwards (cond)))))
+                else if andb ((eq_vec ((subrange_vec_dec (v__0) (31) (31))) ((('b"0")  : mword 1))))
+                          ((eq_vec ((subrange_vec_dec (v__0) (28) (24))) ((('b"10000")  : mword 5))))
+                then
+                  let immlo : bits 2 := subrange_vec_dec (v__0) (30) (29) in
+                  let immhi : bits 19 := subrange_vec_dec (v__0) (23) (5) in
+                  let Rd : bits 5 := subrange_vec_dec (v__0) (4) (0) in
+                  let offset : bits 64 := sign_extend ((concat_vec (immhi) (immlo))) (64) in
+                  Some ((Adr ((uint (Rd), offset))))
+                else if andb
+                          ((eq_vec ((subrange_vec_dec (v__0) (31) (10)))
+                              ((('b"1101011000011111000000")
+                               : mword 22))))
+                          ((eq_vec ((subrange_vec_dec (v__0) (4) (0))) ((('b"00000")  : mword 5))))
+                then
+                  let Rn : bits 5 := subrange_vec_dec (v__0) (9) (5) in
+                  Some ((BranchRegister ((uint (Rn)))))
+                else None)))
+    : M (option ast).
 
 Definition fetch_and_execute '(tt : unit) : M (unit) :=
    catch_early_return
      (let accdesc := create_iFetchAccessDescriptor (tt) in
      ((liftR (read_reg _PC))  : MR (unit) (mword 64)) >>= fun (w__0 : mword 64) =>
-     (match (translate_address (w__0) (accdesc)) with
-      | Some addr => returnR (unit) (addr)
-      | None => (early_return (tt  : unit) : MR unit (mword 64))  : MR (unit) (mword 64)
-      end) >>= fun (addr : bits addr_size) =>
+     match translate_address (w__0) (accdesc) with
+     | Some addr => returnR (unit) (addr)
+     | None => (early_return (tt  : unit) : MR unit (mword 64))  : MR (unit) (mword 64)
+     end >>= fun (addr : bits addr_size) =>
      liftR ((iFetch (addr) (accdesc))) >>= fun machineCode =>
-     let instr := decode (machineCode) in
-     (match instr with
-      | Some instr => liftR ((execute (instr)))  : MR (unit) (unit)
-      | None => liftR (assert_exp' false "Unsupported Encoding") >>= fun _ => liftR (exit tt)
-      end)
+     liftR ((decode (machineCode))) >>= fun instr =>
+     match instr with
+     | Some instr => liftR ((execute (instr)))  : MR (unit) (unit)
+     | None => liftR (assert_exp' false "Unsupported Encoding") >>= fun _ => liftR (exit tt)
+     end
       : MR (unit) (unit)).
 
 Definition initialize_registers '(tt : unit) : M (unit) :=
@@ -996,7 +1732,11 @@ Definition initialize_registers '(tt : unit) : M (unit) :=
    write_reg R2 w__29 >>
    (undefined_bitvector (64)) >>= fun (w__30 : mword 64) =>
    write_reg R1 w__30 >>
-   (undefined_bitvector (64)) >>= fun (w__31 : mword 64) => write_reg R0 w__31  : M (unit).
+   (undefined_bitvector (64)) >>= fun (w__31 : mword 64) =>
+   write_reg R0 w__31 >>
+   (undefined_bitvector (4)) >>= fun (w__32 : mword 4) =>
+   write_reg NZCV w__32 >>
+   (undefined_bitvector (64)) >>= fun (w__33 : mword 64) => write_reg SP_EL0 w__33  : M (unit).
 
 Definition sail_model_init (_ : unit) : M (unit) := (initialize_registers (tt))  : M (unit).
 

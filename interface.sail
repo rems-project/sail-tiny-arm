@@ -287,9 +287,9 @@ val iFetch : (bits(addr_size), AccessDescriptor) -> bits(32)
 val rMem : forall 'N, 'N > 0. (int('N), bits(addr_size), AccessDescriptor) -> bits(8 * 'N)
 val wMem_Addr : bits(addr_size) -> unit
 val wMem : forall 'N, 'N > 0. (int('N), bits(addr_size), bits(8 * 'N), AccessDescriptor) -> unit
-val dataMemoryBarrier : (MBReqDomain, MBReqTypes) -> unit
-val dataSynchronizationBarrer : (MBReqDomain, MBReqTypes) -> unit
-val instructionSynchronizationBarrier : unit -> unit
+val DataMemoryBarrier : (MBReqDomain, MBReqTypes) -> unit
+val DataSynchronizationBarrier : (MBReqDomain, MBReqTypes, bool) -> unit
+val InstructionSynchronizationBarrier : unit -> unit
 
 val translate_address : (bits(64), AccessDescriptor) -> option(bits(addr_size))
 
@@ -334,19 +334,19 @@ function wMem(N, addr, value, accdesc) = {
 instantiation sail_barrier with
   'barrier = Barrier
 
-function dataMemoryBarrier(domain, types) = sail_barrier(
+function DataMemoryBarrier(domain, types) = sail_barrier(
   Barrier_DMB(struct{
     domain = domain,
     types = types,
     nXS = false}))
 
-function dataSynchronizationBarrer(domain, types) = sail_barrier(
+function DataSynchronizationBarrier(domain, types, nXS) = sail_barrier(
   Barrier_DSB(struct{
     domain = domain,
     types = types,
-    nXS = false}))
+    nXS = nXS}))
 
-function instructionSynchronizationBarrier() = sail_barrier(Barrier_ISB())
+function InstructionSynchronizationBarrier() = sail_barrier(Barrier_ISB())
 
 $ifdef SYSTEM_TINY_ARM
 val reportTLBI : (TLBIOp, option(bits(64)), option(bits(16))) -> unit

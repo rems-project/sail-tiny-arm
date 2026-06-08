@@ -363,9 +363,9 @@ function clause decode ((size:bits(2))@0b11@0b1000@[A]@[R]@0b1@(Rs:bits(5))@0b1@
 }
 
 /* Data Barrier */
-union clause ast = DataMemoryBarrier : (MBReqDomain, MBReqTypes)
-union clause ast = DataSynchronizationBarrier : (MBReqDomain, MBReqTypes)
-union clause ast = InstructionSynchronizationBarrier : unit
+union clause ast = DataMemoryBarrierInstr : (MBReqDomain, MBReqTypes)
+union clause ast = DataSynchronizationBarrierInstr : (MBReqDomain, MBReqTypes)
+union clause ast = InstructionSynchronizationBarrierInstr : unit
 
 val decodeDataBarrier : (bits(4), bool) -> option(ast)
 
@@ -388,9 +388,9 @@ function decodeDataBarrier(CRm, is_sync) = {
     };
 
   if is_sync then
-    Some(DataSynchronizationBarrier(domain, types))
+    Some(DataSynchronizationBarrierInstr(domain, types))
   else
-    Some(DataMemoryBarrier(domain, types))
+    Some(DataMemoryBarrierInstr(domain, types))
 }
 
 /* DMB */
@@ -398,11 +398,11 @@ function clause decode (0b1101010100@0b0@0b00@0b011@0b0011@(CRm : bits(4))@0b1@0
   decodeDataBarrier(CRm, false)
 }
 
-function clause execute DataMemoryBarrier(domain, types) = {
+function clause execute DataMemoryBarrierInstr(domain, types) = {
   // Update the PC
   _PC = _PC + 4;
   // Then perform the barrier
-  dataMemoryBarrier(domain, types);
+  DataMemoryBarrier(domain, types);
 }
 
 /* DSB */
@@ -410,23 +410,23 @@ function clause decode (0b11010101000000110011@(CRm:bits(4))@0b100@0b11111) = {
   decodeDataBarrier(CRm, true)
 }
 
-function clause execute DataSynchronizationBarrier(domain, types) = {
+function clause execute DataSynchronizationBarrierInstr(domain, types) = {
   // Update the PC
   _PC = _PC + 4;
   // Then perform the barrier
-  dataSynchronizationBarrer(domain, types)
+  DataSynchronizationBarrier(domain, types, false)
 }
 
 /* ISB */
 function clause decode (0b11010101000000110011@(CRm:bits(4))@0b110@0b11111) = {
-  Some(InstructionSynchronizationBarrier())
+  Some(InstructionSynchronizationBarrierInstr())
 }
 
-function clause execute InstructionSynchronizationBarrier() = {
+function clause execute InstructionSynchronizationBarrierInstr() = {
   // Update the PC
   _PC = _PC + 4;
   // Then perform the barrier
-  instructionSynchronizationBarrier()
+  InstructionSynchronizationBarrier()
 }
 
 /* NOP: No Operation */
