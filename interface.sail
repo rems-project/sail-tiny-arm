@@ -30,6 +30,10 @@ instantiation sail_cache_op with
 instantiation sail_tlbi with
   'tlbi = TLBIInfo
 
+val CACHE_OP : CacheRecord -> unit
+
+function CACHE_OP(r) = sail_cache_op(r)
+
 instantiation sail_return_exception
 
 instantiation sail_take_exception with

@@ -872,6 +872,8 @@ Definition sail_address_announce (addrsize : Z) (_ : mword addrsize)
 
 Definition addr_size' : Z := 56.
 #[export] Hint Unfold addr_size' : sail.
+Definition CACHE_OP (r : CacheRecord) : M (unit) := (sail_cache_op (r))  : M (unit).
+
 Definition base_AccessDescriptor (acctype : AccessType) : AccessDescriptor :=
    {| AccessDescriptor_acctype := acctype;
       AccessDescriptor_el := zeros (2);
