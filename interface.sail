@@ -36,6 +36,10 @@ function CACHE_OP(r) = sail_cache_op(r)
 
 instantiation sail_return_exception
 
+val return_exception : bits(56) -> unit
+
+function return_exception(x) = sail_return_exception(())
+
 instantiation sail_take_exception with
   'exn = option(FaultRecord)
 
