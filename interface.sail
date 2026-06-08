@@ -92,6 +92,62 @@ function base_AccessDescriptor (acctype : AccessType) -> AccessDescriptor = stru
   }
 }
 
+function NewAccDesc(acctype : AccessType) -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(acctype);
+  accdesc.el = CurrentEL;
+  accdesc
+}
+
+function CreateAccDescIFetch() -> AccessDescriptor = {
+  var accdesc = NewAccDesc(AccessType_IFETCH);
+  accdesc.read = true;
+  accdesc.write = false;
+  accdesc
+}
+
+function CreateAccDescGPR(memop : MemOp, nontemporal : bool, privileged : bool, tagchecked : bool) -> AccessDescriptor = {
+  var accdesc = NewAccDesc(AccessType_GPR);
+  accdesc.el = if not_bool(privileged) then 0b00 else CurrentEL;
+  accdesc.nontemporal = nontemporal;
+  accdesc.read = memop == MemOp_LOAD;
+  accdesc.write = memop == MemOp_STORE;
+  accdesc.pan = true;
+  accdesc.tagchecked = tagchecked;
+  accdesc
+}
+
+function CreateAccDescExLDST(memop : MemOp, acqrel : bool, tagchecked : bool) -> AccessDescriptor = {
+  var accdesc = NewAccDesc(AccessType_GPR);
+  accdesc.acqsc = acqrel & memop == MemOp_LOAD;
+  accdesc.relsc = acqrel & memop == MemOp_STORE;
+  accdesc.exclusive = true;
+  accdesc.read = memop == MemOp_LOAD;
+  accdesc.write = memop == MemOp_STORE;
+  accdesc.pan = true;
+  accdesc.tagchecked = tagchecked;
+  accdesc
+}
+
+function CreateAccDescAcqRel(memop : MemOp, tagchecked : bool) -> AccessDescriptor = {
+  var accdesc = NewAccDesc(AccessType_GPR);
+  accdesc.acqsc = memop == MemOp_LOAD;
+  accdesc.relsc = memop == MemOp_STORE;
+  accdesc.read = memop == MemOp_LOAD;
+  accdesc.write = memop == MemOp_STORE;
+  accdesc.pan = true;
+  accdesc.tagchecked = tagchecked;
+  accdesc
+}
+
+function CreateAccDescLDAcqPC(tagchecked : bool) -> AccessDescriptor = {
+  var accdesc = NewAccDesc(AccessType_GPR);
+  accdesc.read = true;
+  accdesc.acqpc = true;
+  accdesc.pan = true;
+  accdesc.tagchecked = tagchecked;
+  accdesc
+}
+
 function create_writeAccessDescriptor(release : bool, exclusive : bool) -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_GPR);
   accdesc.write = true;

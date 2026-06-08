@@ -268,6 +268,60 @@ Defined.
 Instance dummy_AccessType : Inhabited AccessType := { inhabitant := AccessType_IFETCH }.
 
 
+Inductive MemOp := MemOp_LOAD | MemOp_STORE | MemOp_PREFETCH.
+Definition num_of_MemOp (arg_ : MemOp) : Z :=
+   match arg_ with | MemOp_LOAD => 0 | MemOp_STORE => 1 | MemOp_PREFETCH => 2 end.
+
+Definition MemOp_of_num (arg_ : Z) (*(0 <=? arg_) && (arg_ <=? 2)*) : MemOp :=
+   let l__0 := arg_ in
+   if Z.eqb (l__0) (0) then MemOp_LOAD
+   else if Z.eqb (l__0) (1) then MemOp_STORE
+   else MemOp_PREFETCH.
+
+Lemma MemOp_num_of_roundtrip (x : MemOp) : MemOp_of_num (num_of_MemOp x) = x.
+  destruct x; reflexivity.
+Qed.
+Lemma num_of_MemOp_injective (x y : MemOp) : num_of_MemOp x = num_of_MemOp y -> x = y.
+  intro.
+  rewrite <- (MemOp_num_of_roundtrip x).
+  rewrite <- (MemOp_num_of_roundtrip y).
+  congruence.
+Qed.
+Definition MemOp_eq_dec (x y : MemOp) : {x = y} + {x <> y}.
+  refine (match Z.eq_dec (num_of_MemOp x) (num_of_MemOp y) with
+  | left e => left (num_of_MemOp_injective x y e)
+  | right ne => right _
+  end).
+  congruence.
+Defined.
+Definition MemOp_beq (x y : MemOp) : bool :=
+  Z.eqb (num_of_MemOp x) (num_of_MemOp y).
+Lemma MemOp_beq_iff x y : MemOp_beq x y = true <-> x = y.
+  unfold MemOp_beq.
+  rewrite Z.eqb_eq.
+  split; [apply num_of_MemOp_injective | congruence].
+Qed.
+Lemma MemOp_beq_refl x : MemOp_beq x x = true.
+apply MemOp_beq_iff; reflexivity.
+Qed.
+#[export]
+Instance Decidable_eq_MemOp : EqDecision MemOp := MemOp_eq_dec.
+#[export]
+Instance Countable_MemOp : Countable MemOp.
+refine {|
+  encode x := encode (num_of_MemOp x);
+  decode x := z ← decode x; mret (MemOp_of_num z);
+|}.
+abstract (
+  intro s; rewrite decode_encode;
+  simpl;
+  rewrite MemOp_num_of_roundtrip;
+  reflexivity).
+Defined.
+#[export]
+Instance dummy_MemOp : Inhabited MemOp := { inhabitant := MemOp_LOAD }.
+
+
 Inductive VARange := VARange_LOWER | VARange_UPPER.
 Definition num_of_VARange (arg_ : VARange) : Z :=
    match arg_ with | VARange_LOWER => 0 | VARange_UPPER => 1 end.

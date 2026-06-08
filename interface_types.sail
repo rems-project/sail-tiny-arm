@@ -79,6 +79,8 @@ enum AccessType = {
   AccessType_TTW
 }
 
+enum MemOp = {MemOp_LOAD, MemOp_STORE, MemOp_PREFETCH}
+
 enum VARange = {VARange_LOWER, VARange_UPPER}
 
 enum MemAtomicOp = {

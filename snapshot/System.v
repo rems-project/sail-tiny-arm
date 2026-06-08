@@ -116,6 +116,9 @@ Definition undefined_AccessType '(tt : unit) : M (AccessType) :=
       AccessType_TTW]))
     : M (AccessType).
 
+Definition undefined_MemOp '(tt : unit) : M (MemOp) :=
+   (internal_pick ([MemOp_LOAD; MemOp_STORE; MemOp_PREFETCH]))  : M (MemOp).
+
 Definition undefined_VARange '(tt : unit) : M (VARange) :=
    (internal_pick ([VARange_LOWER; VARange_UPPER]))  : M (VARange).
 
@@ -906,6 +909,82 @@ Definition base_AccessDescriptor (acctype : AccessType) : AccessDescriptor :=
         {| MPAMinfo_mpam_sp := PIdSpace_NonSecure;
            MPAMinfo_partid := (Ox"0000")  : mword 16;
            MPAMinfo_pmg := (Ox"00")  : mword 8 |} |}.
+
+Definition NewAccDesc (acctype : AccessType) : M (AccessDescriptor) :=
+   let accdesc := base_AccessDescriptor (acctype) in
+   ((read_reg CurrentEL)  : M (mword 2)) >>= fun (w__0 : mword 2) =>
+   let accdesc := (accdesc <|AccessDescriptor_el := w__0|>)  : AccessDescriptor in
+   returnM (accdesc).
+
+Definition CreateAccDescIFetch '(tt : unit) : M (AccessDescriptor) :=
+   (NewAccDesc (AccessType_IFETCH)) >>= fun accdesc =>
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_write := false|> in
+   returnM (accdesc).
+
+Definition CreateAccDescGPR
+(memop : MemOp) (nontemporal : bool) (privileged : bool) (tagchecked : bool)
+: M (AccessDescriptor) :=
+   (NewAccDesc (AccessType_GPR)) >>= fun accdesc =>
+   (if negb (privileged) then returnM ((('b"00")  : mword 2))
+    else ((read_reg CurrentEL)  : M (mword 2))  : M (mword 2)) >>= fun (w__1 : mword 2) =>
+   let accdesc := (accdesc <|AccessDescriptor_el := w__1|>)  : AccessDescriptor in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_nontemporal := nontemporal|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_read := generic_eq (memop) (MemOp_LOAD)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_write := generic_eq (memop) (MemOp_STORE)|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_pan := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_tagchecked := tagchecked|> in
+   returnM (accdesc).
+
+Definition CreateAccDescExLDST (memop : MemOp) (acqrel : bool) (tagchecked : bool)
+: M (AccessDescriptor) :=
+   (NewAccDesc (AccessType_GPR)) >>= fun accdesc =>
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_acqsc := andb (acqrel) ((generic_eq (memop) (MemOp_LOAD)))|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_relsc := andb (acqrel) ((generic_eq (memop) (MemOp_STORE)))|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_exclusive := true|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_read := generic_eq (memop) (MemOp_LOAD)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_write := generic_eq (memop) (MemOp_STORE)|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_pan := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_tagchecked := tagchecked|> in
+   returnM (accdesc).
+
+Definition CreateAccDescAcqRel (memop : MemOp) (tagchecked : bool) : M (AccessDescriptor) :=
+   (NewAccDesc (AccessType_GPR)) >>= fun accdesc =>
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_acqsc := generic_eq (memop) (MemOp_LOAD)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_relsc := generic_eq (memop) (MemOp_STORE)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_read := generic_eq (memop) (MemOp_LOAD)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_write := generic_eq (memop) (MemOp_STORE)|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_pan := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_tagchecked := tagchecked|> in
+   returnM (accdesc).
+
+Definition CreateAccDescLDAcqPC (tagchecked : bool) : M (AccessDescriptor) :=
+   (NewAccDesc (AccessType_GPR)) >>= fun accdesc =>
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_acqpc := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_pan := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_tagchecked := tagchecked|> in
+   returnM (accdesc).
 
 Definition create_writeAccessDescriptor (release : bool) (exclusive : bool) : M (AccessDescriptor) :=
    let accdesc := base_AccessDescriptor (AccessType_GPR) in

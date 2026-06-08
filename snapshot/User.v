@@ -116,6 +116,9 @@ Definition undefined_AccessType '(tt : unit) : M (AccessType) :=
       AccessType_TTW]))
     : M (AccessType).
 
+Definition undefined_MemOp '(tt : unit) : M (MemOp) :=
+   (internal_pick ([MemOp_LOAD; MemOp_STORE; MemOp_PREFETCH]))  : M (MemOp).
+
 Definition undefined_VARange '(tt : unit) : M (VARange) :=
    (internal_pick ([VARange_LOWER; VARange_UPPER]))  : M (VARange).
 
@@ -877,6 +880,81 @@ Definition base_AccessDescriptor (acctype : AccessType) : AccessDescriptor :=
         {| MPAMinfo_mpam_sp := PIdSpace_NonSecure;
            MPAMinfo_partid := (Ox"0000")  : mword 16;
            MPAMinfo_pmg := (Ox"00")  : mword 8 |} |}.
+
+Definition NewAccDesc (acctype : AccessType) : AccessDescriptor :=
+   let accdesc := base_AccessDescriptor (acctype) in
+   accdesc
+   <|AccessDescriptor_el := CurrentEL|>.
+
+Definition CreateAccDescIFetch '(tt : unit) : AccessDescriptor :=
+   let accdesc := NewAccDesc (AccessType_IFETCH) in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := true|> in
+   accdesc
+   <|AccessDescriptor_write := false|>.
+
+Definition CreateAccDescGPR
+(memop : MemOp) (nontemporal : bool) (privileged : bool) (tagchecked : bool)
+: AccessDescriptor :=
+   let accdesc := NewAccDesc (AccessType_GPR) in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_el := if negb (privileged) then ('b"00")  : mword 2 else CurrentEL|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_nontemporal := nontemporal|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_read := generic_eq (memop) (MemOp_LOAD)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_write := generic_eq (memop) (MemOp_STORE)|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_pan := true|> in
+   accdesc
+   <|AccessDescriptor_tagchecked := tagchecked|>.
+
+Definition CreateAccDescExLDST (memop : MemOp) (acqrel : bool) (tagchecked : bool)
+: AccessDescriptor :=
+   let accdesc := NewAccDesc (AccessType_GPR) in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_acqsc := andb (acqrel) ((generic_eq (memop) (MemOp_LOAD)))|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_relsc := andb (acqrel) ((generic_eq (memop) (MemOp_STORE)))|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_exclusive := true|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_read := generic_eq (memop) (MemOp_LOAD)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_write := generic_eq (memop) (MemOp_STORE)|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_pan := true|> in
+   accdesc
+   <|AccessDescriptor_tagchecked := tagchecked|>.
+
+Definition CreateAccDescAcqRel (memop : MemOp) (tagchecked : bool) : AccessDescriptor :=
+   let accdesc := NewAccDesc (AccessType_GPR) in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_acqsc := generic_eq (memop) (MemOp_LOAD)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_relsc := generic_eq (memop) (MemOp_STORE)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_read := generic_eq (memop) (MemOp_LOAD)|> in
+   let accdesc : AccessDescriptor :=
+     accdesc
+     <|AccessDescriptor_write := generic_eq (memop) (MemOp_STORE)|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_pan := true|> in
+   accdesc
+   <|AccessDescriptor_tagchecked := tagchecked|>.
+
+Definition CreateAccDescLDAcqPC (tagchecked : bool) : AccessDescriptor :=
+   let accdesc := NewAccDesc (AccessType_GPR) in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_read := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_acqpc := true|> in
+   let accdesc : AccessDescriptor := accdesc <|AccessDescriptor_pan := true|> in
+   accdesc
+   <|AccessDescriptor_tagchecked := tagchecked|>.
 
 Definition create_writeAccessDescriptor (release : bool) (exclusive : bool) : AccessDescriptor :=
    let accdesc := base_AccessDescriptor (AccessType_GPR) in
