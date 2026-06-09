@@ -10,7 +10,7 @@ union clause ast = Store : (
 )
 
 
-val decodeLoadStoreRegister : (bits(2), bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> option(ast)
+val decodeLoadStoreRegister : (bits(2), bits(2), bits(5), bits(3), bit, bits(5), bits(5)) -> ast
 
 /* LDR/STR register: size 111 0 00 opc 1 Rm option S 10 Rn Rt */
 function clause decode ((size:bits(2))@0b111@0b0@0b00@(opc:bits(2))@0b1@(Rm:bits(5))@(option_v:bits(3))@[S]@0b10@(Rn:bits(5))@(Rt:bits(5))) = {
@@ -19,21 +19,21 @@ function clause decode ((size:bits(2))@0b111@0b0@0b00@(opc:bits(2))@0b1@(Rm:bits
 
 
 function decodeLoadStoreRegister (size, opc, Rm, option_v, S, Rn, Rt) = {
+  let size = unsigned(size);
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
-  let shift : range(0,4) = if S == bitone then unsigned(size) else 0;
-  if option_v[1] == bitzero then return None(); // Unsupported by Arm
+  let shift : range(0,4) = if S == bitone then size else 0;
+  if option_v[1] == bitzero then fail("Sub-word extend in Load/Store");
   let offset = OperandRegExt(m, ext_bits(option_v), shift);
-  if opc == 0b01 then
-    Some(Load((unsigned(size), t, n, offset, false, false, false)))
-  else if opc == 0b00 then
-    Some(Store((unsigned(size), t, n, offset, false, None())))
-  else None()
+  match opc {
+    0b01 => Load(size, t, n, offset, /*acq*/false, /*rcpc*/false, /*excl*/false),
+    0b00 => Store(size, t, n, offset, /*rel*/false, /*excl*/None()),
+    _ => fail("Sign-extend loads are not supported")
+  }
 }
 
-val decodeLoadStoreImmediate :
-  (bits(2), bits(2), bits(12), bits(5), bits(5)) -> option(ast)
+val decodeLoadStoreImmediate : (bits(2), bits(2), bits(12), bits(5), bits(5)) -> ast
 
 /* LDR/STR immediate: size 111 0 01 opc imm12 Rn Rt */
 function clause decode ((size:bits(2))@0b111@0b0@0b01@(opc:bits(2))@(imm12:bits(12))@(Rn:bits(5))@(Rt:bits(5))) = {
@@ -45,52 +45,57 @@ function decodeLoadStoreImmediate (size, opc, imm12, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let imm = sail_shiftleft(sail_zero_extend(imm12, 64), size);
-  if opc == 0b01 then
-    Some(Load((size, t, n, OperandImm(imm), false, false, false)))
-  else if opc == 0b00 then Some(Store((size, t, n, OperandImm(imm), false, None())))
-  else None()
+  let offset = OperandImm(imm);
+  match opc {
+    0b01 => Load(size, t, n, offset, /*acq*/false, /*rcpc*/false, /*excl*/false),
+    0b00 => Store(size, t, n, offset, /*rel*/false, /*excl*/None()),
+    _ => fail("Sign-extend loads are not supported")
+  }
 }
 
-/* LDARB/LDARH/LDAR and STLRB/STLRH/STLR:
- * size 001000 1 L 0 11111 1 11111 Rn Rt */
+/* Acquire/release accesses : LDAR[B|H]? and STLR[B|H]? */
 function clause decode ((size:bits(2))@0b001000@0b1@[L]@0b0@0b11111@0b1@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  let size = unsigned(size);
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
-
-  if L == bitone then
-    Some(Load((unsigned(size), t, n, zero_operand, true, false, false)))
-  else Some(Store((unsigned(size), t, n, zero_operand, true, None())))
+  if L == bitone
+  then Load(size, t, n, zero_operand, /*acq*/true, /*rcpc*/false, /*excl*/false)
+  else Store(size, t, n, zero_operand, /*rel*/true, /*excl*/None())
 }
 
-/* LDAPRB/LDAPRH/LDAPR:
- * size 111000 10 1 11111 1100 00 Rn Rt */
+/* RCpc acquire loads: LDAPR[B|H]? */
 function clause decode ((size:bits(2))@0b111000@0b10@0b1@0b11111@0b1100@0b00@(Rn:bits(5))@(Rt:bits(5))) = {
-  Some(Load((
-    unsigned(size), unsigned(Rt), unsigned(Rn), zero_operand, true, true, false
-  )))
+  let size = unsigned(size);
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+  Load(size, t, n, zero_operand, /*acq*/true, /*rcpc*/true, /*excl*/false)
 }
 
-/* LDXR/LDXRB/LDXRH and LDAXR/LDAXRB/LDAXRH:
- * size 001000 0 1 0 11111 acquire 11111 Rn Rt */
-function clause decode ((size:bits(2))@0b001000@0b0@0b1@0b0@0b11111@[acquire]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
-  Some(Load((
-    unsigned(size), unsigned(Rt), unsigned(Rn), zero_operand, acquire == bitone, false, true
-  )))
+/* Exclusive loads: LD(A?)XR[B|H]? */
+function clause decode ((size:bits(2))@0b001000@0b0@0b1@0b0@0b11111@[o0]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  let size = unsigned(size);
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+  let acquire = o0 == bitone;
+  Load(size, t, n, zero_operand, acquire, /*rcpc*/false, /*excl*/true)
 }
 
-/* STXR/STXRB/STXRH and STLXR/STLXRB/STLXRH:
- * size 001000 0 0 0 Rs release 11111 Rn Rt */
-function clause decode ((size:bits(2))@0b001000@0b0@0b0@0b0@(Rs:bits(5))@[release]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
-  Some(Store((
-    unsigned(size), unsigned(Rt), unsigned(Rn), zero_operand, release == bitone, Some(unsigned(Rs))
-  )))
+/* Exclusive stores: ST(L?)XR[B|H]? */
+function clause decode ((size:bits(2))@0b001000@0b0@0b0@0b0@(Rs:bits(5))@[o0]@0b11111@(Rn:bits(5))@(Rt:bits(5))) = {
+  let size = unsigned(size);
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+  let s : reg_index = unsigned(Rs);
+  let release = o0 == bitone; 
+  assert(s != t, "Store exclusive can't store value and success to same register");
+  assert(s == 31 | s != n, "Store exclusive success can't be stored to address register");
+  Store(size, t, n, zero_operand, release, Some(s))
 }
 
 /* LD(AP?)?X?R(H/B)? */
 function clause execute Load(size, t, n, offset, acquire, rcpc, exclusive) = {
   /* Create an access descriptor */
   let accdesc = create_readAccessDescriptor(acquire, rcpc, exclusive);
-
 
   /* Compute the (virtual) address of the access */
   let base = if n == 31 then SP() else X(n);
@@ -176,35 +181,16 @@ function clause decode ([sf]@(opc : bits(2))@0b01010@(shift:bits(2))@0b0@(Rm:bit
   if sf == bitzero & imm6[5] == bitone then
     fail("bitwise_op: shift by more than 31 bits on 32 bit operation");
   let operand = OperandRegShift(unsigned(Rm), shift_bits(shift), unsigned(imm6));
-  Some(BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), operand))
-}
-
-// Computes first return value of DecodeBitMasks in official spec
-function decode_bitmask(N : bit, imms : bits(6), immr : bits(6)) -> bits(64) = {
-  // Determine the size of the element repetition
-  let 'len = if N == bitone then 6 else (5-count_leading_zeros(not_vec(imms)));
-  assert(constraint('len > 0), "Invalid immediate encoding for bitwise operation");
-
-  // The mask will have size 2^len and will have (s + 1) ones
-  let s = unsigned(imms[len-1..0]);
-  assert(s + 1 < 2^len, "All-ones mask is not allowed in bitwise operations");
-  let elem = sail_zero_extend(sail_ones(s + 1), 2^len);
-
-  // ROR by r. Bits above len will rotate by a multiple of 2^len, so are ignored
-  let r = unsigned(immr[len-1..0]);
-  let relem = if r == 0 then elem else elem[r-1..0]@elem[2^len-1..r];
-
-  replicate_bits(relem, 2^(6-len))
+  BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), operand)
 }
 
 /* EOR/ORR/AND (immediate): sf opc 100100 N immr imms Rn Rd */
 function clause decode ([sf]@(opc : bits(2))@0b100100@[N]@(immr:bits(6))@(imms:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
-  if opc == 0b11 then return None(); // ANDS unsupported
   let op = decode_bitwise_op(opc);
-  if N == bitone & sf == bitzero then return None();
+  if N == bitone & sf == bitzero then
+    fail("64 bit mask in 32 bit bitwise operation");
   let mask = decode_bitmask(N, imms, immr); //
-
-  Some(BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), OperandImm(mask)))
+  BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), OperandImm(mask))
 }
 
 /* EOR/ORR/AND Xd/Wd, Xn/Wn, Xm/Wm and EOR/ORR/AND Xd/Wd, Xn/Wn, #imm */
@@ -234,9 +220,10 @@ union clause ast = Movz : (datasize, reg_index, bits(16), range(0,3))
 /* MOVZ: sf 10 100101 hw imm16 Rd */
 function clause decode ([sf]@0b10@0b100101@(hw:bits(2))@(imm16:bits(16))@(Rd:bits(5))) = {
   let d : reg_index = unsigned(Rd);
-  /* For 32-bit (sf=0), hw must be 00 or 01 (hw[1]=0) */
-  if sf == bitzero & hw[1] == bitone then None()
-  else Some(Movz((sf, d, imm16, unsigned(hw))))
+  if sf == bitzero & hw[1] == bitone then
+    /* For 32-bit (sf=0), hw must be 00 or 01 (hw[1]=0) */
+    fail("MOVZ: writing the top 32 bits in a 32 bit operation");
+  Movz(sf, d, imm16, unsigned(hw))
 }
 
 /* MOVZ Xd/Wd, #imm, LSL #shift */
@@ -257,7 +244,7 @@ union clause ast = AddSub : (datasize, /*op*/bit, /*S*/bit, reg_index,
                              reg_index, operand)
 
 /* ADD(S)/SUB(S) (extended register) */
-val decodeAddSubExt : (bit, bit, bit, bits(3), bits(3), bits(5), bits(5), bits(5)) -> option(ast)
+val decodeAddSubExt : (bit, bit, bit, bits(3), bits(3), bits(5), bits(5), bits(5)) -> ast
 function clause decode ([sf]@[op]@[S]@0b01011@0b00@0b1@(Rm:bits(5))@(option_v:bits(3))@(imm3:bits(3))@(Rn:bits(5))@(Rd:bits(5))) = {
   decodeAddSubExt(sf, op, S, option_v, imm3, Rm, Rn, Rd)
 }
@@ -273,11 +260,11 @@ function decodeAddSubExt (sf, op, S, option_v, imm3, Rm, Rn, Rd) = {
     else shift;
   let operand = OperandRegExt(unsigned(Rm), ext_bits(option_v), shift);
 
-  Some(AddSub((sf, op, S, d, n, operand)))
+  AddSub(sf, op, S, d, n, operand)
 }
 
 /* ADD(S)/SUB(S) (shifted register) */
-val decodeAddSubShift : (bit, bit, bit, bits(2), bits(6), bits(5), bits(5), bits(5)) -> option(ast)
+val decodeAddSubShift : (bit, bit, bit, bits(2), bits(6), bits(5), bits(5), bits(5)) -> ast
 function clause decode ([sf]@[op]@[S]@0b01011@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
   decodeAddSubShift(sf, op, S, shift, imm6, Rm, Rn, Rd)
 }
@@ -291,11 +278,11 @@ function decodeAddSubShift (sf, op, S, shift, imm6, Rm, Rn, Rd) = {
     fail("ADD/SUB: shift by more than 31 bits on 32 bit operation");
   let operand = OperandRegShift(unsigned(Rm), shift_bits(shift), unsigned(imm6));
 
-  Some(AddSub((sf, op, S, d, n, operand)))
+  AddSub(sf, op, S, d, n, operand)
 }
 
 /* ADD(S)/SUB(S) (immediate) */
-val decodeAddSubImm : (bit, bit, bit, bits(1), bits(12), bits(5), bits(5)) -> option(ast)
+val decodeAddSubImm : (bit, bit, bit, bits(1), bits(12), bits(5), bits(5)) -> ast
 function clause decode ([sf]@[op]@[S]@0b100010@(sh:bits(1))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
   decodeAddSubImm(sf, op, S, sh, imm12, Rn, Rd)
 }
@@ -307,7 +294,7 @@ function decodeAddSubImm (sf, op, S, sh, imm12, Rn, Rd) = {
   let imm =
     if sh == 0b0 then 0x0000000000000@imm12 else 0x0000000000@imm12@0x000;
 
-  Some(AddSub((sf, op, S, d, n, OperandImm(imm))))
+  AddSub(sf, op, S, d, n, OperandImm(imm))
 }
 
 
@@ -365,10 +352,10 @@ function clause decode ((size:bits(2))@0b11@0b1000@[A]@[R]@0b1@(Rs:bits(5))@0b1@
 /* Data Barrier */
 union clause ast = DataMemoryBarrier : (MBReqDomain, MBReqTypes)
 union clause ast = DataSynchronizationBarrier : (MBReqDomain, MBReqTypes)
-union clause ast = InstructionSynchronizationBarrier : unit
 
-val decodeDataBarrier : (bits(4), bool) -> option(ast)
+val decodeDataBarrier : (bits(4), bool) -> ast
 
+// TODO Arm updated their barriers definitions, follow that update
 function decodeDataBarrier(CRm, is_sync) = {
   let domain : MBReqDomain =
     match CRm[3..2] {
@@ -376,7 +363,6 @@ function decodeDataBarrier(CRm, is_sync) = {
       0b10 => MBReqDomain_InnerShareable,
       0b01 => MBReqDomain_Nonshareable,
       0b00 => MBReqDomain_OuterShareable,
-      _ => return None()
     };
 
   let types : MBReqTypes =
@@ -384,13 +370,13 @@ function decodeDataBarrier(CRm, is_sync) = {
       0b01 => MBReqTypes_Reads,
       0b10 => MBReqTypes_Writes,
       0b11 => MBReqTypes_All,
-      _ => return None()
+      _ => fail("DxB: Invalid encoding of kind of barrier")
     };
 
   if is_sync then
-    Some(DataSynchronizationBarrier(domain, types))
+    DataSynchronizationBarrier(domain, types)
   else
-    Some(DataMemoryBarrier(domain, types))
+    DataMemoryBarrier(domain, types)
 }
 
 /* DMB */
@@ -417,9 +403,12 @@ function clause execute DataSynchronizationBarrier(domain, types) = {
   dataSynchronizationBarrer(domain, types)
 }
 
+
 /* ISB */
+union clause ast = InstructionSynchronizationBarrier : unit
+
 function clause decode (0b11010101000000110011@(CRm:bits(4))@0b110@0b11111) = {
-  Some(InstructionSynchronizationBarrier())
+  InstructionSynchronizationBarrier()
 }
 
 function clause execute InstructionSynchronizationBarrier() = {
@@ -429,12 +418,13 @@ function clause execute InstructionSynchronizationBarrier() = {
   instructionSynchronizationBarrier()
 }
 
+
 /* NOP: No Operation */
 union clause ast = Nop : unit
 
 /* NOP: 1101 0101 0000 0011 0010 0000 0001 1111 = 0xD503201F */
 function clause decode (0b11010101000000110010000000011111) = {
-  Some(Nop())
+  Nop()
 }
 
 function clause execute Nop() = {
@@ -442,11 +432,12 @@ function clause execute Nop() = {
   _PC = _PC + 4;
 }
 
+
 /* CompareAndBranch: CBZ / CBNZ
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
 union clause ast = CompareAndBranch : (datasize, reg_index, bits(64), /* is Z */ bool)
 
-val decodeCompareAndBranch : (bit, bit, bits(19), bits(5)) -> option(ast)
+val decodeCompareAndBranch : (bit, bit, bits(19), bits(5)) -> ast
 
 /* CBZ/CBNZ: sf 011010 op imm19 Rt */
 function clause decode ([sf]@0b011010@[op]@(imm19:bits(19))@(Rt:bits(5))) = {
@@ -459,13 +450,14 @@ function decodeCompareAndBranch(sf, op, imm19, Rt) = {
   /* iszero: true for CBZ (op=0), false for CBNZ (op=1) */
   let iszero : bool = (op == bitzero);
 
-  Some(CompareAndBranch(sf, t, offset, iszero));
+  CompareAndBranch(sf, t, offset, iszero);
 }
 
 /* CBZ/CBNZ Xt/Wt, <offset> */
 function clause execute CompareAndBranch(sf, t, offset, iszero) = {
+  let size = if sf == bitone then 64 else 32;
   /* Get operand value - 64-bit or 32-bit (zero-extended for comparison) */
-  let operand : bits(64) = if sf == bitone then X(t) else sail_zero_extend(X(t, 32), 64);
+  let operand : bits(64) = sail_zero_extend(X(t, size), 64);
   /* Check condition: CBZ branches if zero, CBNZ branches if not zero */
   let condition_met = if iszero
     then operand == 0x0000000000000000
@@ -483,6 +475,7 @@ function clause execute CompareAndBranch(sf, t, offset, iszero) = {
   else _PC = _PC + 4;
 }
 
+
 /* Unconditional Branch: B */
 union clause ast = Branch : bits(64)
 
@@ -490,7 +483,7 @@ union clause ast = Branch : bits(64)
 function clause decode (0b0@0b00101@(imm26:bits(26))) = {
   /* Sign-extend imm26 shifted left by 2 to get byte offset */
   let offset : bits(64) = sail_sign_extend(imm26 @ 0b00, 64);
-  Some(Branch(offset))
+  Branch(offset)
 }
 
 /* B <offset> */
@@ -530,7 +523,7 @@ mapping cond_bits : cond <-> bits(4) = {
 /* B.cond <label> - Encoding: 010 101 00 imm19 0 cond */
 function clause decode (0b010@0b101@0b00@(imm19:bits(19))@0b0@(cond:bits(4))) = {
   let offset : bits(64) = sail_sign_extend(imm19 @ 0b00, 64);
-  Some(ConditionalBranch(offset, cond_bits(cond)))
+  ConditionalBranch(offset, cond_bits(cond))
 }
 
 /* Compute a condition using the flags */
@@ -574,7 +567,7 @@ union clause ast = Adr : (reg_index, bits(64))
 /* ADR: 0 immlo 10000 immhi Rd */
 function clause decode (0b0@(immlo:bits(2))@0b10000@(immhi:bits(19))@(Rd:bits(5))) = {
   let offset : bits(64) = sail_sign_extend(immhi @ immlo, 64);
-  Some(Adr(unsigned(Rd), offset))
+  Adr(unsigned(Rd), offset)
 }
 
 /* ADR Xd, <label> */
@@ -590,7 +583,7 @@ union clause ast = BranchRegister : reg_index
 
 /* BR: 1101011 0000 11111 000000 Rn 00000 */
 function clause decode (0b1101011@0b0000@0b11111@0b000000@(Rn:bits(5))@0b00000) = {
-  Some(BranchRegister(unsigned(Rn)))
+  BranchRegister(unsigned(Rn))
 }
 
 /* BR Xn */

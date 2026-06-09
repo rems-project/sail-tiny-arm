@@ -4,16 +4,6 @@ $include <concurrency_interface/exception.sail>
 $include <concurrency_interface/cache_op.sail>
 $include <concurrency_interface/translation.sail>
 
-scattered union ast
-
-val decode : bits(32) -> option(ast)
-scattered function decode
-
-val execute : ast -> unit
-scattered function execute
-
-// Simple top level fetch and execute loop.
-val fetch_and_execute : unit -> unit
 
 $ifdef SYSTEM_TINY_ARM
 type addr_size : Int = 56

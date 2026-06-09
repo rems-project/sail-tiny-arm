@@ -2,7 +2,7 @@ $ifdef SYSTEM_TINY_ARM
 /* TLBI */
 union clause ast = TLBInvalidation : (TLBIOp, reg_index)
 
-val decodeTLBI : (bits(3), bits(4), bits(4), bits(3), bits(5)) -> option(ast)
+val decodeTLBI : (bits(3), bits(4), bits(4), bits(3), bits(5)) -> ast
 function clause decode (0b1101010100001@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4))@(op2:bits(3))@(Rt:bits(5))) = {
   decodeTLBI(op1, CRn, CRm, op2, Rt)
 }
@@ -20,9 +20,9 @@ function decodeTLBI(op1, CRn, CRm, op2, Rt) = {
       (0b000, 0b1000, 0b0011, 0b010) => TLBIOp_ASID,
       /* TLBI by VA, all ASIDs (TLBI VAAE1IS) */
       (0b000, 0b1000, 0b0011, 0b011) => TLBIOp_VAA,
-      _ => return None()
+      _ => fail("Unsupported TLBI operation encoding")
     };
-  Some(TLBInvalidation(tlbi_op, t))
+  TLBInvalidation(tlbi_op, t)
 }
 
 function decodeASID(v: bits(64)) -> bits(16) = v[63..48]
@@ -47,12 +47,13 @@ function clause execute TLBInvalidation(op, t) = {
   reportTLBI(op, va, asid);
 }
 
+
 /* Supervisor Call (SVC) */
 union clause ast = SupervisorCall : bits(16)
 
 /* SVC #imm16: 1101 0100 000 imm16 000 01 */
 function clause decode (0b11010100000@(imm16:bits(16))@0b00001) = {
-  Some(SupervisorCall(imm16))
+  SupervisorCall(imm16)
 }
 
 function clause execute SupervisorCall(imm16) = {
@@ -70,12 +71,13 @@ function clause execute SupervisorCall(imm16) = {
   take_exception(target_el, None())
 }
 
+
 /* Exception Return (ERET) - EL1 only */
 union clause ast = ExceptionReturn : unit
 
 /* ERET: 1101 0110 1001 1111 0000 0011 1110 0000 */
 function clause decode (0b11010110100111110000001111100000) = {
-  Some(ExceptionReturn())
+  ExceptionReturn()
 }
 
 function clause execute ExceptionReturn() = {
