@@ -101,6 +101,19 @@ function create_readAccessDescriptor(acquire : bool, rcpc : bool, exclusive : bo
   accdesc
 }
 
+function create_RMWAccessDescriptor(modop : MemAtomicOp, acquire : bool, release : bool) -> AccessDescriptor = {
+  var accdesc = base_AccessDescriptor(AccessType_GPR);
+  accdesc.read = true;
+  accdesc.write = true;
+  accdesc.atomicop = true;
+  accdesc.acqsc = acquire;
+  accdesc.relsc = release;
+  accdesc.el = CurrentEL;
+  accdesc.modop = modop;
+  accdesc
+}
+
+
 function create_iFetchAccessDescriptor() -> AccessDescriptor = {
   var accdesc = base_AccessDescriptor(AccessType_IFETCH);
   accdesc.read = true;
@@ -287,8 +300,10 @@ val read_memory : forall 'N, 'N > 0.
   (int('N), bits(addr_size), AccessDescriptor) -> bits(8 * 'N)
 
 function read_memory(N, addr, accdesc) = {
+  var accdesc' = accdesc;
+  accdesc'.relsc = false;
   let req : Mem_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
-    access_kind   = accdesc,
+    access_kind   = accdesc',
     address       = truncate(addr, addr_size'),
     address_space = addr_space_def,
     size          = N,
@@ -308,8 +323,11 @@ function rMem(N, addr, accdesc) = read_memory(N, addr, accdesc)
 function wMem_Addr(addr) = sail_address_announce(64, sail_zero_extend(addr, 64))
 
 function wMem(N, addr, value, accdesc) = {
+  var accdesc' = accdesc;
+  accdesc'.acqsc = false;
+  accdesc'.acqpc = false;
   let req : Mem_request('N, 0, addr_size, addr_space, AccessDescriptor) = struct {
-    access_kind = accdesc,
+    access_kind = accdesc',
     address = truncate(addr, addr_size'),
     address_space = addr_space_def,
     size = N,
