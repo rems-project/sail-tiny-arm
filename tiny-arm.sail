@@ -1,5 +1,5 @@
 // This catch-all clause MUST be the last clause for the `decode` function.
-function clause decode(_) = { None() }
+function clause decode(_) = { fail("Unsupported Encoding") }
 
 
 function fetch_and_execute () = {
@@ -13,8 +13,5 @@ function fetch_and_execute () = {
     };
   let machineCode = iFetch(addr, accdesc);
   let instr = decode(machineCode);
-  match instr {
-    Some (instr) => execute(instr),
-    None () => assert (false, "Unsupported Encoding")
-  }
+  execute(instr)
 }
