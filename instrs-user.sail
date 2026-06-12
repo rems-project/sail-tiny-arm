@@ -162,6 +162,85 @@ function clause execute Store(size, t, n, offset, release, s) = {
   }
 }
 
+// Atomics: LD(ADD|CLR|EOR|SET|((S|U)(MAX|MIN)))A?L?(B|H)? and SWP
+union clause ast = AtomicRMW : (/*size*/range(0,3), reg_index, reg_index,
+                   reg_index, MemAtomicOp, /*acquire*/bool, /*release*/bool)
+
+function clause decode ((size:bits(2))@0b111@0b0@0b00@[A]@[R]@0b1@(Rs:bits(5))@[o3]@(opc:bits(3))@0b00@(Rn:bits(5))@(Rt:bits(5))) = {
+  let size = unsigned(size);
+  let s : reg_index = unsigned(Rs);
+  let t : reg_index = unsigned(Rt);
+  let n : reg_index = unsigned(Rn);
+
+  // This is a temporary requirement until we sort out register semantics in
+  // cases of read-after-write on same register situation
+  assert(s != t,
+    "sail-tiny-arm doesn't support RMW atomic with twice the same destination register");
+
+  let op =
+    if o3 == bitone then
+      if opc == 0b000 then MemAtomicOp_SWP
+      else fail ("RCW instruction usupported")
+    else match opc {
+        0b000 => MemAtomicOp_ADD, // LDADD
+        0b001 => MemAtomicOp_BIC, // LDCLR
+        0b010 => MemAtomicOp_EOR, // LDEOR
+        0b011 => MemAtomicOp_ORR, // LDSET
+        0b100 => MemAtomicOp_SMAX, // LDSMAX
+        0b101 => MemAtomicOp_SMIN, // LDSMIN
+        0b110 => MemAtomicOp_UMAX, // LDUMAX
+        0b111 => MemAtomicOp_UMIN, // LDUMIN
+    };
+
+  let acquire = A == bitone & t != 31;
+  let release = R == bitone;
+  AtomicRMW(size, s, t, n, op, acquire, release)
+}
+
+function clause execute AtomicRMW('size, s, t, n, op, acq, rel) = {
+  /* Create an access descriptor */
+  let accdesc = create_RMWAccessDescriptor(op, acq, rel);
+
+  /* Compute the (virtual) address of the access */
+  let vaddr = if n == 31 then SP() else X(n);
+
+  /* Translate the virtual address into the physical address.
+   * In user mode, `translate_address` returns the input address. */
+  let addr : bits(addr_size) =
+    match translate_address(vaddr, accdesc) {
+      Some(addr) => addr,
+      None() => return () // A translation fault is handled in `translate_address`.
+    };
+
+  /* The instruction can't fault now, so update the PC */
+  _PC = _PC + 4;
+
+  /* Read value from memory */
+  let old_value = rMem(2^size, addr, accdesc);
+
+  /* Write the old value in Rt */
+  X(t) = sail_zero_extend(old_value, 64);
+
+  /* Get the operand from Rs */
+  let operand = X(s)[8*2^size-1..0];
+  let new_value : bits(8*2^'size) = match op {
+    MemAtomicOp_ADD => old_value + operand,
+    MemAtomicOp_BIC => old_value & not_vec(operand),
+    MemAtomicOp_EOR => old_value ^ operand,
+    MemAtomicOp_ORR => old_value | operand,
+    MemAtomicOp_SMAX => smax(old_value, operand),
+    MemAtomicOp_SMIN => smin(old_value, operand),
+    MemAtomicOp_UMAX => umax(old_value, operand),
+    MemAtomicOp_UMIN => umin(old_value, operand),
+    MemAtomicOp_SWP => operand,
+    _ => fail("AtomicRMW: CAS and GCSS1 unsupported")
+  };
+
+  wMem(2^size, addr, new_value, accdesc)
+}
+
+
+
 
 /* EOR/ORR/AND
  * sf (size flag): 0 = 32-bit (W registers), 1 = 64-bit (X registers) */
@@ -381,10 +460,6 @@ function clause decode ([sf]@0b00@0b11010100@(Rm:bits(5))@(cond:bits(4))@0b00@(R
   fail("Instruction not supported by design: CSEL")
 }
 
-/* SWP/SWPA/SWPL/SWPAL: size 11 1000 A R 1 Rs 1 00000 Rn Rt */
-function clause decode ((size:bits(2))@0b11@0b1000@[A]@[R]@0b1@(Rs:bits(5))@0b1@0b00000@(Rn:bits(5))@(Rt:bits(5))) = {
-  fail("Instruction not supported by design: SWP/SWPA/SWPL/SWPAL")
-}
 
 /* Data Barrier */
 union clause ast = DataMemoryBarrier : (MBReqDomain, MBReqTypes)

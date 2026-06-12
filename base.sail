@@ -134,6 +134,16 @@ function decode_bitmask(N : bit, imms : bits(6), immr : bits(6), immediate : boo
   (wmask, tmask)
 }
 
+val smax : forall 'n, 'n > 0. (bits('n), bits('n)) -> bits('n)
+function smax(x, y) = if signed(x) > signed(y) then x else y
+val smin : forall 'n, 'n > 0. (bits('n), bits('n)) -> bits('n)
+function smin(x, y) = if signed(x) < signed(y) then x else y
+val umax : forall 'n, 'n > 0. (bits('n), bits('n)) -> bits('n)
+function umax(x, y) = if unsigned(x) > unsigned(y) then x else y
+val umin : forall 'n, 'n > 0. (bits('n), bits('n)) -> bits('n)
+function umin(x, y) = if unsigned(x) < unsigned(y) then x else y
+
+
 /************* Top level definition start ***************/
 
 // The instruction AST
