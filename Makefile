@@ -26,4 +26,4 @@ clean:
 
 lean:
 	-mkdir lean-snapshot
-	sail --lean-output-dir lean-snapshot --lean $(MODEL)
+	sail --lean-force-output --lean-output-dir lean-snapshot --lean -o SailTinyArmUser $(MODEL)
