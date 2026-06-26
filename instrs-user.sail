@@ -673,18 +673,21 @@ function clause execute ConditionalBranch(offset, cond) = {
 }
 
 
-/* ADR: form PC-relative address */
-union clause ast = Adr : (reg_index, bits(64))
+/* ADR/ADRP: form PC-relative address */
+union clause ast = PCRelativeAddress : (/*page*/ bool, reg_index, bits(64))
 
-/* ADR: 0 immlo 10000 immhi Rd */
-function clause decode (0b0@(immlo:bits(2))@0b10000@(immhi:bits(19))@(Rd:bits(5))) = {
-  let offset : bits(64) = sail_sign_extend(immhi @ immlo, 64);
-  Adr(unsigned(Rd), offset)
+/* ADR/ADRP: page immlo 10000 immhi Rd */
+function clause decode ([page]@(immlo:bits(2))@0b10000@(immhi:bits(19))@(Rd:bits(5))) = {
+  let is_page = page == bitone;
+  let offset : bits(64) =
+    if is_page then sail_sign_extend((immhi @ immlo) @ 0x000, 64)
+    else sail_sign_extend(immhi @ immlo, 64);
+  PCRelativeAddress(is_page, unsigned(Rd), offset)
 }
 
-/* ADR Xd, <label> */
-function clause execute Adr(d, offset) = {
-  let base = PC();
+/* ADR/ADRP Xd, <label> */
+function clause execute PCRelativeAddress(page, d, offset) = {
+  let base : bits(64) = if page then PC()[63..12] @ 0x000 else PC();
   _PC = _PC + 4;
   X(d) = base + offset;
 }
