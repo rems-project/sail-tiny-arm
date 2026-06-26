@@ -14,6 +14,8 @@ function decodeTLBI(op1, CRn, CRm, op2, Rt) = {
     match (op1, CRn, CRm, op2) {
       /* TLBI ALL (TLBI ALLE1IS) */
       (0b100, 0b1000, 0b0111, 0b100) => TLBIOp_ALL,
+      /* TLBI by VMID, all ASIDs (TLBI VMALLE1IS) */
+      (0b000, 0b1000, 0b0011, 0b000) => TLBIOp_VMALL,
       /* TLBI by VA (TLBI VAE1IS) */
       (0b000, 0b1000, 0b0011, 0b001) => TLBIOp_VA,
       /* TLBI by ASID (TLBI ASIDE1IS) */
@@ -36,6 +38,7 @@ function clause execute TLBInvalidation(op, t) = {
   let (va, asid) : (option(bits(64)), option(bits(16))) =
     match op {
       TLBIOp_ALL => (None(), None()),
+      TLBIOp_VMALL => (None(), None()),
       TLBIOp_VA => {
         let v = X(t);
         (Some(decodeVA(v)), Some(decodeASID(v)))
