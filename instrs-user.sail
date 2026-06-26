@@ -588,6 +588,40 @@ function clause execute CompareAndBranch(sf, t, offset, iszero) = {
 }
 
 
+/* TestAndBranch: TBZ / TBNZ */
+union clause ast = TestAndBranch : (
+  reg_index, range(0,63), bits(64), /* is Z */ bool
+)
+
+val decodeTestAndBranch : (bit, bit, bits(5), bits(14), bits(5)) -> ast
+
+/* TBZ/TBNZ: b5 011011 op b40 imm14 Rt */
+function clause decode ([b5]@0b011011@[op]@(b40:bits(5))@(imm14:bits(14))@(Rt:bits(5))) = {
+  decodeTestAndBranch(b5, op, b40, imm14, Rt)
+}
+
+function decodeTestAndBranch(b5, op, b40, imm14, Rt) = {
+  let t : reg_index = unsigned(Rt);
+  let bit_pos : range(0,63) = unsigned([b5] @ b40);
+  let offset : bits(64) = sail_sign_extend(imm14 @ 0b00, 64);
+  /* iszero: true for TBZ (op=0), false for TBNZ (op=1) */
+  let iszero : bool = (op == bitzero);
+
+  TestAndBranch(t, bit_pos, offset, iszero)
+}
+
+/* TBZ/TBNZ Xt/Wt, #<bit>, <offset> */
+function clause execute TestAndBranch(t, bit_pos, offset, iszero) = {
+  let bit_is_zero = sail_shiftright(X(t), bit_pos)[0] == bitzero;
+  let condition_met = if iszero then bit_is_zero else not_bool(bit_is_zero);
+  if condition_met then {
+    let base = PC();
+    PC() = base + offset;
+  }
+  else _PC = _PC + 4;
+}
+
+
 /* Unconditional Branch: B */
 union clause ast = Branch : bits(64)
 
