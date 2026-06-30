@@ -3,6 +3,11 @@ $include <concurrency_interface/tlbi.sail>
 $include <concurrency_interface/exception.sail>
 $include <concurrency_interface/cache_op.sail>
 $include <concurrency_interface/translation.sail>
+$include <concurrency_interface/sysreg.sail>
+
+$ifdef SYSTEM_TINY_ARM
+type SysRegID : Type = bits(16)
+$endif
 
 
 $ifdef SYSTEM_TINY_ARM
@@ -30,6 +35,12 @@ instantiation sail_translation_start with
 
 instantiation sail_translation_end with
   'trans_end = AddressDescriptor
+
+instantiation sail_sys_reg_read with
+  'sys_reg_id = SysRegID
+
+instantiation sail_sys_reg_write with
+  'sys_reg_id = SysRegID
 $endif
 
 function mem_acc_is_explicit     (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_GPR
