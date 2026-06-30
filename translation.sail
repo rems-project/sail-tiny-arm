@@ -28,6 +28,15 @@ function extract_perms_leaf(descriptor : bits(64)) -> Permissions = {
   }
 }
 
+function leaf_access_flag_set(descriptor : bits(64)) -> bool = {
+  [descriptor[10]] == 0b1
+}
+
+function leaf_dirty_bit_fault(descriptor : bits(64), accdesc : AccessDescriptor) -> bool = {
+  let ap = descriptor[7..6];
+  accdesc.write & [ap[1]] == 0b1 & [descriptor[51]] == 0b1
+}
+
 function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> AccessDescriptor = {
   var accdesc : AccessDescriptor = base_AccessDescriptor(AccessType_TTW);
   accdesc.el = CurrentEL;
@@ -162,9 +171,15 @@ function pgt_walk(va : bits(64), accdesc : AccessDescriptor) -> AddressDescripto
         ()
       },
       DescriptorType_Leaf => {
+        if not_bool(leaf_access_flag_set(descriptor)) then {
+          addrdesc.fault.statuscode = Fault_AccessFlag;
+          return addrdesc
+        };
+
         let perms = extract_perms_leaf(descriptor);
         if not_bool(check_permission(perms, accdesc)) then {
           addrdesc.fault.statuscode = Fault_Permission;
+          addrdesc.fault.dirtybit = leaf_dirty_bit_fault(descriptor, accdesc);
           return addrdesc
         };
 
@@ -241,6 +256,9 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
     if fault.statuscode == Fault_Translation then {
       // Translation faults: 0b0001xx (where xx is level)
       0b0001 @ level_bit
+    } else if fault.statuscode == Fault_AccessFlag then {
+      // Access flag faults: 0b0010xx (where xx is level)
+      0b0010 @ level_bit
     } else if fault.statuscode == Fault_Permission then {
       // Permission faults: 0b0011xx (where xx is level)
       0b0011 @ level_bit
