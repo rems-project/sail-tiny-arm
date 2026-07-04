@@ -1,6 +1,6 @@
 $ifdef SYSTEM_TINY_ARM
 /* TLBI */
-union clause ast = TLBInvalidation : (TLBIOp, Shareability, reg_index)
+union clause ast = TLBInvalidation : (TLBIOp, Shareability, TLBILevel, reg_index)
 
 val decodeTLBI : (bits(3), bits(4), bits(4), bits(3), bits(5)) -> ast
 function clause decode (0b1101010100001@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4))@(op2:bits(3))@(Rt:bits(5))) = {
@@ -9,23 +9,27 @@ function clause decode (0b1101010100001@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4)
 
 function decodeTLBI(op1, CRn, CRm, op2, Rt) = {
   let t : reg_index = unsigned(Rt);
-  let (tlbi_op, shareability) : (TLBIOp, Shareability) =
+  let (tlbi_op, shareability, level) : (TLBIOp, Shareability, TLBILevel) =
     match (op1, CRn, CRm, op2) {
       /* TLBI ALL (TLBI ALLE1) */
-      (0b100, 0b1000, 0b0111, 0b100) => (TLBIOp_ALL, Shareability_NSH),
+      (0b100, 0b1000, 0b0111, 0b100) => (TLBIOp_ALL, Shareability_NSH, TLBILevel_Any),
       /* TLBI by VMID, all ASIDs (TLBI VMALLE1IS) */
-      (0b000, 0b1000, 0b0011, 0b000) => (TLBIOp_VMALL, Shareability_ISH),
+      (0b000, 0b1000, 0b0011, 0b000) => (TLBIOp_VMALL, Shareability_ISH, TLBILevel_Any),
       /* TLBI by VA (TLBI VAE1IS) */
-      (0b000, 0b1000, 0b0011, 0b001) => (TLBIOp_VA, Shareability_ISH),
+      (0b000, 0b1000, 0b0011, 0b001) => (TLBIOp_VA, Shareability_ISH, TLBILevel_Any),
       /* TLBI by ASID (TLBI ASIDE1IS) */
-      (0b000, 0b1000, 0b0011, 0b010) => (TLBIOp_ASID, Shareability_ISH),
+      (0b000, 0b1000, 0b0011, 0b010) => (TLBIOp_ASID, Shareability_ISH, TLBILevel_Any),
       /* TLBI by VA, all ASIDs (TLBI VAAE1IS) */
-      (0b000, 0b1000, 0b0011, 0b011) => (TLBIOp_VAA, Shareability_ISH),
+      (0b000, 0b1000, 0b0011, 0b011) => (TLBIOp_VAA, Shareability_ISH, TLBILevel_Any),
+      /* TLBI by VA, last-level only (TLBI VALE1IS) */
+      (0b000, 0b1000, 0b0011, 0b101) => (TLBIOp_VA, Shareability_ISH, TLBILevel_Last),
+      /* TLBI by VA, all ASIDs, last-level only (TLBI VAALE1IS) */
+      (0b000, 0b1000, 0b0011, 0b111) => (TLBIOp_VAA, Shareability_ISH, TLBILevel_Last),
       /* TLBI by VA, all ASIDs (TLBI VAAE1) */
-      (0b000, 0b1000, 0b0111, 0b011) => (TLBIOp_VAA, Shareability_NSH),
+      (0b000, 0b1000, 0b0111, 0b011) => (TLBIOp_VAA, Shareability_NSH, TLBILevel_Any),
       _ => fail("Unsupported TLBI operation encoding")
     };
-  TLBInvalidation(tlbi_op, shareability, t)
+  TLBInvalidation(tlbi_op, shareability, level, t)
 }
 
 function decodeASID(v: bits(64)) -> bits(16) = v[63..48]
@@ -33,7 +37,7 @@ function decodeASID(v: bits(64)) -> bits(16) = v[63..48]
 function decodeVA(v: bits(64)) -> bits(64) =
   sail_zero_extend(v[43..0] @ 0x000, 64)
 
-function clause execute TLBInvalidation(op, shareability, t) = {
+function clause execute TLBInvalidation(op, shareability, level, t) = {
   _PC = _PC + 4;
 
   let (va, asid) : (option(bits(64)), option(bits(16))) =
@@ -48,7 +52,7 @@ function clause execute TLBInvalidation(op, shareability, t) = {
       TLBIOp_VAA => (Some(decodeVA(X(t))), None()),
       _ => return ()
     };
-  reportTLBI(op, shareability, va, asid);
+  reportTLBI(op, shareability, level, va, asid);
 }
 
 
