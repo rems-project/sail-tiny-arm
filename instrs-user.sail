@@ -92,6 +92,14 @@ function clause decode ((size:bits(2))@0b001000@0b0@0b0@0b0@(Rs:bits(5))@[o0]@0b
   Store(size, t, n, zero_operand, release, Some(s))
 }
 
+val check_load_store_alignment : (range(0,3), bits(64)) -> unit
+function check_load_store_alignment(size, addr) = {
+  let aligned =
+    if size == 0 then true
+    else addr[size - 1 .. 0] == sail_zeros(size);
+  if not_bool(aligned) then fail("Misaligned Load/Store access")
+}
+
 /* LD(AP?)?X?R(H/B)? */
 function clause execute Load(size, t, n, offset, acquire, rcpc, exclusive) = {
   /* Create an access descriptor */
@@ -100,6 +108,8 @@ function clause execute Load(size, t, n, offset, acquire, rcpc, exclusive) = {
   /* Compute the (virtual) address of the access */
   let base = if n == 31 then SP() else X(n);
   let vaddr : bits(64) = base + eval_operand(64, offset);
+
+  check_load_store_alignment(size, vaddr);
 
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns the input address. */
@@ -124,6 +134,8 @@ function clause execute Store(size, t, n, offset, release, s) = {
   /* Compute the (virtual) address of the access */
   let base = if n == 31 then SP() else X(n);
   let vaddr : bits(64) = base + eval_operand(64, offset);
+
+  check_load_store_alignment(size, vaddr);
 
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns the input address. */
