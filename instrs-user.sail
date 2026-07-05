@@ -171,7 +171,7 @@ function clause execute Store(size, t, n, offset, release, s) = {
   wMem(2^size, addr, X(t)[(8*2^size-1)..0], accdesc)
 }
 
-// Atomics: LD(ADD|CLR|EOR|SET|((S|U)(MAX|MIN)))A?L?(B|H)? and SWP
+// Atomics: LD(ADD|CLR|EOR|SET|((S|U)(MAX|MIN)))A?L?(B|H)?
 union clause ast = AtomicRMW : (/*size*/range(0,3), reg_index, reg_index,
                    reg_index, MemAtomicOp, /*acquire*/bool, /*release*/bool)
 
@@ -186,9 +186,9 @@ function clause decode ((size:bits(2))@0b111@0b0@0b00@[A]@[R]@0b1@(Rs:bits(5))@[
   assert(s != t,
     "sail-tiny-arm doesn't support RMW atomic with twice the same destination register");
 
-  let op =
+  let op : MemAtomicOp =
     if o3 == bitone then
-      if opc == 0b000 then MemAtomicOp_SWP
+      if opc == 0b000 then fail("Instruction not supported by design: SWP variants")
       else fail ("RCW instruction usupported")
     else match opc {
         0b000 => MemAtomicOp_ADD, // LDADD
@@ -241,8 +241,7 @@ function clause execute AtomicRMW('size, s, t, n, op, acq, rel) = {
     MemAtomicOp_SMIN => smin(old_value, operand),
     MemAtomicOp_UMAX => umax(old_value, operand),
     MemAtomicOp_UMIN => umin(old_value, operand),
-    MemAtomicOp_SWP => operand,
-    _ => fail("AtomicRMW: CAS and GCSS1 unsupported")
+    _ => fail("AtomicRMW: SWP, CAS and GCSS1 unsupported")
   };
 
   wMem(2^size, addr, new_value, accdesc)
