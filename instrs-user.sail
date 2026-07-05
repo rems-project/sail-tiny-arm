@@ -86,7 +86,7 @@ function clause decode ((size:bits(2))@0b001000@0b0@0b0@0b0@(Rs:bits(5))@[o0]@0b
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let s : reg_index = unsigned(Rs);
-  let release = o0 == bitone; 
+  let release = o0 == bitone;
   assert(s != t, "Store exclusive can't store value and success to same register");
   assert(s == 31 | s != n, "Store exclusive success can't be stored to address register");
   Store(size, t, n, zero_operand, release, Some(s))
@@ -127,8 +127,23 @@ function clause execute Load(size, t, n, offset, acquire, rcpc, exclusive) = {
 }
 /* STL?X?R(H/B)? */
 function clause execute Store(size, t, n, offset, release, s) = {
+  /* Failed exclusive stores resolve the address, but do not produce a memory access. */
+  let exclusive : bool = match s {
+    None() => false,
+    Some(s) => {
+      /* Choose the STXR outcome nondeterministically */
+      let success : bool = undefined;
+      if success then {
+        X(s) = sail_zero_extend(0b0, 64);
+        true
+      } else {
+        _PC = _PC + 4;
+        X(s) = sail_zero_extend(0b1, 64);
+        return ()
+      }
+    }
+  };
   /* Create an access descriptor */
-  let exclusive : bool = match s { Some(_) => true, None() => false };
   let accdesc = create_writeAccessDescriptor(release, exclusive);
 
   /* Compute the (virtual) address of the access */
@@ -145,33 +160,15 @@ function clause execute Store(size, t, n, offset, release, s) = {
       None() => return () // A translation fault is handled in `translate_address`.
     };
 
-  /* Ordinary stores always write; exclusive stores may fail and report status in Rs. */
-  match s {
-    None() => {
-      /* Announce that a store will be performed to this address */
-      wMem_Addr(addr);
 
-      /* The instruction can't fault now, so update the PC */
-      _PC = _PC + 4;
+  /* Announce that a store will be performed to this address */
+  wMem_Addr(addr);
 
-      /* Read value from register Xt and write to memory */
-      wMem(2^size, addr, X(t)[(8*2^size-1)..0], accdesc)
-    },
-    Some(s) => {
-      /* Choose the STXR outcome nondeterministically; sail_mem_write prunes
-       * successful branches that the exclusive memory model rejects. */
-      let success : bool = undefined;
-      if success then {
-        wMem_Addr(addr);
-        _PC = _PC + 4;
-        X(s) = sail_zero_extend(0b0, 64);
-        wMem(2^size, addr, X(t)[(8*2^size-1)..0], accdesc);
-      } else {
-        _PC = _PC + 4;
-        X(s) = sail_zero_extend(0b1, 64);
-      }
-    }
-  }
+  /* The instruction can't fault now, so update the PC */
+  _PC = _PC + 4;
+
+  /* Read value from register Xt and write to memory */
+  wMem(2^size, addr, X(t)[(8*2^size-1)..0], accdesc)
 }
 
 // Atomics: LD(ADD|CLR|EOR|SET|((S|U)(MAX|MIN)))A?L?(B|H)? and SWP
