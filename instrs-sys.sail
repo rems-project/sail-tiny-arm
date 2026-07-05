@@ -17,6 +17,8 @@ function decodeTLBI(op1, CRn, CRm, op2, Rt) = {
       (0b000, 0b1000, 0b0011, 0b000) => (TLBIOp_VMALL, Shareability_ISH, TLBILevel_Any),
       /* TLBI by VA (TLBI VAE1IS) */
       (0b000, 0b1000, 0b0011, 0b001) => (TLBIOp_VA, Shareability_ISH, TLBILevel_Any),
+      /* TLBI by VA (TLBI VAE1) */
+      (0b000, 0b1000, 0b0111, 0b001) => (TLBIOp_VA, Shareability_NSH, TLBILevel_Any),
       /* TLBI by ASID (TLBI ASIDE1IS) */
       (0b000, 0b1000, 0b0011, 0b010) => (TLBIOp_ASID, Shareability_ISH, TLBILevel_Any),
       /* TLBI by VA, all ASIDs (TLBI VAAE1IS) */
