@@ -83,6 +83,7 @@ enum bitwise_op = {
   Eor,
   Or,
   And,
+  AndSetFlags,
 }
 
 /* Condition for conditional instructions */
