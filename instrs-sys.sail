@@ -124,7 +124,8 @@ function clause decode (0b1101010100@[L]@0b1@(o0:bits(1))@(op1:bits(3))@(CRn:bit
 
 enum SysRegAccessor = {
   SysReg64,
-  SysRegNZCV
+  SysRegNZCV,
+  SysRegDAIF
 }
 
 /* The 64-bit lookup result is (register reference, minimum EL, readable, writable). */
@@ -154,6 +155,7 @@ function lookup_sys_reg64(sys_reg_id) = {
 val lookup_sys_reg : SysRegID -> (SysRegAccessor, bits(2), bool, bool)
 function lookup_sys_reg(sys_reg_id) = {
   if sys_reg_id == 0xDA10 then (SysRegNZCV, 0b00, true, true)
+  else if sys_reg_id == 0xDA11 then (SysRegDAIF, 0b00, true, true)
   else {
     let (_, min_el, readable, writable) = lookup_sys_reg64(sys_reg_id);
     (SysReg64, min_el, readable, writable)
@@ -170,6 +172,10 @@ function read_sys_reg_accessor(sys_reg_id, accessor) = {
     SysRegNZCV => {
       let nzcv = sail_sys_reg_read(sys_reg_id, ref NZCV);
       0x00000000 @ nzcv @ 0x0000000
+    },
+    SysRegDAIF => {
+      let daif = sail_sys_reg_read(sys_reg_id, ref DAIF);
+      sail_zero_extend(daif @ 0b000000, 64)
     }
   }
 }
@@ -181,7 +187,8 @@ function write_sys_reg_accessor(sys_reg_id, accessor, value) = {
       let (reg_ref, _, _, _) = lookup_sys_reg64(sys_reg_id);
       sail_sys_reg_write(sys_reg_id, reg_ref, value)
     },
-    SysRegNZCV => sail_sys_reg_write(sys_reg_id, ref NZCV, value[31..28])
+    SysRegNZCV => sail_sys_reg_write(sys_reg_id, ref NZCV, value[31..28]),
+    SysRegDAIF => sail_sys_reg_write(sys_reg_id, ref DAIF, value[9..6])
   }
 }
 
