@@ -25,5 +25,5 @@ clean:
 .PHONY: clean coq coq-snapshot check default interactive
 
 lean:
-	-mkdir lean-snapshot
-	sail --lean-output-dir lean-snapshot --lean $(MODEL)
+	mkdir -p lean-snapshot
+	sail --lean-force-output --lean-output-dir lean-snapshot --lean -o SailTinyArmUser $(MODEL)
