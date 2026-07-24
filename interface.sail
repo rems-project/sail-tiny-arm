@@ -305,7 +305,7 @@ val dataMemoryBarrier : (MBReqDomain, MBReqTypes) -> unit
 val dataSynchronizationBarrer : (MBReqDomain, MBReqTypes) -> unit
 val instructionSynchronizationBarrier : unit -> unit
 
-val translate_address : (bits(64), AccessDescriptor) -> option(bits(addr_size))
+val translate_address : (bits(64), int, AccessDescriptor) -> option(bits(addr_size))
 
 val read_memory : forall 'N, 'N > 0.
   (int('N), bits(addr_size), AccessDescriptor) -> bits(8 * 'N)

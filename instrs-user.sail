@@ -114,7 +114,7 @@ function clause execute Load(size, t, n, offset, acquire, rcpc, exclusive) = {
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns the input address. */
   let addr : bits(addr_size) =
-    match translate_address(vaddr, accdesc) {
+    match translate_address(vaddr, 2^size, accdesc) {
       Some(addr) => addr,
       None() => return () // A translation fault is handled in `translate_address`.
     };
@@ -155,7 +155,7 @@ function clause execute Store(size, t, n, offset, release, s) = {
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns the input address. */
   let addr : bits(addr_size) =
-    match translate_address(vaddr, accdesc) {
+    match translate_address(vaddr, 2^size, accdesc) {
       Some(addr) => addr,
       None() => return () // A translation fault is handled in `translate_address`.
     };
@@ -216,7 +216,7 @@ function clause execute AtomicRMW('size, s, t, n, op, acq, rel) = {
   /* Translate the virtual address into the physical address.
    * In user mode, `translate_address` returns the input address. */
   let addr : bits(addr_size) =
-    match translate_address(vaddr, accdesc) {
+    match translate_address(vaddr, 2^size, accdesc) {
       Some(addr) => addr,
       None() => return () // A translation fault is handled in `translate_address`.
     };
