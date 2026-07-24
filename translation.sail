@@ -280,7 +280,7 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
   take_exception(target_el, Some(fault))
 }
 
-function translate_address(va, accdesc) = {
+function translate_address(va, access_size, accdesc) = {
   // Check SCTLR_EL1.M to check if MMU is enabled
   if slice(SCTLR_EL1, 0, 1) == 0b0 then {
     return Some(truncate(va, addr_size'))
@@ -302,7 +302,7 @@ function translate_address(va, accdesc) = {
     va = va,
     cnp = cnp,
     accdesc = accdesc,
-    size = 0
+    size = access_size
   };
   sail_translation_start(tsi);
 
@@ -329,7 +329,7 @@ function translate_address(va, accdesc) = {
   return Some(addrdesc.paddress.address)
 }
 $else
-function translate_address(va, accdesc) = {
+function translate_address(va, access_size, accdesc) = {
   return Some(va)
 }
 $endif

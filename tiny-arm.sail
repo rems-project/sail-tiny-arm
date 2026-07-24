@@ -7,7 +7,7 @@ function fetch_and_execute () = {
   /* Translate the virtual address into the physical address.
    * In the user mode, `translate_address` returns input address. */
   let addr : bits(addr_size) =
-    match translate_address(_PC, accdesc) {
+    match translate_address(_PC, 4, accdesc) {
       Some(addr) => addr,
       None() => return () // A translation fault is handled in `translate_address`.
     };
