@@ -259,7 +259,7 @@ function decode_bitwise_op(opc : bits(2)) -> bitwise_op =
     0b00 => And,
     0b10 => Eor,
     0b01 => Or,
-    0b11 => fail("ANDS unsupported")
+    0b11 => AndSetFlags
   }
 
 /* EOR/ORR/AND (shifted register): sf opc 01010 shift 0 Rm imm6 Rn Rd */
@@ -290,13 +290,25 @@ function clause execute BitwiseLogic(sf, op, d, n, op2) = {
     Eor => operand1 ^ operand2,
     Or => operand1 | operand2,
     And => operand1 & operand2,
+    AndSetFlags => operand1 & operand2,
   };
-  // If the operand was an immediate, d == 31 means SP otherwise it means 0
+  let setflags : bool = match op {
+    AndSetFlags => true,
+    _ => false,
+  };
+  // If the operand was an immediate, d == 31 means SP except for ANDS/TST.
   let use_sp : bool = match op2 {
     OperandRegShift (_) => false,
     OperandRegExt (_) => fail("bitwise operation shouldn't have OperandRegExt"),
-    OperandImm(_) => true };
+    OperandImm(_) => if setflags then false else true };
   if use_sp & d == 31 then SP(size) = result else X(d, size) = result;
+  if setflags then {
+    let n = result[size-1];
+    let z = if result == sail_zeros(size) then bitone else bitzero;
+    let c = bitzero;
+    let v = bitzero;
+    NZCV = [n]@[z]@[c]@[v]
+  }
 }
 
 
