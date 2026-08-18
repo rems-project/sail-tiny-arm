@@ -37,10 +37,10 @@ instantiation sail_translation_end with
   'trans_end = AddressDescriptor
 
 instantiation sail_sys_reg_read with
-  'sys_reg_id = SysRegID
+  'sys_reg_id = option(SysRegID)
 
 instantiation sail_sys_reg_write with
-  'sys_reg_id = SysRegID
+  'sys_reg_id = option(SysRegID)
 $endif
 
 function mem_acc_is_explicit     (acc : AccessDescriptor) -> bool = acc.acctype == AccessType_GPR

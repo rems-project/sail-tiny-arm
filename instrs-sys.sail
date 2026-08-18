@@ -160,7 +160,7 @@ function clause execute SystemRegisterMove(is_read, sys_reg_id, t) = {
 
   _PC = _PC + 4;
 
-  if is_read then X(t) = sail_sys_reg_read(sys_reg_id, reg_ref)
-  else sail_sys_reg_write(sys_reg_id, reg_ref, X(t))
+  if is_read then X(t) = sail_sys_reg_read(Some(sys_reg_id), reg_ref)
+  else sail_sys_reg_write(Some(sys_reg_id), reg_ref, X(t))
 }
 $endif
