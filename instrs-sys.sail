@@ -122,26 +122,56 @@ function clause decode (0b1101010100@[L]@0b1@(o0:bits(1))@(op1:bits(3))@(CRn:bit
   decodeSystemRegisterMove(L == bitone, op0, op1, CRn, CRm, op2, Rt)
 }
 
-/* The lookup result is (register reference, minimum EL, readable, writable). */
-val lookup_sys_reg : SysRegID -> (register(bits(64)), bits(2), bool, bool)
+union SystemStateTarget = {
+  SystemRegister : register(bits(64)),
+  PStateCurrentEL : unit,
+  PStateNZCV : unit,
+  PStateDAIF : unit
+}
+
+/* The lookup result is (system state target, minimum EL, writable). */
+val lookup_sys_reg : SysRegID -> (SystemStateTarget, bits(2), bool)
 function lookup_sys_reg(sys_reg_id) = {
   match sys_reg_id {
-    0xC038 => (ref ID_AA64MMFR0_EL1, 0b01, true, false),
-    0xC039 => (ref ID_AA64MMFR1_EL1, 0b01, true, false),
-    0xC03A => (ref ID_AA64MMFR2_EL1, 0b01, true, false),
-    0xC03B => (ref ID_AA64MMFR3_EL1, 0b01, true, false),
-    0xC03C => (ref ID_AA64MMFR4_EL1, 0b01, true, false),
-    0xC080 => (ref SCTLR_EL1, 0b01, true, true),
-    0xC100 => (ref TTBR0_EL1, 0b01, true, true),
-    0xC101 => (ref TTBR1_EL1, 0b01, true, true),
-    0xC102 => (ref TCR_EL1, 0b01, true, true),
-    0xC200 => (ref SPSR_EL1, 0b01, true, true),
-    0xC201 => (ref ELR_EL1, 0b01, true, true),
-    0xC290 => (ref ESR_EL1, 0b01, true, true),
-    0xC300 => (ref FAR_EL1, 0b01, true, true),
-    0xC3A0 => (ref PAR_EL1, 0b01, true, true),
-    0xC600 => (ref VBAR_EL1, 0b01, true, true),
+    0xC038 => (SystemRegister(ref ID_AA64MMFR0_EL1), 0b01, false),
+    0xC039 => (SystemRegister(ref ID_AA64MMFR1_EL1), 0b01, false),
+    0xC03A => (SystemRegister(ref ID_AA64MMFR2_EL1), 0b01, false),
+    0xC03B => (SystemRegister(ref ID_AA64MMFR3_EL1), 0b01, false),
+    0xC03C => (SystemRegister(ref ID_AA64MMFR4_EL1), 0b01, false),
+    0xC080 => (SystemRegister(ref SCTLR_EL1), 0b01, true),
+    0xC100 => (SystemRegister(ref TTBR0_EL1), 0b01, true),
+    0xC101 => (SystemRegister(ref TTBR1_EL1), 0b01, true),
+    0xC102 => (SystemRegister(ref TCR_EL1), 0b01, true),
+    0xC200 => (SystemRegister(ref SPSR_EL1), 0b01, true),
+    0xC201 => (SystemRegister(ref ELR_EL1), 0b01, true),
+    0xC212 => (PStateCurrentEL(), 0b01, false),
+    0xC290 => (SystemRegister(ref ESR_EL1), 0b01, true),
+    0xC300 => (SystemRegister(ref FAR_EL1), 0b01, true),
+    0xC3A0 => (SystemRegister(ref PAR_EL1), 0b01, true),
+    0xC600 => (SystemRegister(ref VBAR_EL1), 0b01, true),
+    0xDA10 => (PStateNZCV(), 0b00, true),
+    0xDA11 => (PStateDAIF(), 0b01, true),
     _ => fail("Unsupported System Register")
+  }
+}
+
+val read_sys_reg : (SysRegID, SystemStateTarget) -> bits(64)
+function read_sys_reg(sys_reg_id, target) = {
+  match target {
+    SystemRegister(reg_ref) => sail_sys_reg_read(sys_reg_id, reg_ref),
+    PStateCurrentEL() => sail_zero_extend(CurrentEL @ 0b00, 64),
+    PStateNZCV() => sail_zero_extend(NZCV @ 0x0000000, 64),
+    PStateDAIF() => sail_zero_extend(DAIF @ 0b000000, 64)
+  }
+}
+
+val write_sys_reg : (SysRegID, SystemStateTarget, bits(64)) -> unit
+function write_sys_reg(sys_reg_id, target, value) = {
+  match target {
+    SystemRegister(reg_ref) => sail_sys_reg_write(sys_reg_id, reg_ref, value),
+    PStateNZCV() => NZCV = value[31..28],
+    PStateDAIF() => DAIF = value[9..6],
+    PStateCurrentEL() => fail("Unsupported System Register write")
   }
 }
 
@@ -151,16 +181,14 @@ function decodeSystemRegisterMove(is_read, op0, op1, CRn, CRm, op2, Rt) = {
 }
 
 function clause execute SystemRegisterMove(is_read, sys_reg_id, t) = {
-  let (reg_ref, min_el, readable, writable) = lookup_sys_reg(sys_reg_id);
+  let (target, min_el, writable) = lookup_sys_reg(sys_reg_id);
   assert(unsigned(CurrentEL) >= unsigned(min_el),
          "Trying to access system register from too-low EL, fault not implemented");
-
-  let access_allowed = if is_read then readable else writable;
-  assert(access_allowed, "System register is not accessible");
+  assert(is_read | writable, "System register is not accessible");
 
   _PC = _PC + 4;
 
-  if is_read then X(t) = sail_sys_reg_read(sys_reg_id, reg_ref)
-  else sail_sys_reg_write(sys_reg_id, reg_ref, X(t))
+  if is_read then X(t) = read_sys_reg(sys_reg_id, target)
+  else write_sys_reg(sys_reg_id, target, X(t))
 }
 $endif
