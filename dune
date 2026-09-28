@@ -1,6 +1,6 @@
-(coq.theory
+(rocq.theory
  (name SailTinyArm)
- (package coq-sail-tiny-arm)
+ (package rocq-sail-tiny-arm)
  (modules User User_types System System_types)
  (theories Stdlib stdpp stdpp.bitvector SailStdpp RecordUpdate Ltac2))
 
@@ -9,15 +9,15 @@
   sail_files
   (:sail %{read-lines:sail_files})
   (env_var SAIL_OPTS)
-  (env_var SAIL_COQ_OPTS)
+  (env_var SAIL_ROCQ_OPTS)
   (package sail))
  (targets User.v User_types.v)
  (action
   (run
    sail
    %{env:SAIL_OPTS=--strict-var}
-   --coq
-   %{env:SAIL_COQ_OPTS=--coq-record-update}
+   --rocq
+   %{env:SAIL_ROCQ_OPTS=--rocq-record-update}
    -o
    User
    %{sail})))
@@ -27,7 +27,7 @@
   sail_files
   (:sail %{read-lines:sail_files})
   (env_var SAIL_OPTS)
-  (env_var SAIL_COQ_OPTS)
+  (env_var SAIL_ROCQ_OPTS)
   (package sail))
  (targets System.v System_types.v)
  (action
@@ -36,8 +36,8 @@
    %{env:SAIL_OPTS=--strict-var}
    -D
    SYSTEM_TINY_ARM
-   --coq
-   %{env:SAIL_COQ_OPTS=--coq-record-update}
+   --rocq
+   %{env:SAIL_ROCQ_OPTS=--rocq-record-update}
    -o
    System
    %{sail})))

@@ -1,14 +1,14 @@
 MODEL=$(shell cat sail_files)
 # Those 2 are picked up by dune, hence the export
 export SAIL_OPTS=--strict-var
-export SAIL_COQ_OPTS=--coq-record-update
+export SAIL_ROCQ_OPTS=--rocq-record-update
 
-default: coq
+default: rocq
 
-coq:
+rocq:
 	dune build
 
-coq-snapshot:
+rocq-snapshot:
 	@# First build the file and then check that they match
 	-dune build @snapshot --auto-promote
 	@dune build @snapshot
@@ -22,7 +22,7 @@ interactive:
 clean:
 	dune clean
 
-.PHONY: clean coq coq-snapshot check default interactive
+.PHONY: clean rocq rocq-snapshot check default interactive
 
 lean:
 	mkdir -p lean-snapshot
