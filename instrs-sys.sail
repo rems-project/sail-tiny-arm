@@ -110,7 +110,13 @@ function clause execute ExceptionReturn() = {
 
 /* MRS/MSR: Move to/from system registers */
 /* is_read: true = MRS (read from system register), false = MSR (write to system register) */
-union clause ast = SystemRegisterMove : (bool, SysRegID, reg_index)
+/* The SysRegID is op0 @ op1 @ CRn @ CRm @ op2, taken from the instruction bits:
+     sys_reg_id[15..14] = op0 = 0b1 @ instr[19] (o0)
+     sys_reg_id[13..11] = op1 = instr[18..16]
+     sys_reg_id[10..7]  = CRn = instr[15..12]
+     sys_reg_id[6..3]   = CRm = instr[11..8]
+     sys_reg_id[2..0]   = op2 = instr[7..5] */
+union clause ast = SystemRegisterMove : (/*is_read */bool, SysRegID, reg_index)
 
 val decodeSystemRegisterMove :
     (bool, bits(2), bits(3), bits(4), bits(4), bits(3), bits(5)) -> ast
@@ -122,73 +128,72 @@ function clause decode (0b1101010100@[L]@0b1@(o0:bits(1))@(op1:bits(3))@(CRn:bit
   decodeSystemRegisterMove(L == bitone, op0, op1, CRn, CRm, op2, Rt)
 }
 
-union SystemStateTarget = {
-  SystemRegister : register(bits(64)),
-  PStateCurrentEL : unit,
-  PStateNZCV : unit,
-  PStateDAIF : unit
-}
-
-/* The lookup result is (system state target, minimum EL, writable). */
-val lookup_sys_reg : SysRegID -> (SystemStateTarget, bits(2), bool)
-function lookup_sys_reg(sys_reg_id) = {
-  match sys_reg_id {
-    0xC038 => (SystemRegister(ref ID_AA64MMFR0_EL1), 0b01, false),
-    0xC039 => (SystemRegister(ref ID_AA64MMFR1_EL1), 0b01, false),
-    0xC03A => (SystemRegister(ref ID_AA64MMFR2_EL1), 0b01, false),
-    0xC03B => (SystemRegister(ref ID_AA64MMFR3_EL1), 0b01, false),
-    0xC03C => (SystemRegister(ref ID_AA64MMFR4_EL1), 0b01, false),
-    0xC080 => (SystemRegister(ref SCTLR_EL1), 0b01, true),
-    0xC100 => (SystemRegister(ref TTBR0_EL1), 0b01, true),
-    0xC101 => (SystemRegister(ref TTBR1_EL1), 0b01, true),
-    0xC102 => (SystemRegister(ref TCR_EL1), 0b01, true),
-    0xC200 => (SystemRegister(ref SPSR_EL1), 0b01, true),
-    0xC201 => (SystemRegister(ref ELR_EL1), 0b01, true),
-    0xC212 => (PStateCurrentEL(), 0b01, false),
-    0xC290 => (SystemRegister(ref ESR_EL1), 0b01, true),
-    0xC300 => (SystemRegister(ref FAR_EL1), 0b01, true),
-    0xC3A0 => (SystemRegister(ref PAR_EL1), 0b01, true),
-    0xC600 => (SystemRegister(ref VBAR_EL1), 0b01, true),
-    0xDA10 => (PStateNZCV(), 0b00, true),
-    0xDA11 => (PStateDAIF(), 0b01, true),
-    _ => fail("Unsupported System Register")
-  }
-}
-
-val read_sys_reg : (SysRegID, SystemStateTarget) -> bits(64)
-function read_sys_reg(sys_reg_id, target) = {
-  match target {
-    SystemRegister(reg_ref) => sail_sys_reg_read(sys_reg_id, reg_ref),
-    PStateCurrentEL() => sail_zero_extend(CurrentEL @ 0b00, 64),
-    PStateNZCV() => sail_zero_extend(NZCV @ 0x0000000, 64),
-    PStateDAIF() => sail_zero_extend(DAIF @ 0b000000, 64)
-  }
-}
-
-val write_sys_reg : (SysRegID, SystemStateTarget, bits(64)) -> unit
-function write_sys_reg(sys_reg_id, target, value) = {
-  match target {
-    SystemRegister(reg_ref) => sail_sys_reg_write(sys_reg_id, reg_ref, value),
-    PStateNZCV() => NZCV = value[31..28],
-    PStateDAIF() => DAIF = value[9..6],
-    PStateCurrentEL() => fail("Unsupported System Register write")
-  }
-}
-
 function decodeSystemRegisterMove(is_read, op0, op1, CRn, CRm, op2, Rt) = {
   let sys_reg_id = op0 @ op1 @ CRn @ CRm @ op2;
   SystemRegisterMove(is_read, sys_reg_id, unsigned(Rt))
 }
 
-function clause execute SystemRegisterMove(is_read, sys_reg_id, t) = {
-  let (target, min_el, writable) = lookup_sys_reg(sys_reg_id);
-  assert(unsigned(CurrentEL) >= unsigned(min_el),
-         "Trying to access system register from too-low EL, fault not implemented");
-  assert(is_read | writable, "System register is not accessible");
 
+val check_sys_reg_el : bits(2) -> unit
+function check_sys_reg_el(min_el) =
+  assert(unsigned(CurrentEL) >= unsigned(min_el),
+         "Trying to access system register from too-low EL, fault not implemented")
+
+val read_sys_reg : SysRegID -> bits(64)
+function read_sys_reg(sys_reg_id) = {
+  match sys_reg_id {
+    0b11@0b000@0b0000@0b0111@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref ID_AA64MMFR0_EL1) },
+    0b11@0b000@0b0000@0b0111@0b001 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref ID_AA64MMFR1_EL1) },
+    0b11@0b000@0b0000@0b0111@0b010 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref ID_AA64MMFR2_EL1) },
+    0b11@0b000@0b0000@0b0111@0b011 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref ID_AA64MMFR3_EL1) },
+    0b11@0b000@0b0000@0b0111@0b100 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref ID_AA64MMFR4_EL1) },
+    0b11@0b000@0b0001@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref SCTLR_EL1) },
+    0b11@0b000@0b0010@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref TTBR0_EL1) },
+    0b11@0b000@0b0010@0b0000@0b001 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref TTBR1_EL1) },
+    0b11@0b000@0b0010@0b0000@0b010 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref TCR_EL1) },
+    0b11@0b000@0b0100@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref SPSR_EL1) },
+    0b11@0b000@0b0100@0b0000@0b001 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref ELR_EL1) },
+    0b11@0b000@0b0100@0b0010@0b010 => { check_sys_reg_el(0b01); sail_zero_extend(CurrentEL @ 0b00, 64) },
+    0b11@0b000@0b0101@0b0010@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref ESR_EL1) },
+    0b11@0b000@0b0110@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref FAR_EL1) },
+    0b11@0b000@0b0111@0b0100@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref PAR_EL1) },
+    0b11@0b000@0b1100@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref VBAR_EL1) },
+    0b11@0b011@0b0100@0b0010@0b000 => { check_sys_reg_el(0b00); sail_zero_extend(NZCV @ 0x0000000, 64) },
+    0b11@0b011@0b0100@0b0010@0b001 => { check_sys_reg_el(0b01); sail_zero_extend(DAIF @ 0b000000, 64) },
+    _ => fail("Unsupported System Register")
+  }
+}
+
+val write_sys_reg : (SysRegID, bits(64)) -> unit
+function write_sys_reg(sys_reg_id, value) = {
+  match sys_reg_id {
+    0b11@0b000@0b0000@0b0111@0b000 => { check_sys_reg_el(0b01); fail("ID_AA64MMFR0_EL1 is not writable") },
+    0b11@0b000@0b0000@0b0111@0b001 => { check_sys_reg_el(0b01); fail("ID_AA64MMFR1_EL1 is not writable") },
+    0b11@0b000@0b0000@0b0111@0b010 => { check_sys_reg_el(0b01); fail("ID_AA64MMFR2_EL1 is not writable") },
+    0b11@0b000@0b0000@0b0111@0b011 => { check_sys_reg_el(0b01); fail("ID_AA64MMFR3_EL1 is not writable") },
+    0b11@0b000@0b0000@0b0111@0b100 => { check_sys_reg_el(0b01); fail("ID_AA64MMFR4_EL1 is not writable") },
+    0b11@0b000@0b0001@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref SCTLR_EL1, value) },
+    0b11@0b000@0b0010@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref TTBR0_EL1, value) },
+    0b11@0b000@0b0010@0b0000@0b001 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref TTBR1_EL1, value) },
+    0b11@0b000@0b0010@0b0000@0b010 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref TCR_EL1, value) },
+    0b11@0b000@0b0100@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref SPSR_EL1, value) },
+    0b11@0b000@0b0100@0b0000@0b001 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref ELR_EL1, value) },
+    0b11@0b000@0b0100@0b0010@0b010 => { check_sys_reg_el(0b01); fail("CurrentEL is not writable") },
+    0b11@0b000@0b0101@0b0010@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref ESR_EL1, value) },
+    0b11@0b000@0b0110@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref FAR_EL1, value) },
+    0b11@0b000@0b0111@0b0100@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref PAR_EL1, value) },
+    0b11@0b000@0b1100@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref VBAR_EL1, value) },
+    0b11@0b011@0b0100@0b0010@0b000 => { check_sys_reg_el(0b00); NZCV = value[31..28] },
+    0b11@0b011@0b0100@0b0010@0b001 => { check_sys_reg_el(0b01); DAIF = value[9..6] },
+    _ => fail("Unsupported System Register")
+  }
+}
+
+
+function clause execute SystemRegisterMove(is_read, sys_reg_id, t) = {
   _PC = _PC + 4;
 
-  if is_read then X(t) = read_sys_reg(sys_reg_id, target)
-  else write_sys_reg(sys_reg_id, target, X(t))
+  if is_read then X(t) = read_sys_reg(sys_reg_id)
+  else write_sys_reg(sys_reg_id, X(t))
 }
 $endif
