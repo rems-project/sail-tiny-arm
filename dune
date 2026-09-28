@@ -1,32 +1,46 @@
 (coq.theory
  (name SailTinyArm)
  (package coq-sail-tiny-arm)
- (modules
-   User
-   User_types
-   System
-   System_types
- )
- (theories Stdlib stdpp stdpp.bitvector SailStdpp RecordUpdate Ltac2)
-)
+ (modules User User_types System System_types)
+ (theories Stdlib stdpp stdpp.bitvector SailStdpp RecordUpdate Ltac2))
 
 (rule
- (deps sail_files (:sail %{read-lines:sail_files}) (env_var SAIL_OPTS) (env_var SAIL_COQ_OPTS) (package sail))
+ (deps
+  sail_files
+  (:sail %{read-lines:sail_files})
+  (env_var SAIL_OPTS)
+  (env_var SAIL_COQ_OPTS)
+  (package sail))
  (targets User.v User_types.v)
  (action
-  (run sail %{env:SAIL_OPTS=--strict-var}
-       --coq %{env:SAIL_COQ_OPTS=--coq-record-update}
-       -o User %{sail}))
-)
+  (run
+   sail
+   %{env:SAIL_OPTS=--strict-var}
+   --coq
+   %{env:SAIL_COQ_OPTS=--coq-record-update}
+   -o
+   User
+   %{sail})))
 
 (rule
- (deps sail_files (:sail %{read-lines:sail_files}) (env_var SAIL_OPTS) (env_var SAIL_COQ_OPTS) (package sail))
+ (deps
+  sail_files
+  (:sail %{read-lines:sail_files})
+  (env_var SAIL_OPTS)
+  (env_var SAIL_COQ_OPTS)
+  (package sail))
  (targets System.v System_types.v)
  (action
-  (run sail %{env:SAIL_OPTS=--strict-var} -D SYSTEM_TINY_ARM
-       --coq %{env:SAIL_COQ_OPTS=--coq-record-update}
-       -o System %{sail}))
-)
+  (run
+   sail
+   %{env:SAIL_OPTS=--strict-var}
+   -D
+   SYSTEM_TINY_ARM
+   --coq
+   %{env:SAIL_COQ_OPTS=--coq-record-update}
+   -o
+   System
+   %{sail})))
 
 (rule
  (alias snapshot)
@@ -36,5 +50,4 @@
    (diff snapshot/User_types.v User_types.v)
    (diff snapshot/User.v User.v)
    (diff snapshot/System_types.v System_types.v)
-   (diff snapshot/System.v System.v)
-)))
+   (diff snapshot/System.v System.v))))
