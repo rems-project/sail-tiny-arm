@@ -74,7 +74,7 @@ function clause execute SupervisorCall(imm16) = {
 
   /* Build ESR_EL1: EC=0b010101 (SVC from AArch64), IL=1, ISS=imm16 */
   let ec : bits(6) = 0b010101;
-  let il : bits(1) = 0b1;
+  let il = 0b1;
   let iss : bits(25) = sail_zero_extend(imm16, 25);
   ESR_EL1 = sail_zero_extend((ec @ il) @ iss, 64);
 
@@ -123,9 +123,9 @@ val decodeSystemRegisterMove :
 
 /* MRS: 1101 0101 0011 op1 CRn CRm op2 Rt (L=1) */
 /* MSR: 1101 0101 0001 op1 CRn CRm op2 Rt (L=0) */
-function clause decode (0b1101010100@[L]@0b1@(o0:bits(1))@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4))@(op2:bits(3))@(Rt:bits(5))) = {
+function clause decode (0b1101010100@[L]@0b1@[o0]@(op1:bits(3))@(CRn:bits(4))@(CRm:bits(4))@(op2:bits(3))@(Rt:bits(5))) = {
   let op0 : bits(2) = 0b1 @ o0;
-  decodeSystemRegisterMove(L == bitone, op0, op1, CRn, CRm, op2, Rt)
+  decodeSystemRegisterMove(L == 0b1, op0, op1, CRn, CRm, op2, Rt)
 }
 
 function decodeSystemRegisterMove(is_read, op0, op1, CRn, CRm, op2, Rt) = {

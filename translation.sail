@@ -10,10 +10,10 @@ function extract_perms_table(descriptor : bits(64)) -> Permissions = {
   let ap_table = descriptor[62..61];
 
   return struct {
-    allow_write = [ap_table[1]] == 0b0,
-    allow_unprivileged_data = [ap_table[0]] == 0b0,
-    allow_unprivileged_exec = [descriptor[60]] == 0b0,
-    allow_privileged_exec = [descriptor[59]] == 0b0,
+    allow_write = ap_table[1] == 0b0,
+    allow_unprivileged_data = ap_table[0] == 0b0,
+    allow_unprivileged_exec = descriptor[60] == 0b0,
+    allow_privileged_exec = descriptor[59] == 0b0,
   }
 }
 
@@ -21,19 +21,19 @@ function extract_perms_leaf(descriptor : bits(64)) -> Permissions = {
   let ap = descriptor[7..6];
 
   return struct {
-    allow_write = [ap[1]] == 0b0,
-    allow_unprivileged_data = [ap[0]] == 0b1,
-    allow_unprivileged_exec = [descriptor[54]] == 0b0,
-    allow_privileged_exec = [descriptor[53]] == 0b0,
+    allow_write = ap[1] == 0b0,
+    allow_unprivileged_data = ap[0] == 0b1,
+    allow_unprivileged_exec = descriptor[54] == 0b0,
+    allow_privileged_exec = descriptor[53] == 0b0,
   }
 }
 
 function leaf_access_flag_set(descriptor : bits(64)) -> bool = {
-  [descriptor[10]] == 0b1
+  descriptor[10] == 0b1
 }
 
 function leaf_dirty_bit_set(descriptor : bits(64)) -> bool = {
-  [descriptor[51]] == 0b1
+  descriptor[51] == 0b1
 }
 
 function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> AccessDescriptor = {
@@ -46,7 +46,7 @@ function create_AccessDescriptorTTW (toplevel : bool, varange : VARange) -> Acce
 }
 
 function get_VARange (va : bits(64)) -> VARange = {
-  if [va[48]] == 0b0 then {
+  if va[48] == 0b0 then {
     VARange_LOWER
   } else {
     VARange_UPPER
@@ -117,16 +117,16 @@ function get_TTEntryAddress (level : range(0, 3), ia : bits(64), baseaddress : b
 }
 
 function decode_desc_type(descriptor : bits(64), level : int) -> DescriptorType = {
-  if [descriptor[0]] == 0b0 then {
+  if descriptor[0] == 0b0 then {
     return(DescriptorType_Invalid)
   } else {
-    if [descriptor[1]] == 0b1 then {
+    if descriptor[1] == 0b1 then {
       if level == 3 then {
         DescriptorType_Leaf
       } else {
         DescriptorType_Table
       }
-    } else if [descriptor[1]] == 0b0 then { // The descriptor is a block
+    } else if descriptor[1] == 0b0 then { // The descriptor is a block
       if (level == 1 | level == 2) then {
         DescriptorType_Leaf
       } else {
@@ -282,7 +282,7 @@ function handle_fault (addrdesc : AddressDescriptor) -> unit = {
 
 function translate_address(va, access_size, accdesc) = {
   // Check SCTLR_EL1.M to check if MMU is enabled
-  if slice(SCTLR_EL1, 0, 1) == 0b0 then {
+  if SCTLR_EL1[0] == 0b0 then {
     return Some(truncate(va, addr_size'))
   };
 

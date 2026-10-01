@@ -113,7 +113,7 @@ function rotate_right (v, r) =
 // Computes first return value of DecodeBitMasks in official spec
 function decode_bitmask(N : bit, imms : bits(6), immr : bits(6), immediate : bool) -> (bits(64), bits(64)) = {
   // Determine the size of the element repetition
-  let 'len = if N == bitone then 6 else (5-count_leading_zeros(not_vec(imms)));
+  let 'len = if N == 0b1 then 6 else (5-count_leading_zeros(not_vec(imms)));
   assert(constraint('len > 0), "Invalid immediate encoding for bitwise operation");
 
   // The mask will have size 2^len and will have (s + 1) ones

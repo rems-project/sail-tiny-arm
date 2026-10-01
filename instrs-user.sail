@@ -23,8 +23,8 @@ function decodeLoadStoreRegister (size, opc, Rm, option_v, S, Rn, Rt) = {
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let m : reg_index = unsigned(Rm);
-  let shift : range(0,4) = if S == bitone then size else 0;
-  if option_v[1] == bitzero then fail("Sub-word extend in Load/Store");
+  let shift : range(0,4) = if S == 0b1 then size else 0;
+  if option_v[1] == 0b0 then fail("Sub-word extend in Load/Store");
   let offset = OperandRegExt(m, ext_bits(option_v), shift);
   match opc {
     0b01 => Load(size, t, n, offset, /*acq*/false, /*rcpc*/false, /*excl*/false),
@@ -58,7 +58,7 @@ function clause decode ((size:bits(2))@0b001000@0b1@[L]@0b0@0b11111@0b1@0b11111@
   let size = unsigned(size);
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
-  if L == bitone
+  if L == 0b1
   then Load(size, t, n, zero_operand, /*acq*/true, /*rcpc*/false, /*excl*/false)
   else Store(size, t, n, zero_operand, /*rel*/true, /*excl*/None())
 }
@@ -76,7 +76,7 @@ function clause decode ((size:bits(2))@0b001000@0b0@0b1@0b0@0b11111@[o0]@0b11111
   let size = unsigned(size);
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
-  let acquire = o0 == bitone;
+  let acquire = o0 == 0b1;
   Load(size, t, n, zero_operand, acquire, /*rcpc*/false, /*excl*/true)
 }
 
@@ -86,7 +86,7 @@ function clause decode ((size:bits(2))@0b001000@0b0@0b0@0b0@(Rs:bits(5))@[o0]@0b
   let t : reg_index = unsigned(Rt);
   let n : reg_index = unsigned(Rn);
   let s : reg_index = unsigned(Rs);
-  let release = o0 == bitone;
+  let release = o0 == 0b1;
   assert(s != t, "Store exclusive can't store value and success to same register");
   assert(s == 31 | s != n, "Store exclusive success can't be stored to address register");
   Store(size, t, n, zero_operand, release, Some(s))
@@ -187,7 +187,7 @@ function clause decode ((size:bits(2))@0b111@0b0@0b00@[A]@[R]@0b1@(Rs:bits(5))@[
     "sail-tiny-arm doesn't support RMW atomic with twice the same destination register");
 
   let op : MemAtomicOp =
-    if o3 == bitone then
+    if o3 == 0b1 then
       if opc == 0b000 then fail("Instruction not supported by design: SWP variants")
       else fail ("RCW instruction usupported")
     else match opc {
@@ -201,8 +201,8 @@ function clause decode ((size:bits(2))@0b111@0b0@0b00@[A]@[R]@0b1@(Rs:bits(5))@[
         0b111 => MemAtomicOp_UMIN, // LDUMIN
     };
 
-  let acquire = A == bitone & t != 31;
-  let release = R == bitone;
+  let acquire = A == 0b1 & t != 31;
+  let release = R == 0b1;
   AtomicRMW(size, s, t, n, op, acquire, release)
 }
 
@@ -265,7 +265,7 @@ function decode_bitwise_op(opc : bits(2)) -> bitwise_op =
 /* EOR/ORR/AND (shifted register): sf opc 01010 shift 0 Rm imm6 Rn Rd */
 function clause decode ([sf]@(opc : bits(2))@0b01010@(shift:bits(2))@0b0@(Rm:bits(5))@(imm6:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
   let op = decode_bitwise_op(opc);
-  if sf == bitzero & imm6[5] == bitone then
+  if sf == 0b0 & imm6[5] == 0b1 then
     fail("bitwise_op: shift by more than 31 bits on 32 bit operation");
   let operand = OperandRegShift(unsigned(Rm), shift_bits(shift), unsigned(imm6));
   BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), operand)
@@ -274,7 +274,7 @@ function clause decode ([sf]@(opc : bits(2))@0b01010@(shift:bits(2))@0b0@(Rm:bit
 /* EOR/ORR/AND (immediate): sf opc 100100 N immr imms Rn Rd */
 function clause decode ([sf]@(opc : bits(2))@0b100100@[N]@(immr:bits(6))@(imms:bits(6))@(Rn:bits(5))@(Rd:bits(5))) = {
   let op = decode_bitwise_op(opc);
-  if N == bitone & sf == bitzero then
+  if N == 0b1 & sf == 0b0 then
     fail("64 bit mask in 32 bit bitwise operation");
   let (mask,_) = decode_bitmask(N, imms, immr, true);
   BitwiseLogic(sf, op, unsigned(Rd), unsigned(Rn), OperandImm(mask))
@@ -283,7 +283,7 @@ function clause decode ([sf]@(opc : bits(2))@0b100100@[N]@(immr:bits(6))@(imms:b
 /* EOR/ORR/AND Xd/Wd, Xn/Wn, Xm/Wm and EOR/ORR/AND Xd/Wd, Xn/Wn, #imm */
 function clause execute BitwiseLogic(sf, op, d, n, op2) = {
   _PC = _PC + 4;
-  let 'size = if sf == bitone then 64 else 32;
+  let 'size = if sf == 0b1 then 64 else 32;
   let operand1 = X(n, size);
   let operand2  = eval_operand('size, op2);
   let result : bits('size) = match op {
@@ -304,10 +304,10 @@ function clause execute BitwiseLogic(sf, op, d, n, op2) = {
   if use_sp & d == 31 then SP(size) = result else X(d, size) = result;
   if setflags then {
     let n = result[size-1];
-    let z = if result == sail_zeros(size) then bitone else bitzero;
-    let c = bitzero;
-    let v = bitzero;
-    NZCV = [n]@[z]@[c]@[v]
+    let z = if result == sail_zeros(size) then 0b1 else 0b0;
+    let c = 0b0;
+    let v = 0b0;
+    NZCV = n @ z @ c @ v
   }
 }
 
@@ -319,7 +319,7 @@ union clause ast = Movz : (datasize, reg_index, bits(16), range(0,3))
 /* MOVZ: sf 10 100101 hw imm16 Rd */
 function clause decode ([sf]@0b10@0b100101@(hw:bits(2))@(imm16:bits(16))@(Rd:bits(5))) = {
   let d : reg_index = unsigned(Rd);
-  if sf == bitzero & hw[1] == bitone then
+  if sf == 0b0 & hw[1] == 0b1 then
     /* For 32-bit (sf=0), hw must be 00 or 01 (hw[1]=0) */
     fail("MOVZ: writing the top 32 bits in a 32 bit operation");
   Movz(sf, d, imm16, unsigned(hw))
@@ -329,7 +329,7 @@ function clause decode ([sf]@0b10@0b100101@(hw:bits(2))@(imm16:bits(16))@(Rd:bit
 function clause execute Movz(sf, d, imm, hw) = {
   _PC = _PC + 4;
 
-  let size = if sf == bitone then 64 else 32;
+  let size = if sf == 0b1 then 64 else 32;
   /* Compute 64-bit result, then truncate for 32-bit */
   let res : bits(64) = sail_shiftleft(sail_zero_extend(imm, 64), 16 * hw);
   X(d, size) = res[size-1..0]
@@ -344,8 +344,8 @@ function clause decode ([sf]@(opc:bits(2))@0b100110@[N]@(immr:bits(6))@(imms:bit
   let d : reg_index = unsigned(Rd);
   let n : reg_index = unsigned(Rn);
   assert(sf == N, "xBFM mask sizes doesn't match operation size");
-  if sf == bitzero then
-    assert(imms[5] == bitzero & immr[5] == bitzero,
+  if sf == 0b0 then
+    assert(imms[5] == 0b0 & immr[5] == 0b0,
       "32bit xBFM has masks larger than 32 bits");
 
   let signd : bool = match opc {
@@ -359,7 +359,7 @@ function clause decode ([sf]@(opc:bits(2))@0b100110@[N]@(immr:bits(6))@(imms:bit
 
 function clause execute BitfieldMove(sf, signd, d, n, imms, immr) = {
   _PC = _PC + 4;
-  let 'size = if sf == bitone then 64 else 32;
+  let 'size = if sf == 0b1 then 64 else 32;
   let 's = unsigned(imms);
   let 'r = unsigned(immr);
   assert(constraint('s < 'size)); // Should have fired in the decode
@@ -368,7 +368,7 @@ function clause execute BitfieldMove(sf, signd, d, n, imms, immr) = {
   let tmask = tmask['size-1..0];
   let src = X(n, 'size);
   let bot = rotate_right(src, r) & wmask;
-  let top = if signd & (src[s] == bitone) then sail_ones('size) else sail_zeros('size);
+  let top = if signd & src[s] == 0b1 then sail_ones('size) else sail_zeros('size);
   X(d, 'size) = (top & not_vec(tmask)) | (bot & tmask);
 }
 
@@ -410,7 +410,7 @@ function decodeAddSubShift (sf, op, S, shift, imm6, Rm, Rn, Rd) = {
   let n : reg_index = unsigned(Rn);
 
   if shift == 0b11 then fail("ADD/SUB doesn't support ROR");
-  if sf == bitzero & imm6[5] == bitone then
+  if sf == 0b0 & imm6[5] == 0b1 then
     fail("ADD/SUB: shift by more than 31 bits on 32 bit operation");
   let operand = OperandRegShift(unsigned(Rm), shift_bits(shift), unsigned(imm6));
 
@@ -418,8 +418,8 @@ function decodeAddSubShift (sf, op, S, shift, imm6, Rm, Rn, Rd) = {
 }
 
 /* ADD(S)/SUB(S) (immediate) */
-val decodeAddSubImm : (bit, bit, bit, bits(1), bits(12), bits(5), bits(5)) -> ast
-function clause decode ([sf]@[op]@[S]@0b100010@(sh:bits(1))@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
+val decodeAddSubImm : (bit, bit, bit, bit, bits(12), bits(5), bits(5)) -> ast
+function clause decode ([sf]@[op]@[S]@0b100010@[sh]@(imm12:bits(12))@(Rn:bits(5))@(Rd:bits(5))) = {
   decodeAddSubImm(sf, op, S, sh, imm12, Rn, Rd)
 }
 
@@ -437,35 +437,35 @@ function decodeAddSubImm (sf, op, S, sh, imm12, Rn, Rd) = {
 /* ADD(S)/SUB(S) */
 function clause execute AddSub(sf, op, S, d, n, m) = {
   _PC = _PC + 4;
-  let 'size = if sf == bitone then 64 else 32;
-  let addition = op == bitzero;
+  let 'size = if sf == 0b1 then 64 else 32;
+  let addition = op == 0b0;
   // Don't use SP in the shift case but do use it in the others
   let use_sp : bool = match m {OperandRegShift(_) => false, _ => true};
   let op1 = if use_sp & n == 31 then SP(size) else X(n, size);
   let op2 = eval_operand('size, m);
   let result = if addition then op1 + op2 else op1 - op2;
   // We're only writing SP if not writing flags
-  if use_sp & S == bitzero & d == 31 then SP(size) = result else X(d, size) = result;
+  if use_sp & S == 0b0 & d == 31 then SP(size) = result else X(d, size) = result;
 
-  if S == bitone then {
+  if S == 0b1 then {
     let n = result[size-1];
-    let z = if result == sail_zeros(size) then bitone else bitzero;
+    let z = if result == sail_zeros(size) then 0b1 else 0b0;
 
     let c =
       if addition
       // u(result) < u(op1) <==> u(op1) + u(op2) == 2^size + u(result)
-      then if unsigned(result) < unsigned(op1) then bitone else bitzero
+      then if unsigned(result) < unsigned(op1) then 0b1 else 0b0
       // Unsigned substraction underflow is represented by c=0
-      else if unsigned(op1) >= unsigned(op2) then bitone else bitzero;
+      else if unsigned(op1) >= unsigned(op2) then 0b1 else 0b0;
 
     // Signed overflow happens when the two operands have the same sign and the
     // result has the opposite sign. If substraction, the second sign is
     // reversed
     let s1 = op1[size-1];
-    let s2 = if addition then op2[size-1] else not_bit(op2[size-1]);
-    let v = if s1 == s2 then if s1 != n then bitone else bitzero else bitzero;
+    let s2 = if addition then op2[size-1] else not_vec(op2[size-1]);
+    let v = if s1 == s2 then if s1 != n then 0b1 else 0b0 else 0b0;
 
-    NZCV = [n]@[z]@[c]@[v]
+    NZCV = n @ z @ c @ v
   }
 }
 
@@ -580,14 +580,14 @@ function decodeCompareAndBranch(sf, op, imm19, Rt) = {
   let t : reg_index = unsigned(Rt);
   let offset : bits(64) = sail_sign_extend(imm19@0b00,64);
   /* iszero: true for CBZ (op=0), false for CBNZ (op=1) */
-  let iszero : bool = (op == bitzero);
+  let iszero : bool = (op == 0b0);
 
   CompareAndBranch(sf, t, offset, iszero);
 }
 
 /* CBZ/CBNZ Xt/Wt, <offset> */
 function clause execute CompareAndBranch(sf, t, offset, iszero) = {
-  let size = if sf == bitone then 64 else 32;
+  let size = if sf == 0b1 then 64 else 32;
   /* Get operand value - 64-bit or 32-bit (zero-extended for comparison) */
   let operand : bits(64) = sail_zero_extend(X(t, size), 64);
   /* Check condition: CBZ branches if zero, CBNZ branches if not zero */
@@ -622,17 +622,17 @@ function clause decode ([b5]@0b011011@[op]@(b40:bits(5))@(imm14:bits(14))@(Rt:bi
 
 function decodeTestAndBranch(b5, op, b40, imm14, Rt) = {
   let t : reg_index = unsigned(Rt);
-  let bit_pos : range(0,63) = unsigned([b5] @ b40);
+  let bit_pos : range(0,63) = unsigned(b5 @ b40);
   let offset : bits(64) = sail_sign_extend(imm14 @ 0b00, 64);
   /* iszero: true for TBZ (op=0), false for TBNZ (op=1) */
-  let iszero : bool = (op == bitzero);
+  let iszero : bool = (op == 0b0);
 
   TestAndBranch(t, bit_pos, offset, iszero)
 }
 
 /* TBZ/TBNZ Xt/Wt, #<bit>, <offset> */
 function clause execute TestAndBranch(t, bit_pos, offset, iszero) = {
-  let bit_is_zero = sail_shiftright(X(t), bit_pos)[0] == bitzero;
+  let bit_is_zero = sail_shiftright(X(t), bit_pos)[0] == 0b0;
   let condition_met = if iszero then bit_is_zero else not_bool(bit_is_zero);
   if condition_met then {
     let base = PC();
@@ -695,20 +695,20 @@ function clause decode (0b010@0b101@0b00@(imm19:bits(19))@0b0@(cond:bits(4))) = 
 /* Compute a condition using the flags */
 val condition_holds : cond -> bool
 function condition_holds(cond) = match cond {
-  EQ => Z() == bitone,
-  NE => Z() == bitzero,
-  CS => C() == bitone,
-  CC => C() == bitzero,
-  MI => N() == bitone,
-  PL => N() == bitzero,
-  VS => V() == bitone,
-  VC => V() == bitzero,
-  HI => C() == bitone & Z() == bitzero,
-  LS => C() == bitzero | Z() == bitone,
+  EQ => Z() == 0b1,
+  NE => Z() == 0b0,
+  CS => C() == 0b1,
+  CC => C() == 0b0,
+  MI => N() == 0b1,
+  PL => N() == 0b0,
+  VS => V() == 0b1,
+  VC => V() == 0b0,
+  HI => C() == 0b1 & Z() == 0b0,
+  LS => C() == 0b0 | Z() == 0b1,
   GE => N() == V(),
   LT => N() != V(),
-  GT => N() == V() & Z() == bitzero,
-  LE => N() != V() | Z() == bitone,
+  GT => N() == V() & Z() == 0b0,
+  LE => N() != V() | Z() == 0b1,
   AL => true,
   NV => true // Arm is weird, but actuall NV and AL are the same
 }
@@ -732,7 +732,7 @@ union clause ast = PCRelativeAddress : (/*page*/ bool, reg_index, bits(64))
 
 /* ADR/ADRP: page immlo 10000 immhi Rd */
 function clause decode ([page]@(immlo:bits(2))@0b10000@(immhi:bits(19))@(Rd:bits(5))) = {
-  let is_page = page == bitone;
+  let is_page = page == 0b1;
   let offset : bits(64) =
     if is_page then sail_sign_extend((immhi @ immlo) @ 0x000, 64)
     else sail_sign_extend(immhi @ immlo, 64);
