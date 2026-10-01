@@ -1,0 +1,9 @@
+(rule
+ (alias snapshot)
+ (mode promote)
+ (action
+  (concurrent
+   (diff User_types.v ../rocq/User_types.v)
+   (diff User.v ../rocq/User.v)
+   (diff System_types.v ../rocq/System_types.v)
+   (diff System.v ../rocq/System.v))))

@@ -1,0 +1,55 @@
+; The theory lives in its own directory so that rocq dep's `-R . SailTinyArm`
+; does not pick up the copies of rocq-snapshot/*.v made by the @snapshot alias.
+; Sail runs from the root so that the paths in sail_files resolve.
+
+(rule
+ (deps
+  ../sail_files
+  (glob_files ../*.sail)
+  (env_var SAIL_OPTS)
+  (env_var SAIL_ROCQ_OPTS)
+  (package sail))
+ (targets User.v User_types.v)
+ (action
+  (chdir
+   ..
+   (run
+    sail
+    %{env:SAIL_OPTS=--strict-var}
+    --rocq
+    %{env:SAIL_ROCQ_OPTS=--rocq-record-update}
+    --rocq-output-dir
+    rocq
+    -o
+    User
+    %{read-lines:../sail_files}))))
+
+(rule
+ (deps
+  ../sail_files
+  (glob_files ../*.sail)
+  (env_var SAIL_OPTS)
+  (env_var SAIL_ROCQ_OPTS)
+  (package sail))
+ (targets System.v System_types.v)
+ (action
+  (chdir
+   ..
+   (run
+    sail
+    %{env:SAIL_OPTS=--strict-var}
+    -D
+    SYSTEM_TINY_ARM
+    --rocq
+    %{env:SAIL_ROCQ_OPTS=--rocq-record-update}
+    --rocq-output-dir
+    rocq
+    -o
+    System
+    %{read-lines:../sail_files}))))
+
+(rocq.theory
+ (name SailTinyArm)
+ (package rocq-sail-tiny-arm)
+ (modules User User_types System System_types)
+ (theories Stdlib stdpp stdpp.bitvector SailStdpp RecordUpdate Ltac2))
