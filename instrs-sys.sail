@@ -94,6 +94,7 @@ function clause execute ExceptionReturn() = {
   assert (CurrentEL != 0b00, "Trying to ERET from EL0, fault not implemented");
   /* Set PC to the exception link register (no +4 increment) */
   _PC = ELR_EL1;
+  sail_return_exception(());
 
   /* Read saved program status register */
   let spsr = SPSR_EL1;
