@@ -309,6 +309,7 @@ function translate_address(va, access_size, accdesc) = {
   let addrdesc =
     if va_out_of_range(va) then {
       var addrdesc = base_AddressDescriptor(accdesc);
+      addrdesc.vaddress = va;
       addrdesc.fault.statuscode = Fault_Translation;
       addrdesc.fault.write = accdesc.write;
       addrdesc.fault.access = accdesc;
