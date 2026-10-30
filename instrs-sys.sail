@@ -140,6 +140,13 @@ function check_sys_reg_el(min_el) =
   assert(unsigned(CurrentEL) >= unsigned(min_el),
          "Trying to access system register from too-low EL, fault not implemented")
 
+/* DAIF is accessible from EL0 when SCTLR_EL1.UMA (bit 9) is set */
+val check_daif_access : unit -> unit
+function check_daif_access() =
+  if CurrentEL == 0b00 then
+    assert(SCTLR_EL1[9] == 0b1,
+           "Trying to access DAIF from EL0 with SCTLR_EL1.UMA clear, fault not implemented")
+
 val read_sys_reg : SysRegID -> bits(64)
 function read_sys_reg(sys_reg_id) = {
   match sys_reg_id {
@@ -160,7 +167,7 @@ function read_sys_reg(sys_reg_id) = {
     0b11@0b000@0b0111@0b0100@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref PAR_EL1) },
     0b11@0b000@0b1100@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_read(sys_reg_id, ref VBAR_EL1) },
     0b11@0b011@0b0100@0b0010@0b000 => { check_sys_reg_el(0b00); sail_zero_extend(NZCV @ 0x0000000, 64) },
-    0b11@0b011@0b0100@0b0010@0b001 => { check_sys_reg_el(0b01); sail_zero_extend(DAIF @ 0b000000, 64) },
+    0b11@0b011@0b0100@0b0010@0b001 => { check_daif_access(); sail_zero_extend(DAIF @ 0b000000, 64) },
     _ => fail("Unsupported System Register")
   }
 }
@@ -185,7 +192,7 @@ function write_sys_reg(sys_reg_id, value) = {
     0b11@0b000@0b0111@0b0100@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref PAR_EL1, value) },
     0b11@0b000@0b1100@0b0000@0b000 => { check_sys_reg_el(0b01); sail_sys_reg_write(sys_reg_id, ref VBAR_EL1, value) },
     0b11@0b011@0b0100@0b0010@0b000 => { check_sys_reg_el(0b00); NZCV = value[31..28] },
-    0b11@0b011@0b0100@0b0010@0b001 => { check_sys_reg_el(0b01); DAIF = value[9..6] },
+    0b11@0b011@0b0100@0b0010@0b001 => { check_daif_access(); DAIF = value[9..6] },
     _ => fail("Unsupported System Register")
   }
 }
@@ -215,10 +222,10 @@ function clause execute SysRegImm(op1, imm, op2) = {
   match (op1, op2) {
     /* SPSel */
     (0b000, 0b101) => { check_sys_reg_el(0b01); SPSel = imm[0] },
-    /* DAIFSet (EL0 access via SCTLR_EL1.UMA not modelled) */
-    (0b011, 0b110) => { check_sys_reg_el(0b01); DAIF = DAIF | imm },
-    /* DAIFClr (EL0 access via SCTLR_EL1.UMA not modelled) */
-    (0b011, 0b111) => { check_sys_reg_el(0b01); DAIF = DAIF & not_vec(imm) },
+    /* DAIFSet */
+    (0b011, 0b110) => { check_daif_access(); DAIF = DAIF | imm },
+    /* DAIFClr */
+    (0b011, 0b111) => { check_daif_access(); DAIF = DAIF & not_vec(imm) },
     _ => fail("Unknown register for immediate write")
   }
 }
