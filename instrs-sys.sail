@@ -197,4 +197,29 @@ function clause execute SystemRegisterMove(is_read, sys_reg_id, t) = {
   if is_read then X(t) = read_sys_reg(sys_reg_id)
   else write_sys_reg(sys_reg_id, X(t))
 }
+
+
+/* MSR (immediate): MSR <pstatefield>, #imm */
+/* Covers the whole op0 = 0b00, CRn = 0b0100 class; the field is selected by (op1, op2)
+   and the immediate is CRm.*/
+union clause ast = SysRegImm : (/* op1 */ bits(3), /* CRm */ bits(4), /* op2 */ bits(3))
+
+/* MSR (immediate): 1101 0101 0000 0 op1 0100 CRm op2 11111 */
+function clause decode (0b1101010100000@(op1:bits(3))@0b0100@(CRm:bits(4))@(op2:bits(3))@0b11111) = {
+  SysRegImm(op1, CRm, op2)
+}
+
+function clause execute SysRegImm(op1, imm, op2) = {
+  _PC = _PC + 4;
+
+  match (op1, op2) {
+    /* SPSel */
+    (0b000, 0b101) => { check_sys_reg_el(0b01); SPSel = imm[0] },
+    /* DAIFSet (EL0 access via SCTLR_EL1.UMA not modelled) */
+    (0b011, 0b110) => { check_sys_reg_el(0b01); DAIF = DAIF | imm },
+    /* DAIFClr (EL0 access via SCTLR_EL1.UMA not modelled) */
+    (0b011, 0b111) => { check_sys_reg_el(0b01); DAIF = DAIF & not_vec(imm) },
+    _ => fail("Unknown register for immediate write")
+  }
+}
 $endif
