@@ -1,0 +1,13 @@
+name = "SailTinyArmUser"
+defaultTargets = ["SailTinyArmUser"]
+moreLeanArgs = ["--tstack=400000"]
+
+[[lean_lib]]
+name = "SailTinyArmUser"
+leanOptions.weak.linter.style.nameCheck = false
+moreLeancArgs= ["-fbracket-depth=500"]
+
+[[require]]
+name = "Sail"
+git = "https://github.com/rems-project/lean-sail"
+rev = "v8"

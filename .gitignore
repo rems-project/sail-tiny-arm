@@ -11,3 +11,6 @@ _build
 _opam
 .envrc
 z3_problems
+
+# Claude: binary SMT-solver cache written by Sail 0.20.3 into the working directory
+sail_smt_cache
