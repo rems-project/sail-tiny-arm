@@ -265,7 +265,7 @@ def rotate_right (v : (BitVec k_n)) (r : Int) : (BitVec k_n) :=
   then v
   else ((v >>> r) ||| (v <<< ((Sail.BitVec.length v) -i r)))
 
-/-- Type quantifiers: k_ex21932_ : Bool -/
+/-- Type quantifiers: k_ex22023_ : Bool -/
 def decode_bitmask (N : (BitVec 1)) (imms : (BitVec 6)) (immr : (BitVec 6)) (immediate : Bool) : SailM ((BitVec 64) × (BitVec 64)) := do
   let len :=
     if ((N == 1#1) : Bool)

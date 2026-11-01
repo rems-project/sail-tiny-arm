@@ -51,7 +51,7 @@ open CacheOp
 open Barrier
 open AccessType
 
-/-- Type quantifiers: k_ex21277_ : Bool, k_ex21276_ : Bool -/
+/-- Type quantifiers: k_ex21368_ : Bool, k_ex21367_ : Bool -/
 def neq_bool (x : Bool) (y : Bool) : Bool :=
   (! (x == y))
 

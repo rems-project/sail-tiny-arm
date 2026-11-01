@@ -90,7 +90,7 @@ def base_AccessDescriptor (acctype : AccessType) : AccessDescriptor :=
               partid := 0x0000#16
               pmg := 0x00#8 } }
 
-/-- Type quantifiers: k_ex29066_ : Bool, k_ex29065_ : Bool -/
+/-- Type quantifiers: k_ex29157_ : Bool, k_ex29156_ : Bool -/
 def create_writeAccessDescriptor (release : Bool) (exclusive : Bool) : SailM AccessDescriptor := do
   let accdesc := (base_AccessDescriptor AccessType_GPR)
   let accdesc : AccessDescriptor := { accdesc with write := true }
@@ -98,7 +98,7 @@ def create_writeAccessDescriptor (release : Bool) (exclusive : Bool) : SailM Acc
   let accdesc : AccessDescriptor := { accdesc with exclusive := exclusive }
   (pure { accdesc with el := ← readReg CurrentEL })
 
-/-- Type quantifiers: k_ex29069_ : Bool, k_ex29068_ : Bool, k_ex29067_ : Bool -/
+/-- Type quantifiers: k_ex29160_ : Bool, k_ex29159_ : Bool, k_ex29158_ : Bool -/
 def create_readAccessDescriptor (acquire : Bool) (rcpc : Bool) (exclusive : Bool) : SailM AccessDescriptor := do
   let accdesc := (base_AccessDescriptor AccessType_GPR)
   let accdesc : AccessDescriptor := { accdesc with read := true }
@@ -107,7 +107,7 @@ def create_readAccessDescriptor (acquire : Bool) (rcpc : Bool) (exclusive : Bool
   let accdesc : AccessDescriptor := { accdesc with exclusive := exclusive }
   (pure { accdesc with el := ← readReg CurrentEL })
 
-/-- Type quantifiers: k_ex29071_ : Bool, k_ex29070_ : Bool -/
+/-- Type quantifiers: k_ex29162_ : Bool, k_ex29161_ : Bool -/
 def create_RMWAccessDescriptor (modop : MemAtomicOp) (acquire : Bool) (release : Bool) : SailM AccessDescriptor := do
   let accdesc := (base_AccessDescriptor AccessType_GPR)
   let accdesc : AccessDescriptor := { accdesc with read := true }

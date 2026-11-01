@@ -755,7 +755,15 @@ function clause decode (0b1101011@0b0000@0b11111@0b000000@(Rn:bits(5))@0b00000) 
   BranchRegister(unsigned(Rn))
 }
 
-/* BR Xn */
+/* Claude: RET added on 2026-11-01. It is BR with opcode field 0010; the assembler's
+ * default register is X30. Its semantics is that of BR (no hint about the return
+ * prediction is modelled). */
+/* RET: 1101011 0010 11111 000000 Rn 00000 */
+function clause decode (0b1101011@0b0010@0b11111@0b000000@(Rn:bits(5))@0b00000) = {
+  BranchRegister(unsigned(Rn))
+}
+
+/* BR Xn, RET Xn */
 function clause execute BranchRegister(n) = {
   PC() = X(n);
 }

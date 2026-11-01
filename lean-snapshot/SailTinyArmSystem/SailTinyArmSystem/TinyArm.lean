@@ -542,122 +542,140 @@ def decode (v__216 : (BitVec 32)) : SailM ast := do
                                                                                                               Rn))))
                                                                                                       else
                                                                                                         (do
-                                                                                                          if (((Sail.BitVec.extractLsb
-                                                                                                                 v__216
-                                                                                                                 31
-                                                                                                                 19) == (0b1101010100001#13 : (BitVec 13))) : Bool)
+                                                                                                          if ((((Sail.BitVec.extractLsb
+                                                                                                                   v__216
+                                                                                                                   31
+                                                                                                                   10) == (0b1101011001011111000000#22 : (BitVec 22))) && ((Sail.BitVec.extractLsb
+                                                                                                                   v__216
+                                                                                                                   4
+                                                                                                                   0) == (0b00000#5 : (BitVec 5)))) : Bool)
                                                                                                           then
-                                                                                                            (do
-                                                                                                              let op2 : (BitVec 3) :=
-                                                                                                                (Sail.BitVec.extractLsb
-                                                                                                                  v__216
-                                                                                                                  7
-                                                                                                                  5)
-                                                                                                              let op1 : (BitVec 3) :=
-                                                                                                                (Sail.BitVec.extractLsb
-                                                                                                                  v__216
-                                                                                                                  18
-                                                                                                                  16)
-                                                                                                              let Rt : (BitVec 5) :=
-                                                                                                                (Sail.BitVec.extractLsb
-                                                                                                                  v__216
-                                                                                                                  4
-                                                                                                                  0)
-                                                                                                              let CRn : (BitVec 4) :=
-                                                                                                                (Sail.BitVec.extractLsb
-                                                                                                                  v__216
-                                                                                                                  15
-                                                                                                                  12)
-                                                                                                              let CRm : (BitVec 4) :=
-                                                                                                                (Sail.BitVec.extractLsb
-                                                                                                                  v__216
-                                                                                                                  11
-                                                                                                                  8)
-                                                                                                              (decodeTLBI
-                                                                                                                op1
-                                                                                                                CRn
-                                                                                                                CRm
-                                                                                                                op2
-                                                                                                                Rt))
+                                                                                                            (let Rn : (BitVec 5) :=
+                                                                                                              (Sail.BitVec.extractLsb
+                                                                                                                v__216
+                                                                                                                9
+                                                                                                                5)
+                                                                                                            (pure (BranchRegister
+                                                                                                                (BitVec.toNatInt
+                                                                                                                  Rn))))
                                                                                                           else
                                                                                                             (do
-                                                                                                              if ((((Sail.BitVec.extractLsb
-                                                                                                                       v__216
-                                                                                                                       31
-                                                                                                                       21) == (0b11010100000#11 : (BitVec 11))) && ((Sail.BitVec.extractLsb
-                                                                                                                       v__216
-                                                                                                                       4
-                                                                                                                       0) == (0b00001#5 : (BitVec 5)))) : Bool)
+                                                                                                              if (((Sail.BitVec.extractLsb
+                                                                                                                     v__216
+                                                                                                                     31
+                                                                                                                     19) == (0b1101010100001#13 : (BitVec 13))) : Bool)
                                                                                                               then
-                                                                                                                (let imm16 : (BitVec 16) :=
-                                                                                                                  (Sail.BitVec.extractLsb
-                                                                                                                    v__216
-                                                                                                                    20
-                                                                                                                    5)
-                                                                                                                (pure (SupervisorCall
-                                                                                                                    imm16)))
+                                                                                                                (do
+                                                                                                                  let op2 : (BitVec 3) :=
+                                                                                                                    (Sail.BitVec.extractLsb
+                                                                                                                      v__216
+                                                                                                                      7
+                                                                                                                      5)
+                                                                                                                  let op1 : (BitVec 3) :=
+                                                                                                                    (Sail.BitVec.extractLsb
+                                                                                                                      v__216
+                                                                                                                      18
+                                                                                                                      16)
+                                                                                                                  let Rt : (BitVec 5) :=
+                                                                                                                    (Sail.BitVec.extractLsb
+                                                                                                                      v__216
+                                                                                                                      4
+                                                                                                                      0)
+                                                                                                                  let CRn : (BitVec 4) :=
+                                                                                                                    (Sail.BitVec.extractLsb
+                                                                                                                      v__216
+                                                                                                                      15
+                                                                                                                      12)
+                                                                                                                  let CRm : (BitVec 4) :=
+                                                                                                                    (Sail.BitVec.extractLsb
+                                                                                                                      v__216
+                                                                                                                      11
+                                                                                                                      8)
+                                                                                                                  (decodeTLBI
+                                                                                                                    op1
+                                                                                                                    CRn
+                                                                                                                    CRm
+                                                                                                                    op2
+                                                                                                                    Rt))
                                                                                                               else
                                                                                                                 (do
-                                                                                                                  if ((v__216 == (0xD69F03E0#32 : (BitVec 32))) : Bool)
+                                                                                                                  if ((((Sail.BitVec.extractLsb
+                                                                                                                           v__216
+                                                                                                                           31
+                                                                                                                           21) == (0b11010100000#11 : (BitVec 11))) && ((Sail.BitVec.extractLsb
+                                                                                                                           v__216
+                                                                                                                           4
+                                                                                                                           0) == (0b00001#5 : (BitVec 5)))) : Bool)
                                                                                                                   then
-                                                                                                                    (pure (ExceptionReturn
-                                                                                                                        ()))
+                                                                                                                    (let imm16 : (BitVec 16) :=
+                                                                                                                      (Sail.BitVec.extractLsb
+                                                                                                                        v__216
+                                                                                                                        20
+                                                                                                                        5)
+                                                                                                                    (pure (SupervisorCall
+                                                                                                                        imm16)))
                                                                                                                   else
                                                                                                                     (do
-                                                                                                                      if ((((Sail.BitVec.extractLsb
-                                                                                                                               v__216
-                                                                                                                               31
-                                                                                                                               22) == (0b1101010100#10 : (BitVec 10))) && ((Sail.BitVec.extractLsb
-                                                                                                                               v__216
-                                                                                                                               20
-                                                                                                                               20) == (1#1 : (BitVec 1)))) : Bool)
+                                                                                                                      if ((v__216 == (0xD69F03E0#32 : (BitVec 32))) : Bool)
                                                                                                                       then
-                                                                                                                        (let L :=
-                                                                                                                          (BitVec.access
-                                                                                                                            v__216
-                                                                                                                            21)
-                                                                                                                        let o0 :=
-                                                                                                                          (BitVec.access
-                                                                                                                            v__216
-                                                                                                                            19)
-                                                                                                                        let op2 : (BitVec 3) :=
-                                                                                                                          (Sail.BitVec.extractLsb
-                                                                                                                            v__216
-                                                                                                                            7
-                                                                                                                            5)
-                                                                                                                        let op1 : (BitVec 3) :=
-                                                                                                                          (Sail.BitVec.extractLsb
-                                                                                                                            v__216
-                                                                                                                            18
-                                                                                                                            16)
-                                                                                                                        let Rt : (BitVec 5) :=
-                                                                                                                          (Sail.BitVec.extractLsb
-                                                                                                                            v__216
-                                                                                                                            4
-                                                                                                                            0)
-                                                                                                                        let CRn : (BitVec 4) :=
-                                                                                                                          (Sail.BitVec.extractLsb
-                                                                                                                            v__216
-                                                                                                                            15
-                                                                                                                            12)
-                                                                                                                        let CRm : (BitVec 4) :=
-                                                                                                                          (Sail.BitVec.extractLsb
-                                                                                                                            v__216
-                                                                                                                            11
-                                                                                                                            8)
-                                                                                                                        let op0 : (BitVec 2) :=
-                                                                                                                          (1#1 +++ o0)
-                                                                                                                        (pure (decodeSystemRegisterMove
-                                                                                                                            (L == 1#1)
-                                                                                                                            op0
-                                                                                                                            op1
-                                                                                                                            CRn
-                                                                                                                            CRm
-                                                                                                                            op2
-                                                                                                                            Rt)))
+                                                                                                                        (pure (ExceptionReturn
+                                                                                                                            ()))
                                                                                                                       else
-                                                                                                                        (fail
-                                                                                                                          "Unsupported Encoding"))))))))))))))))))))))))))))))
+                                                                                                                        (do
+                                                                                                                          if ((((Sail.BitVec.extractLsb
+                                                                                                                                   v__216
+                                                                                                                                   31
+                                                                                                                                   22) == (0b1101010100#10 : (BitVec 10))) && ((Sail.BitVec.extractLsb
+                                                                                                                                   v__216
+                                                                                                                                   20
+                                                                                                                                   20) == (1#1 : (BitVec 1)))) : Bool)
+                                                                                                                          then
+                                                                                                                            (let L :=
+                                                                                                                              (BitVec.access
+                                                                                                                                v__216
+                                                                                                                                21)
+                                                                                                                            let o0 :=
+                                                                                                                              (BitVec.access
+                                                                                                                                v__216
+                                                                                                                                19)
+                                                                                                                            let op2 : (BitVec 3) :=
+                                                                                                                              (Sail.BitVec.extractLsb
+                                                                                                                                v__216
+                                                                                                                                7
+                                                                                                                                5)
+                                                                                                                            let op1 : (BitVec 3) :=
+                                                                                                                              (Sail.BitVec.extractLsb
+                                                                                                                                v__216
+                                                                                                                                18
+                                                                                                                                16)
+                                                                                                                            let Rt : (BitVec 5) :=
+                                                                                                                              (Sail.BitVec.extractLsb
+                                                                                                                                v__216
+                                                                                                                                4
+                                                                                                                                0)
+                                                                                                                            let CRn : (BitVec 4) :=
+                                                                                                                              (Sail.BitVec.extractLsb
+                                                                                                                                v__216
+                                                                                                                                15
+                                                                                                                                12)
+                                                                                                                            let CRm : (BitVec 4) :=
+                                                                                                                              (Sail.BitVec.extractLsb
+                                                                                                                                v__216
+                                                                                                                                11
+                                                                                                                                8)
+                                                                                                                            let op0 : (BitVec 2) :=
+                                                                                                                              (1#1 +++ o0)
+                                                                                                                            (pure (decodeSystemRegisterMove
+                                                                                                                                (L == 1#1)
+                                                                                                                                op0
+                                                                                                                                op1
+                                                                                                                                CRn
+                                                                                                                                CRm
+                                                                                                                                op2
+                                                                                                                                Rt)))
+                                                                                                                          else
+                                                                                                                            (fail
+                                                                                                                              "Unsupported Encoding")))))))))))))))))))))))))))))))
 
 def fetch_and_execute (_ : Unit) : SailM Unit := SailME.run do
   let accdesc ← do (create_iFetchAccessDescriptor ())

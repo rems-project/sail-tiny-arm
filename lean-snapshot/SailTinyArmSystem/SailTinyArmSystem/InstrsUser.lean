@@ -131,7 +131,7 @@ def decodeAddSubImm (sf : (BitVec 1)) (op : (BitVec 1)) (S : (BitVec 1)) (sh : (
     else (0x0000000000#40 +++ (imm12 +++ 0x000#12))
   (AddSub (sf, op, S, d, n, (OperandImm imm)))
 
-/-- Type quantifiers: k_ex29103_ : Bool -/
+/-- Type quantifiers: k_ex29194_ : Bool -/
 def decodeDataBarrier (CRm : (BitVec 4)) (is_sync : Bool) : SailM ast := do
   let domain : MBReqDomain :=
     match (Sail.BitVec.extractLsb CRm 3 2) with

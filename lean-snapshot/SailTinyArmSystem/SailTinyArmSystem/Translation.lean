@@ -77,7 +77,7 @@ def leaf_access_flag_set (descriptor : (BitVec 64)) : Bool :=
 def leaf_dirty_bit_set (descriptor : (BitVec 64)) : Bool :=
   ((BitVec.access descriptor 51) == 1#1)
 
-/-- Type quantifiers: k_ex29074_ : Bool -/
+/-- Type quantifiers: k_ex29165_ : Bool -/
 def create_AccessDescriptorTTW (toplevel : Bool) (varange : VARange) : SailM AccessDescriptor := do
   let accdesc : AccessDescriptor := (base_AccessDescriptor AccessType_TTW)
   let accdesc ← (pure { accdesc with el := ← readReg CurrentEL })
@@ -182,9 +182,9 @@ def pgt_walk (va : (BitVec 64)) (accdesc : AccessDescriptor) : SailM AddressDesc
                 if ((! (check_permission perms accdesc)) : Bool)
                 then
                   (do
-                    let a__120 : AddressDescriptor :=
+                    let a__121 : AddressDescriptor :=
                       ({ addrdesc with fault := { addrdesc.fault with statuscode := Fault_Permission } } : AddressDescriptor)
-                    SailME.throw a__120)
+                    SailME.throw a__121)
                 else
                   (do
                     let next_baseaddress :=
@@ -197,7 +197,7 @@ def pgt_walk (va : (BitVec 64)) (accdesc : AccessDescriptor) : SailM AddressDesc
               (pure (addrdesc, descaddress)))
           | .DescriptorType_Leaf =>
             (do
-              let a__121 ← (( do
+              let a__122 ← (( do
                 if ((! (leaf_access_flag_set descriptor)) : Bool)
                 then
                   (pure { addrdesc with fault := { addrdesc.fault with statuscode := Fault_AccessFlag } })
@@ -217,12 +217,12 @@ def pgt_walk (va : (BitVec 64)) (accdesc : AccessDescriptor) : SailM AddressDesc
                               va (offset -i 1) 0)))
                       (pure { addrdesc with paddress := { addrdesc.paddress with address := out_pa } })))
                 ) : SailME AddressDescriptor AddressDescriptor )
-              SailME.throw a__121)
+              SailME.throw a__122)
           | .DescriptorType_Invalid =>
             (do
-              let a__123 : AddressDescriptor :=
+              let a__124 : AddressDescriptor :=
                 ({ addrdesc with fault := { addrdesc.fault with statuscode := Fault_Translation } } : AddressDescriptor)
-              SailME.throw a__123) ) : SailME AddressDescriptor (AddressDescriptor × (BitVec 56)) )
+              SailME.throw a__124) ) : SailME AddressDescriptor (AddressDescriptor × (BitVec 56)) )
         (pure (addrdesc, descaddress))
     (pure loop_vars) ) : SailME AddressDescriptor (AddressDescriptor × (BitVec 56)) )
   throw Error.Exit

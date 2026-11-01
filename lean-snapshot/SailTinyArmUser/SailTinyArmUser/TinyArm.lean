@@ -534,8 +534,26 @@ def decode (v__0 : (BitVec 32)) : SailM ast := do
                                                                                                             (BitVec.toNatInt
                                                                                                               Rn))))
                                                                                                       else
-                                                                                                        (fail
-                                                                                                          "Unsupported Encoding"))))))))))))))))))))))))))
+                                                                                                        (do
+                                                                                                          if ((((Sail.BitVec.extractLsb
+                                                                                                                   v__0
+                                                                                                                   31
+                                                                                                                   10) == (0b1101011001011111000000#22 : (BitVec 22))) && ((Sail.BitVec.extractLsb
+                                                                                                                   v__0
+                                                                                                                   4
+                                                                                                                   0) == (0b00000#5 : (BitVec 5)))) : Bool)
+                                                                                                          then
+                                                                                                            (let Rn : (BitVec 5) :=
+                                                                                                              (Sail.BitVec.extractLsb
+                                                                                                                v__0
+                                                                                                                9
+                                                                                                                5)
+                                                                                                            (pure (BranchRegister
+                                                                                                                (BitVec.toNatInt
+                                                                                                                  Rn))))
+                                                                                                          else
+                                                                                                            (fail
+                                                                                                              "Unsupported Encoding")))))))))))))))))))))))))))
 
 def fetch_and_execute (_ : Unit) : SailM Unit := SailME.run do
   let accdesc := (create_iFetchAccessDescriptor ())
